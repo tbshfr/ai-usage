@@ -1,0 +1,717 @@
+{
+  "resourceMetrics": [
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "service.name",
+            "value": {
+              "stringValue": "opencode"
+            }
+          },
+          {
+            "key": "app.version",
+            "value": {
+              "stringValue": "1.5.1"
+            }
+          },
+          {
+            "key": "os.type",
+            "value": {
+              "stringValue": "linux"
+            }
+          },
+          {
+            "key": "host.arch",
+            "value": {
+              "stringValue": "x64"
+            }
+          },
+          {
+            "key": "service.version",
+            "value": {
+              "stringValue": "1.2.3"
+            }
+          },
+          {
+            "key": "deployment.environment",
+            "value": {
+              "stringValue": "production"
+            }
+          }
+        ]
+      },
+      "scopeMetrics": [
+        {
+          "scope": {
+            "name": "com.opencode"
+          },
+          "metrics": [
+            {
+              "name": "opencode.session.count",
+              "description": "Count of opencode sessions started",
+              "unit": "{session}",
+              "sum": {
+                "dataPoints": [
+                  {
+                    "attributes": [
+                      {
+                        "key": "project.id",
+                        "value": {
+                          "stringValue": "global"
+                        }
+                      },
+                      {
+                        "key": "session.id",
+                        "value": {
+                          "stringValue": "ses_fac3fa8eaffeoO6k1Mhzqggc1F"
+                        }
+                      },
+                      {
+                        "key": "is_subagent",
+                        "value": {
+                          "boolValue": false
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788111509273000000",
+                    "timeUnixNano": "1788111513794000000",
+                    "asDouble": 1
+                  }
+                ],
+                "aggregationTemporality": 2,
+                "isMonotonic": true
+              }
+            },
+            {
+              "name": "opencode.token.usage",
+              "description": "Number of tokens used",
+              "unit": "tokens",
+              "sum": {
+                "dataPoints": [
+                  {
+                    "attributes": [
+                      {
+                        "key": "project.id",
+                        "value": {
+                          "stringValue": "global"
+                        }
+                      },
+                      {
+                        "key": "session.id",
+                        "value": {
+                          "stringValue": "ses_fac3fa8eaffeoO6k1Mhzqggc1F"
+                        }
+                      },
+                      {
+                        "key": "model",
+                        "value": {
+                          "stringValue": "z-ai/glm-5.3-flash"
+                        }
+                      },
+                      {
+                        "key": "agent",
+                        "value": {
+                          "stringValue": "plan"
+                        }
+                      },
+                      {
+                        "key": "type",
+                        "value": {
+                          "stringValue": "input"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788111513790000000",
+                    "timeUnixNano": "1788111513794000000",
+                    "asDouble": 8212
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "project.id",
+                        "value": {
+                          "stringValue": "global"
+                        }
+                      },
+                      {
+                        "key": "session.id",
+                        "value": {
+                          "stringValue": "ses_fac3fa8eaffeoO6k1Mhzqggc1F"
+                        }
+                      },
+                      {
+                        "key": "model",
+                        "value": {
+                          "stringValue": "z-ai/glm-5.3-flash"
+                        }
+                      },
+                      {
+                        "key": "agent",
+                        "value": {
+                          "stringValue": "plan"
+                        }
+                      },
+                      {
+                        "key": "type",
+                        "value": {
+                          "stringValue": "output"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788111513791000000",
+                    "timeUnixNano": "1788111513794000000",
+                    "asDouble": 3
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "project.id",
+                        "value": {
+                          "stringValue": "global"
+                        }
+                      },
+                      {
+                        "key": "session.id",
+                        "value": {
+                          "stringValue": "ses_fac3fa8eaffeoO6k1Mhzqggc1F"
+                        }
+                      },
+                      {
+                        "key": "model",
+                        "value": {
+                          "stringValue": "z-ai/glm-5.3-flash"
+                        }
+                      },
+                      {
+                        "key": "agent",
+                        "value": {
+                          "stringValue": "plan"
+                        }
+                      },
+                      {
+                        "key": "type",
+                        "value": {
+                          "stringValue": "reasoning"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788111513791000000",
+                    "timeUnixNano": "1788111513794000000",
+                    "asDouble": 0
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "project.id",
+                        "value": {
+                          "stringValue": "global"
+                        }
+                      },
+                      {
+                        "key": "session.id",
+                        "value": {
+                          "stringValue": "ses_fac3fa8eaffeoO6k1Mhzqggc1F"
+                        }
+                      },
+                      {
+                        "key": "model",
+                        "value": {
+                          "stringValue": "z-ai/glm-5.3-flash"
+                        }
+                      },
+                      {
+                        "key": "agent",
+                        "value": {
+                          "stringValue": "plan"
+                        }
+                      },
+                      {
+                        "key": "type",
+                        "value": {
+                          "stringValue": "cacheRead"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788111513791000000",
+                    "timeUnixNano": "1788111513794000000",
+                    "asDouble": 64
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "project.id",
+                        "value": {
+                          "stringValue": "global"
+                        }
+                      },
+                      {
+                        "key": "session.id",
+                        "value": {
+                          "stringValue": "ses_fac3fa8eaffeoO6k1Mhzqggc1F"
+                        }
+                      },
+                      {
+                        "key": "model",
+                        "value": {
+                          "stringValue": "z-ai/glm-5.3-flash"
+                        }
+                      },
+                      {
+                        "key": "agent",
+                        "value": {
+                          "stringValue": "plan"
+                        }
+                      },
+                      {
+                        "key": "type",
+                        "value": {
+                          "stringValue": "cacheCreation"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788111513791000000",
+                    "timeUnixNano": "1788111513794000000",
+                    "asDouble": 0
+                  }
+                ],
+                "aggregationTemporality": 2,
+                "isMonotonic": true
+              }
+            },
+            {
+              "name": "opencode.cost.usage",
+              "description": "Cost of the opencode session in USD",
+              "unit": "USD",
+              "sum": {
+                "dataPoints": [
+                  {
+                    "attributes": [
+                      {
+                        "key": "project.id",
+                        "value": {
+                          "stringValue": "global"
+                        }
+                      },
+                      {
+                        "key": "session.id",
+                        "value": {
+                          "stringValue": "ses_fac3fa8eaffeoO6k1Mhzqggc1F"
+                        }
+                      },
+                      {
+                        "key": "model",
+                        "value": {
+                          "stringValue": "z-ai/glm-5.3-flash"
+                        }
+                      },
+                      {
+                        "key": "agent",
+                        "value": {
+                          "stringValue": "plan"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788111513791000000",
+                    "timeUnixNano": "1788111513794000000",
+                    "asDouble": 0.00061761
+                  }
+                ],
+                "aggregationTemporality": 2,
+                "isMonotonic": true
+              }
+            },
+            {
+              "name": "opencode.lines_of_code.total",
+              "description": "Authoritative live cumulative lines added/removed for the current session. Mirrors opencode's session.diff cumulative value on every event; tracks partial and full reverts faithfully.",
+              "unit": "{line}",
+              "gauge": {
+                "dataPoints": [
+                  {
+                    "attributes": [
+                      {
+                        "key": "project.id",
+                        "value": {
+                          "stringValue": "global"
+                        }
+                      },
+                      {
+                        "key": "session.id",
+                        "value": {
+                          "stringValue": "ses_fac3fa8eaffeoO6k1Mhzqggc1F"
+                        }
+                      },
+                      {
+                        "key": "type",
+                        "value": {
+                          "stringValue": "added"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788111509370000000",
+                    "timeUnixNano": "1788111513794000000",
+                    "asDouble": 0
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "project.id",
+                        "value": {
+                          "stringValue": "global"
+                        }
+                      },
+                      {
+                        "key": "session.id",
+                        "value": {
+                          "stringValue": "ses_fac3fa8eaffeoO6k1Mhzqggc1F"
+                        }
+                      },
+                      {
+                        "key": "type",
+                        "value": {
+                          "stringValue": "removed"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788111509370000000",
+                    "timeUnixNano": "1788111513794000000",
+                    "asDouble": 0
+                  }
+                ]
+              }
+            },
+            {
+              "name": "opencode.cache.count",
+              "description": "Token cache activity (cacheRead/cacheCreation) per completed assistant message",
+              "unit": "{request}",
+              "sum": {
+                "dataPoints": [
+                  {
+                    "attributes": [
+                      {
+                        "key": "project.id",
+                        "value": {
+                          "stringValue": "global"
+                        }
+                      },
+                      {
+                        "key": "session.id",
+                        "value": {
+                          "stringValue": "ses_fac3fa8eaffeoO6k1Mhzqggc1F"
+                        }
+                      },
+                      {
+                        "key": "model",
+                        "value": {
+                          "stringValue": "z-ai/glm-5.3-flash"
+                        }
+                      },
+                      {
+                        "key": "agent",
+                        "value": {
+                          "stringValue": "plan"
+                        }
+                      },
+                      {
+                        "key": "type",
+                        "value": {
+                          "stringValue": "cacheRead"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788111513791000000",
+                    "timeUnixNano": "1788111513794000000",
+                    "asDouble": 1
+                  }
+                ],
+                "aggregationTemporality": 2,
+                "isMonotonic": true
+              }
+            },
+            {
+              "name": "opencode.session.duration",
+              "description": "Duration of a session from created to idle in milliseconds",
+              "unit": "ms",
+              "histogram": {
+                "dataPoints": [
+                  {
+                    "attributes": [
+                      {
+                        "key": "project.id",
+                        "value": {
+                          "stringValue": "global"
+                        }
+                      },
+                      {
+                        "key": "session.id",
+                        "value": {
+                          "stringValue": "ses_fac3fa8eaffeoO6k1Mhzqggc1F"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788111513793000000",
+                    "timeUnixNano": "1788111513794000000",
+                    "count": "1",
+                    "sum": 4524,
+                    "bucketCounts": [
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "1",
+                      "0",
+                      "0",
+                      "0"
+                    ],
+                    "explicitBounds": [
+                      0,
+                      5,
+                      10,
+                      25,
+                      50,
+                      75,
+                      100,
+                      250,
+                      500,
+                      750,
+                      1000,
+                      2500,
+                      5000,
+                      7500,
+                      10000
+                    ],
+                    "min": 4524,
+                    "max": 4524
+                  }
+                ],
+                "aggregationTemporality": 2
+              }
+            },
+            {
+              "name": "opencode.message.count",
+              "description": "Number of completed assistant messages per session",
+              "unit": "{message}",
+              "sum": {
+                "dataPoints": [
+                  {
+                    "attributes": [
+                      {
+                        "key": "project.id",
+                        "value": {
+                          "stringValue": "global"
+                        }
+                      },
+                      {
+                        "key": "session.id",
+                        "value": {
+                          "stringValue": "ses_fac3fa8eaffeoO6k1Mhzqggc1F"
+                        }
+                      },
+                      {
+                        "key": "model",
+                        "value": {
+                          "stringValue": "z-ai/glm-5.3-flash"
+                        }
+                      },
+                      {
+                        "key": "agent",
+                        "value": {
+                          "stringValue": "plan"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788111513791000000",
+                    "timeUnixNano": "1788111513794000000",
+                    "asDouble": 1
+                  }
+                ],
+                "aggregationTemporality": 2,
+                "isMonotonic": true
+              }
+            },
+            {
+              "name": "opencode.session.token.total",
+              "description": "Total tokens consumed per session, recorded as a histogram on session idle",
+              "unit": "tokens",
+              "histogram": {
+                "dataPoints": [
+                  {
+                    "attributes": [
+                      {
+                        "key": "project.id",
+                        "value": {
+                          "stringValue": "global"
+                        }
+                      },
+                      {
+                        "key": "session.id",
+                        "value": {
+                          "stringValue": "ses_fac3fa8eaffeoO6k1Mhzqggc1F"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788111513793000000",
+                    "timeUnixNano": "1788111513794000000",
+                    "count": "1",
+                    "sum": 8279,
+                    "bucketCounts": [
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "1",
+                      "0"
+                    ],
+                    "explicitBounds": [
+                      0,
+                      5,
+                      10,
+                      25,
+                      50,
+                      75,
+                      100,
+                      250,
+                      500,
+                      750,
+                      1000,
+                      2500,
+                      5000,
+                      7500,
+                      10000
+                    ],
+                    "min": 8279,
+                    "max": 8279
+                  }
+                ],
+                "aggregationTemporality": 2
+              }
+            },
+            {
+              "name": "opencode.session.cost.total",
+              "description": "Total cost per session in USD, recorded as a histogram on session idle",
+              "unit": "USD",
+              "histogram": {
+                "dataPoints": [
+                  {
+                    "attributes": [
+                      {
+                        "key": "project.id",
+                        "value": {
+                          "stringValue": "global"
+                        }
+                      },
+                      {
+                        "key": "session.id",
+                        "value": {
+                          "stringValue": "ses_fac3fa8eaffeoO6k1Mhzqggc1F"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788111513793000000",
+                    "timeUnixNano": "1788111513794000000",
+                    "count": "1",
+                    "sum": 0.00061761,
+                    "bucketCounts": [
+                      "1",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0"
+                    ],
+                    "explicitBounds": [
+                      0.01,
+                      0.05,
+                      0.1,
+                      0.25,
+                      0.5,
+                      1,
+                      2.5,
+                      5,
+                      10,
+                      25
+                    ],
+                    "min": 0.00061761,
+                    "max": 0.00061761
+                  }
+                ],
+                "aggregationTemporality": 2
+              }
+            },
+            {
+              "name": "opencode.model.usage",
+              "description": "Number of completed assistant messages per model and provider",
+              "unit": "{request}",
+              "sum": {
+                "dataPoints": [
+                  {
+                    "attributes": [
+                      {
+                        "key": "project.id",
+                        "value": {
+                          "stringValue": "global"
+                        }
+                      },
+                      {
+                        "key": "session.id",
+                        "value": {
+                          "stringValue": "ses_fac3fa8eaffeoO6k1Mhzqggc1F"
+                        }
+                      },
+                      {
+                        "key": "model",
+                        "value": {
+                          "stringValue": "z-ai/glm-5.3-flash"
+                        }
+                      },
+                      {
+                        "key": "provider",
+                        "value": {
+                          "stringValue": "openrouter"
+                        }
+                      },
+                      {
+                        "key": "agent",
+                        "value": {
+                          "stringValue": "plan"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788111513791000000",
+                    "timeUnixNano": "1788111513794000000",
+                    "asDouble": 1
+                  }
+                ],
+                "aggregationTemporality": 2,
+                "isMonotonic": true
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,339 @@
+{
+  "resourceLogs": [
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "service.name",
+            "value": {
+              "stringValue": "opencode"
+            }
+          },
+          {
+            "key": "app.version",
+            "value": {
+              "stringValue": "1.5.1"
+            }
+          },
+          {
+            "key": "os.type",
+            "value": {
+              "stringValue": "linux"
+            }
+          },
+          {
+            "key": "host.arch",
+            "value": {
+              "stringValue": "x64"
+            }
+          },
+          {
+            "key": "service.version",
+            "value": {
+              "stringValue": "1.2.3"
+            }
+          },
+          {
+            "key": "deployment.environment",
+            "value": {
+              "stringValue": "production"
+            }
+          }
+        ]
+      },
+      "scopeLogs": [
+        {
+          "scope": {
+            "name": "com.opencode"
+          },
+          "logRecords": [
+            {
+              "timeUnixNano": "1788111509269000000",
+              "observedTimeUnixNano": "1788111509273000000",
+              "severityNumber": 9,
+              "severityText": "INFO",
+              "body": {
+                "stringValue": "session.created"
+              },
+              "attributes": [
+                {
+                  "key": "event.name",
+                  "value": {
+                    "stringValue": "session.created"
+                  }
+                },
+                {
+                  "key": "session.id",
+                  "value": {
+                    "stringValue": "ses_fac3fa8eaffeoO6k1Mhzqggc1F"
+                  }
+                },
+                {
+                  "key": "is_subagent",
+                  "value": {
+                    "boolValue": false
+                  }
+                },
+                {
+                  "key": "agent",
+                  "value": {
+                    "stringValue": "unknown"
+                  }
+                },
+                {
+                  "key": "agent.name",
+                  "value": {
+                    "stringValue": "unknown"
+                  }
+                },
+                {
+                  "key": "agent.type",
+                  "value": {
+                    "stringValue": "primary"
+                  }
+                },
+                {
+                  "key": "project.id",
+                  "value": {
+                    "stringValue": "global"
+                  }
+                }
+              ]
+            },
+            {
+              "timeUnixNano": "1788111509282000000",
+              "observedTimeUnixNano": "1788111509282000000",
+              "severityNumber": 9,
+              "severityText": "INFO",
+              "body": {
+                "stringValue": "user_prompt"
+              },
+              "attributes": [
+                {
+                  "key": "event.name",
+                  "value": {
+                    "stringValue": "user_prompt"
+                  }
+                },
+                {
+                  "key": "session.id",
+                  "value": {
+                    "stringValue": "ses_fac3fa8eaffeoO6k1Mhzqggc1F"
+                  }
+                },
+                {
+                  "key": "agent",
+                  "value": {
+                    "stringValue": "plan"
+                  }
+                },
+                {
+                  "key": "agent.name",
+                  "value": {
+                    "stringValue": "plan"
+                  }
+                },
+                {
+                  "key": "agent.type",
+                  "value": {
+                    "stringValue": "primary"
+                  }
+                },
+                {
+                  "key": "prompt_length",
+                  "value": {
+                    "intValue": "14"
+                  }
+                },
+                {
+                  "key": "model",
+                  "value": {
+                    "stringValue": "openrouter/z-ai/glm-5.3-flash"
+                  }
+                },
+                {
+                  "key": "project.id",
+                  "value": {
+                    "stringValue": "global"
+                  }
+                }
+              ]
+            },
+            {
+              "timeUnixNano": "1788111509294000000",
+              "observedTimeUnixNano": "1788111513791000000",
+              "severityNumber": 9,
+              "severityText": "INFO",
+              "body": {
+                "stringValue": "api_request"
+              },
+              "attributes": [
+                {
+                  "key": "event.name",
+                  "value": {
+                    "stringValue": "api_request"
+                  }
+                },
+                {
+                  "key": "session.id",
+                  "value": {
+                    "stringValue": "ses_fac3fa8eaffeoO6k1Mhzqggc1F"
+                  }
+                },
+                {
+                  "key": "model",
+                  "value": {
+                    "stringValue": "z-ai/glm-5.3-flash"
+                  }
+                },
+                {
+                  "key": "provider",
+                  "value": {
+                    "stringValue": "openrouter"
+                  }
+                },
+                {
+                  "key": "gen_ai.provider.name",
+                  "value": {
+                    "stringValue": "openrouter"
+                  }
+                },
+                {
+                  "key": "agent",
+                  "value": {
+                    "stringValue": "plan"
+                  }
+                },
+                {
+                  "key": "agent.name",
+                  "value": {
+                    "stringValue": "plan"
+                  }
+                },
+                {
+                  "key": "agent.type",
+                  "value": {
+                    "stringValue": "primary"
+                  }
+                },
+                {
+                  "key": "cost_usd",
+                  "value": {
+                    "doubleValue": 0.00061761
+                  }
+                },
+                {
+                  "key": "duration_ms",
+                  "value": {
+                    "intValue": "4495"
+                  }
+                },
+                {
+                  "key": "input_tokens",
+                  "value": {
+                    "intValue": "8212"
+                  }
+                },
+                {
+                  "key": "output_tokens",
+                  "value": {
+                    "intValue": "3"
+                  }
+                },
+                {
+                  "key": "reasoning_tokens",
+                  "value": {
+                    "intValue": "0"
+                  }
+                },
+                {
+                  "key": "cache_read_tokens",
+                  "value": {
+                    "intValue": "64"
+                  }
+                },
+                {
+                  "key": "cache_creation_tokens",
+                  "value": {
+                    "intValue": "0"
+                  }
+                },
+                {
+                  "key": "project.id",
+                  "value": {
+                    "stringValue": "global"
+                  }
+                }
+              ]
+            },
+            {
+              "timeUnixNano": "1788111513793000000",
+              "observedTimeUnixNano": "1788111513793000000",
+              "severityNumber": 9,
+              "severityText": "INFO",
+              "body": {
+                "stringValue": "session.idle"
+              },
+              "attributes": [
+                {
+                  "key": "event.name",
+                  "value": {
+                    "stringValue": "session.idle"
+                  }
+                },
+                {
+                  "key": "session.id",
+                  "value": {
+                    "stringValue": "ses_fac3fa8eaffeoO6k1Mhzqggc1F"
+                  }
+                },
+                {
+                  "key": "total_tokens",
+                  "value": {
+                    "intValue": "8279"
+                  }
+                },
+                {
+                  "key": "total_cost_usd",
+                  "value": {
+                    "doubleValue": 0.00061761
+                  }
+                },
+                {
+                  "key": "total_messages",
+                  "value": {
+                    "intValue": "1"
+                  }
+                },
+                {
+                  "key": "agent",
+                  "value": {
+                    "stringValue": "plan"
+                  }
+                },
+                {
+                  "key": "agent.name",
+                  "value": {
+                    "stringValue": "plan"
+                  }
+                },
+                {
+                  "key": "agent.type",
+                  "value": {
+                    "stringValue": "primary"
+                  }
+                },
+                {
+                  "key": "project.id",
+                  "value": {
+                    "stringValue": "global"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

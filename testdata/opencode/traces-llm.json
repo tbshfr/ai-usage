@@ -1,0 +1,312 @@
+{
+  "resourceSpans": [
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "service.name",
+            "value": {
+              "stringValue": "opencode"
+            }
+          },
+          {
+            "key": "app.version",
+            "value": {
+              "stringValue": "1.5.1"
+            }
+          },
+          {
+            "key": "os.type",
+            "value": {
+              "stringValue": "linux"
+            }
+          },
+          {
+            "key": "host.arch",
+            "value": {
+              "stringValue": "x64"
+            }
+          },
+          {
+            "key": "service.version",
+            "value": {
+              "stringValue": "1.2.3"
+            }
+          },
+          {
+            "key": "deployment.environment",
+            "value": {
+              "stringValue": "production"
+            }
+          }
+        ]
+      },
+      "scopeSpans": [
+        {
+          "scope": {
+            "name": "com.opencode"
+          },
+          "spans": [
+            {
+              "traceId": "8509653ed893bc503737628605f42fca",
+              "spanId": "1d9f8b3dc9d4fee3",
+              "parentSpanId": "5bb3b631cb3449bb",
+              "flags": 257,
+              "name": "opencode.llm",
+              "kind": 3,
+              "startTimeUnixNano": "1788111509294000000",
+              "endTimeUnixNano": "1788111513789000000",
+              "attributes": [
+                {
+                  "key": "openinference.span.kind",
+                  "value": {
+                    "stringValue": "LLM"
+                  }
+                },
+                {
+                  "key": "session.id",
+                  "value": {
+                    "stringValue": "ses_fac3fa8eaffeoO6k1Mhzqggc1F"
+                  }
+                },
+                {
+                  "key": "agent.name",
+                  "value": {
+                    "stringValue": "plan"
+                  }
+                },
+                {
+                  "key": "agent.type",
+                  "value": {
+                    "stringValue": "primary"
+                  }
+                },
+                {
+                  "key": "llm.system",
+                  "value": {
+                    "stringValue": "openrouter"
+                  }
+                },
+                {
+                  "key": "llm.provider",
+                  "value": {
+                    "stringValue": "openrouter"
+                  }
+                },
+                {
+                  "key": "gen_ai.provider.name",
+                  "value": {
+                    "stringValue": "openrouter"
+                  }
+                },
+                {
+                  "key": "llm.model_name",
+                  "value": {
+                    "stringValue": "z-ai/glm-5.3-flash"
+                  }
+                },
+                {
+                  "key": "input.value",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "input.mime_type",
+                  "value": {
+                    "stringValue": "text/plain"
+                  }
+                },
+                {
+                  "key": "llm.input_messages",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "project.id",
+                  "value": {
+                    "stringValue": "global"
+                  }
+                },
+                {
+                  "key": "llm.token_count.prompt",
+                  "value": {
+                    "intValue": "8212"
+                  }
+                },
+                {
+                  "key": "llm.token_count.completion",
+                  "value": {
+                    "intValue": "3"
+                  }
+                },
+                {
+                  "key": "llm.token_count.completion_details.reasoning",
+                  "value": {
+                    "intValue": "0"
+                  }
+                },
+                {
+                  "key": "llm.token_count.prompt_details.cache_read",
+                  "value": {
+                    "intValue": "64"
+                  }
+                },
+                {
+                  "key": "llm.token_count.prompt_details.cache_write",
+                  "value": {
+                    "intValue": "0"
+                  }
+                },
+                {
+                  "key": "llm.token_count.total",
+                  "value": {
+                    "intValue": "8279"
+                  }
+                },
+                {
+                  "key": "llm.finish_reason",
+                  "value": {
+                    "stringValue": "stop"
+                  }
+                },
+                {
+                  "key": "llm.cost.total",
+                  "value": {
+                    "doubleValue": 0.00061761
+                  }
+                },
+                {
+                  "key": "output.value",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "output.mime_type",
+                  "value": {
+                    "stringValue": "text/plain"
+                  }
+                },
+                {
+                  "key": "llm.output_messages",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "cost_usd",
+                  "value": {
+                    "doubleValue": 0.00061761
+                  }
+                },
+                {
+                  "key": "duration_ms",
+                  "value": {
+                    "intValue": "4495"
+                  }
+                }
+              ],
+              "status": {
+                "code": 1
+              }
+            },
+            {
+              "traceId": "8509653ed893bc503737628605f42fca",
+              "spanId": "5bb3b631cb3449bb",
+              "flags": 257,
+              "name": "opencode.session",
+              "kind": 1,
+              "startTimeUnixNano": "1788111509282000000",
+              "endTimeUnixNano": "1788111513793000000",
+              "attributes": [
+                {
+                  "key": "openinference.span.kind",
+                  "value": {
+                    "stringValue": "AGENT"
+                  }
+                },
+                {
+                  "key": "session.id",
+                  "value": {
+                    "stringValue": "ses_fac3fa8eaffeoO6k1Mhzqggc1F"
+                  }
+                },
+                {
+                  "key": "agent.name",
+                  "value": {
+                    "stringValue": "plan"
+                  }
+                },
+                {
+                  "key": "agent.type",
+                  "value": {
+                    "stringValue": "primary"
+                  }
+                },
+                {
+                  "key": "session.is_subagent",
+                  "value": {
+                    "boolValue": false
+                  }
+                },
+                {
+                  "key": "input.value",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "input.mime_type",
+                  "value": {
+                    "stringValue": "text/plain"
+                  }
+                },
+                {
+                  "key": "llm.input_messages",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "model",
+                  "value": {
+                    "stringValue": "openrouter/z-ai/glm-5.3-flash"
+                  }
+                },
+                {
+                  "key": "project.id",
+                  "value": {
+                    "stringValue": "global"
+                  }
+                },
+                {
+                  "key": "session.total_tokens",
+                  "value": {
+                    "intValue": "8279"
+                  }
+                },
+                {
+                  "key": "session.total_cost_usd",
+                  "value": {
+                    "doubleValue": 0.00061761
+                  }
+                },
+                {
+                  "key": "session.total_messages",
+                  "value": {
+                    "intValue": "1"
+                  }
+                }
+              ],
+              "status": {
+                "code": 1
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

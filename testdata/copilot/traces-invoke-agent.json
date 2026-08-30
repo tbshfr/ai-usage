@@ -1,0 +1,1078 @@
+{
+  "resourceSpans": [
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "service.name",
+            "value": {
+              "stringValue": "copilot-chat"
+            }
+          },
+          {
+            "key": "service.version",
+            "value": {
+              "stringValue": "0.63.0"
+            }
+          },
+          {
+            "key": "session.id",
+            "value": {
+              "stringValue": "93668ce0-e5c4-486f-a17f-bc24f3b8c96e1788112426754"
+            }
+          }
+        ]
+      },
+      "scopeSpans": [
+        {
+          "scope": {
+            "name": "copilot-chat",
+            "version": "0.63.0"
+          },
+          "spans": [
+            {
+              "traceId": "e1a44be37a0a3dcccbfc70a07e2fc79f",
+              "spanId": "660d9e4dd0154c9d",
+              "parentSpanId": "03f64ade2bc916de",
+              "flags": 257,
+              "name": "chat claude-haiku-4.5",
+              "kind": 3,
+              "startTimeUnixNano": "1788112539357000000",
+              "endTimeUnixNano": "1788112548638187071",
+              "attributes": [
+                {
+                  "key": "gen_ai.operation.name",
+                  "value": {
+                    "stringValue": "chat"
+                  }
+                },
+                {
+                  "key": "gen_ai.provider.name",
+                  "value": {
+                    "stringValue": "github"
+                  }
+                },
+                {
+                  "key": "gen_ai.request.model",
+                  "value": {
+                    "stringValue": "claude-haiku-4.5"
+                  }
+                },
+                {
+                  "key": "gen_ai.conversation.id",
+                  "value": {
+                    "stringValue": "d1b30fef-089e-481b-b33a-e619c6f59ec1"
+                  }
+                },
+                {
+                  "key": "gen_ai.request.max_tokens",
+                  "value": {
+                    "intValue": "64000"
+                  }
+                },
+                {
+                  "key": "copilot_chat.request.max_prompt_tokens",
+                  "value": {
+                    "intValue": "135997"
+                  }
+                },
+                {
+                  "key": "copilot_chat.session_id",
+                  "value": {
+                    "stringValue": "d1b30fef-089e-481b-b33a-e619c6f59ec1"
+                  }
+                },
+                {
+                  "key": "copilot_chat.chat_session_id",
+                  "value": {
+                    "stringValue": "call_z2PY7oiQ1vbmsXNOEUDkYwNw"
+                  }
+                },
+                {
+                  "key": "copilot_chat.parent_chat_session_id",
+                  "value": {
+                    "stringValue": "d1b30fef-089e-481b-b33a-e619c6f59ec1"
+                  }
+                },
+                {
+                  "key": "copilot_chat.debug_log_label",
+                  "value": {
+                    "stringValue": "runSubagent-Explore"
+                  }
+                },
+                {
+                  "key": "gen_ai.agent.name",
+                  "value": {
+                    "stringValue": "tool/runSubagent-Explore"
+                  }
+                },
+                {
+                  "key": "copilot_chat.user_request",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "gen_ai.system_instructions",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "gen_ai.input.messages",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.definitions",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "copilot_chat.request.options",
+                  "value": {
+                    "stringValue": "{\"thinking\":{\"type\":\"enabled\",\"budget_tokens\":16000},\"stream\":true}"
+                  }
+                },
+                {
+                  "key": "copilot_chat.request.shape",
+                  "value": {
+                    "stringValue": "{\"api\":\"messages\",\"messageCount\":7}"
+                  }
+                },
+                {
+                  "key": "gen_ai.usage.input_tokens",
+                  "value": {
+                    "intValue": "19187"
+                  }
+                },
+                {
+                  "key": "gen_ai.usage.output_tokens",
+                  "value": {
+                    "intValue": "729"
+                  }
+                },
+                {
+                  "key": "gen_ai.response.model",
+                  "value": {
+                    "stringValue": "claude-haiku-4-5-20251001"
+                  }
+                },
+                {
+                  "key": "gen_ai.response.id",
+                  "value": {
+                    "stringValue": "54635df6-6ccf-43d7-98a0-0362c404027d"
+                  }
+                },
+                {
+                  "key": "gen_ai.response.finish_reasons",
+                  "value": {
+                    "arrayValue": {
+                      "values": [
+                        {
+                          "stringValue": "stop"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "key": "gen_ai.usage.cache_read.input_tokens",
+                  "value": {
+                    "intValue": "17546"
+                  }
+                },
+                {
+                  "key": "gen_ai.usage.cache_creation.input_tokens",
+                  "value": {
+                    "intValue": "1627"
+                  }
+                },
+                {
+                  "key": "copilot_chat.time_to_first_token",
+                  "value": {
+                    "intValue": "889"
+                  }
+                },
+                {
+                  "key": "gen_ai.request.stream",
+                  "value": {
+                    "boolValue": true
+                  }
+                },
+                {
+                  "key": "gen_ai.response.time_to_first_chunk",
+                  "value": {
+                    "doubleValue": 0.889
+                  }
+                },
+                {
+                  "key": "copilot_chat.server_request_id",
+                  "value": {
+                    "stringValue": "54635df6-6ccf-43d7-98a0-0362c404027d"
+                  }
+                },
+                {
+                  "key": "gen_ai.usage.reasoning_tokens",
+                  "value": {
+                    "intValue": "339"
+                  }
+                },
+                {
+                  "key": "gen_ai.usage.reasoning.output_tokens",
+                  "value": {
+                    "intValue": "339"
+                  }
+                },
+                {
+                  "key": "copilot_chat.copilot_usage_nano_aiu",
+                  "value": {
+                    "intValue": "744735000"
+                  }
+                },
+                {
+                  "key": "gen_ai.output.messages",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "copilot_chat.reasoning_content",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                }
+              ],
+              "status": {}
+            },
+            {
+              "traceId": "e1a44be37a0a3dcccbfc70a07e2fc79f",
+              "spanId": "03f64ade2bc916de",
+              "parentSpanId": "8a76260bbf1ec64b",
+              "flags": 769,
+              "name": "invoke_agent Explore",
+              "kind": 1,
+              "startTimeUnixNano": "1788112526093000000",
+              "endTimeUnixNano": "1788112548640177270",
+              "attributes": [
+                {
+                  "key": "gen_ai.operation.name",
+                  "value": {
+                    "stringValue": "invoke_agent"
+                  }
+                },
+                {
+                  "key": "gen_ai.provider.name",
+                  "value": {
+                    "stringValue": "github"
+                  }
+                },
+                {
+                  "key": "gen_ai.agent.name",
+                  "value": {
+                    "stringValue": "Explore"
+                  }
+                },
+                {
+                  "key": "gen_ai.conversation.id",
+                  "value": {
+                    "stringValue": "d1b30fef-089e-481b-b33a-e619c6f59ec1"
+                  }
+                },
+                {
+                  "key": "copilot_chat.session_id",
+                  "value": {
+                    "stringValue": "d1b30fef-089e-481b-b33a-e619c6f59ec1"
+                  }
+                },
+                {
+                  "key": "copilot_chat.chat_session_id",
+                  "value": {
+                    "stringValue": "call_z2PY7oiQ1vbmsXNOEUDkYwNw"
+                  }
+                },
+                {
+                  "key": "copilot_chat.parent_chat_session_id",
+                  "value": {
+                    "stringValue": "d1b30fef-089e-481b-b33a-e619c6f59ec1"
+                  }
+                },
+                {
+                  "key": "copilot_chat.debug_log_label",
+                  "value": {
+                    "stringValue": "runSubagent-Explore"
+                  }
+                },
+                {
+                  "key": "github.copilot.agent.type",
+                  "value": {
+                    "stringValue": "builtin"
+                  }
+                },
+                {
+                  "key": "copilot_chat.repo.head_branch_name",
+                  "value": {
+                    "stringValue": "main"
+                  }
+                },
+                {
+                  "key": "github.copilot.git.branch",
+                  "value": {
+                    "stringValue": "main"
+                  }
+                },
+                {
+                  "key": "gen_ai.request.model",
+                  "value": {
+                    "stringValue": "claude-haiku-4.5"
+                  }
+                },
+                {
+                  "key": "gen_ai.input.messages",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "copilot_chat.user_request",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "copilot_chat.turn_count",
+                  "value": {
+                    "intValue": "4"
+                  }
+                },
+                {
+                  "key": "gen_ai.usage.input_tokens",
+                  "value": {
+                    "intValue": "63345"
+                  }
+                },
+                {
+                  "key": "gen_ai.usage.output_tokens",
+                  "value": {
+                    "intValue": "1831"
+                  }
+                },
+                {
+                  "key": "gen_ai.usage.cache_read.input_tokens",
+                  "value": {
+                    "intValue": "49393"
+                  }
+                },
+                {
+                  "key": "gen_ai.usage.cache_creation.input_tokens",
+                  "value": {
+                    "intValue": "13901"
+                  }
+                },
+                {
+                  "key": "gen_ai.usage.reasoning.output_tokens",
+                  "value": {
+                    "intValue": "741"
+                  }
+                },
+                {
+                  "key": "gen_ai.response.model",
+                  "value": {
+                    "stringValue": "claude-haiku-4-5-20251001"
+                  }
+                },
+                {
+                  "key": "gen_ai.output.messages",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.definitions",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                }
+              ],
+              "events": [
+                {
+                  "timeUnixNano": "1788112526093071585",
+                  "name": "user_message",
+                  "attributes": [
+                    {
+                      "key": "content",
+                      "value": {
+                        "stringValue": "[REDACTED]"
+                      }
+                    },
+                    {
+                      "key": "copilot_chat.chat_session_id",
+                      "value": {
+                        "stringValue": "call_z2PY7oiQ1vbmsXNOEUDkYwNw"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "timeUnixNano": "1788112526093102313",
+                  "name": "turn_start",
+                  "attributes": [
+                    {
+                      "key": "turnId",
+                      "value": {
+                        "stringValue": "0"
+                      }
+                    },
+                    {
+                      "key": "copilot_chat.chat_session_id",
+                      "value": {
+                        "stringValue": "call_z2PY7oiQ1vbmsXNOEUDkYwNw"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "timeUnixNano": "1788112526097148809",
+                  "name": "tools_available",
+                  "attributes": [
+                    {
+                      "key": "toolDefinitions",
+                      "value": {
+                        "stringValue": "[{\"type\":\"function\",\"name\":\"fetch_webpage\",\"description\":\"Fetches the main content from a web page. This tool is useful for summarizing or analyzing the content of a webpage. You should use this tool when you think the user is looking for information from a specific webpage.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"urls\":{\"type\":\"array\",\"items\":{\"type\":\"string\"},\"description\":\"An array of URLs to fetch content from.\"},\"query\":{\"type\":\"string\",\"description\":\"The query to search for in the web page's content. This should be a clear and concise description of the content you want to find.\"}},\"required\":[\"urls\",\"query\"]}},{\"type\":\"function\",\"name\":\"file_search\",\"description\":\"Search for files in the workspace by glob pattern. This only returns the paths of matching files. Use this tool when you know the exact filename pattern of the files you're searching for. Glob patterns match from the root of the workspace folder. Examples:\\n- **/*.{js,ts} to match all js/ts files in the workspace.\\n- src/** to match all files under the top-level src folder.\\n- **/foo/**/*.js to match all js files under any foo folder in the workspace.\\n\\nIn a multi-root workspace, you can scope the search to a specific workspace folder by using the absolute path to the folder as the query, e.g. /path/to/folder/**/*.ts.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\",\"description\":\"Search for files with names or paths matching this glob pattern. Can also be an absolute path to a workspace folder to scope the search in a multi-root workspace.\"},\"maxResults\":{\"type\":\"number\",\"description\":\"The maximum number of results to return. Do not use this unless necessary, it can slow things down. By default, only some matches are returned. If you use this and don't see what you're looking for, you can try again with a more specific query or a larger maxResults.\"}},\"required\":[\"query\"]}},{\"type\":\"function\",\"name\":\"grep_search\",\"description\":\"Do a fast text search in the workspace. Use this tool when you want to search with an exact string or regex. If you are not sure what words will appear in the workspace, prefer using regex patterns with alternation (|) or character classes to search for multiple potential words at once instead of making separate searches. For example, use 'function|method|procedure' to look for all of those words at once. Use includePattern to search within files matching a specific pattern, or in a specific file, using a relative path. Use 'includeIgnoredFiles' to include files normally ignored by .gitignore, other ignore files, and `files.exclude` and `search.exclude` settings. Warning: using this may cause the search to be slower, only set it when you want to search in ignored folders like node_modules or build outputs. Use this tool when you want to see an overview of a particular file, instead of using read_file many times to look for code within a file.\\n\\nIn a multi-root workspace, you can scope the search to a specific workspace folder by using the absolute path to the folder as the includePattern, e.g. /path/to/folder.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\",\"description\":\"The pattern to search for in files in the workspace. Use regex with alternation (e.g., 'word1|word2|word3') or character classes to find multiple potential words in a single search. Be sure to set the isRegexp property properly to declare whether it's a regex or plain text pattern. Is case-insensitive.\"},\"isRegexp\":{\"type\":\"boolean\",\"description\":\"Whether the pattern is a regex.\"},\"includePattern\":{\"type\":\"string\",\"description\":\"Search files matching this glob pattern. Will be applied to the relative path of files within the workspace. To search recursively inside a folder, use a proper glob pattern like \\\"src/folder/**\\\". Do not use | in includePattern. Can also be an absolute path to a workspace folder to scope the search in a multi-root workspace.\"},\"maxResults\":{\"type\":\"number\",\"description\":\"The maximum number of results to return. Do not use this unless necessary, it can slow things down. By default, only some matches are returned. If you use this and don't see what you're looking for, you can try again with a more specific query or a larger maxResults.\"},\"includeIgnoredFiles\":{\"type\":\"boolean\",\"description\":\"Whether to include files that would normally be ignored according to .gitignore, other ignore files and `files.exclude` and `search.exclude` settings. Warning: using this may cause the search to be slower. Only set it when you want to search in ignored folders like node_modules or build outputs.\"}},\"required\":[\"query\",\"isRegexp\"]}},{\"type\":\"function\",\"name\":\"get_errors\",\"description\":\"Get any compile or lint errors in a specific file or across all files. If the user mentions errors or problems in a file, they may be referring to these. Use the tool to see the same errors that the user is seeing. If the user asks you to analyze all errors, or does not specify a file, use this tool to gather errors for all files. Also use this tool after editing a file to validate the change.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"filePaths\":{\"description\":\"The absolute paths to the files or folders to check for errors. Omit 'filePaths' when retrieving all errors.\",\"type\":\"array\",\"items\":{\"type\":\"string\"}}}}},{\"type\":\"function\",\"name\":\"copilot_getNotebookSummary\",\"description\":\"This is a tool returns the list of the Notebook cells along with the id, cell types, line ranges, language, execution information and output mime types for each cell. This is useful to get Cell Ids when executing a notebook or determine what cells have been executed and what order, or what cells have outputs. If required to read contents of a cell use this to determine the line range of a cells, and then use read_file tool to read a specific line range. Requery this tool if the contents of the notebook change.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"filePath\":{\"type\":\"string\",\"description\":\"An absolute path to the notebook file with the cell to run, or the URI of a untitled, not yet named, file, such as `untitled:Untitled-1.ipynb\"}},\"required\":[\"filePath\"]}},{\"type\":\"function\",\"name\":\"github_repo\",\"description\":\"Searches a GitHub repository for relevant source code snippets. Only use this tool if the user is very clearly asking for code snippets from a specific GitHub repository. Do not use this tool for Github repos that the user has open in their workspace.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"repo\":{\"type\":\"string\",\"description\":\"The name of the Github repository to search for code in. Should must be formatted as '<owner>/<repo>'.\"},\"query\":{\"type\":\"string\",\"description\":\"The query to search for repo. Should contain all relevant context.\"}},\"required\":[\"repo\",\"query\"]}},{\"type\":\"function\",\"name\":\"github_text_search\",\"description\":\"Lexically searches a GitHub repository or organization for files containing specific keywords or code patterns. Use this when looking for exact strings, function names, or identifiers in a GitHub repo or org. Unlike the semantic search tool, this uses keyword matching rather than meaning-based search.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"scope\":{\"type\":\"string\",\"description\":\"The GitHub scope to search. Use 'owner/repo' to search a single repository, or an org name (no slash) to search across an entire organization.\"},\"query\":{\"type\":\"string\",\"description\":\"The keyword search query. Supports GitHub code search syntax such as 'language:typescript', 'extension:ts', 'path:src/', etc.\"},\"maxResults\":{\"type\":\"number\",\"description\":\"Optional. The maximum number of search results to return. Defaults to 100.\"}},\"required\":[\"scope\",\"query\"]}},{\"type\":\"function\",\"name\":\"list_dir\",\"description\":\"List the contents of a directory. Result will have the name of the child. If the name ends in /, it's a folder, otherwise a file\",\"parameters\":{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\",\"description\":\"The absolute path to the directory to list.\"}},\"required\":[\"path\"]}},{\"type\":\"function\",\"name\":\"memory\",\"description\":\"Manage a persistent memory system with three scopes for storing notes and information across conversations.\\n\\nMemory is organized under /memories/ with three tiers:\\n- `/memories/` — User memory: persistent notes that survive across all workspaces and conversations. Store preferences, patterns, and general insights here.\\n- `/memories/session/` — Session memory: notes scoped to the current conversation. Store task-specific context and in-progress notes here. Cleared after the conversation ends.\\n- `/memories/repo/` — Repository memory: repository-scoped notes stored locally in the workspace. Store codebase conventions, build commands, project structure facts, and verified practices here.\\n\\nIMPORTANT: Before creating new memory files, first view the /memories/ directory to understand what already exists. This helps avoid duplicates and maintain organized notes.\\n\\nCommands:\\n- `view`: View contents of a file or list directory contents. Can be used on files or directories (e.g., \\\"/memories/\\\" to see all top-level items).\\n- `create`: Create a new file at the specified path with the given content. Fails if the file already exists.\\n- `str_replace`: Replace an exact string in a file with a new string. The old_str must appear exactly once in the file.\\n- `insert`: Insert text at a specific line number in a file. Line 0 inserts at the beginning.\\n- `delete`: Delete a file or directory (and all its contents).\\n- `rename`: Rename or move a file or directory from path to new_path. Cannot rename across scopes.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"command\":{\"type\":\"string\",\"enum\":[\"view\",\"create\",\"str_replace\",\"insert\",\"delete\",\"rename\"],\"description\":\"The operation to perform on the memory file system.\"},\"path\":{\"type\":\"string\",\"description\":\"The absolute path to the file or directory inside /memories/, e.g. \\\"/memories/notes.md\\\". Used by all commands except `rename`.\"},\"file_text\":{\"type\":\"string\",\"description\":\"Required for `create`. The content of the file to create.\"},\"old_str\":{\"type\":\"string\",\"description\":\"Required for `str_replace`. The exact string in the file to replace. Must appear exactly once.\"},\"new_str\":{\"type\":\"string\",\"description\":\"Required for `str_replace`. The new string to replace old_str with.\"},\"insert_line\":{\"type\":\"number\",\"description\":\"Required for `insert`. The 0-based line number to insert text at. 0 inserts before the first line.\"},\"insert_text\":{\"type\":\"string\",\"description\":\"Required for `insert`. The text to insert at the specified line.\"},\"view_range\":{\"type\":\"array\",\"items\":{\"type\":\"number\"},\"minItems\":2,\"maxItems\":2,\"description\":\"Optional for `view`. A two-element array [start_line, end_line] (1-indexed) to view a specific range of lines.\"},\"old_path\":{\"type\":\"string\",\"description\":\"Required for `rename`. The current path of the file or directory to rename.\"},\"new_path\":{\"type\":\"string\",\"description\":\"Required for `rename`. The new path for the file or directory.\"}},\"required\":[\"command\"]}},{\"type\":\"function\",\"name\":\"read_file\",\"description\":\"Read the contents of a file.\\n\\nYou must specify the line range you're interested in. Line numbers are 1-indexed. If the file contents returned are insufficient for your task, you may call this tool again to retrieve more content. Prefer reading larger ranges over doing many small reads. Binary files use startLine/endLine as byte offsets.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"filePath\":{\"description\":\"The absolute path of the file to read.\",\"type\":\"string\"},\"startLine\":{\"type\":\"number\",\"description\":\"The line number to start reading from, 1-based.\"},\"endLine\":{\"type\":\"number\",\"description\":\"The inclusive line number to end reading at, 1-based.\"}},\"required\":[\"filePath\",\"startLine\",\"endLine\"]}},{\"type\":\"function\",\"name\":\"read_notebook_cell_output\",\"description\":\"This tool will retrieve the output for a notebook cell from its most recent execution or restored from disk. The cell may have output even when it has not been run in the current kernel session. This tool has a higher token limit for output length than the runNotebookCell tool.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"filePath\":{\"type\":\"string\",\"description\":\"An absolute path to the notebook file with the cell to run, or the URI of a untitled, not yet named, file, such as `untitled:Untitled-1.ipynb\"},\"cellId\":{\"type\":\"string\",\"description\":\"The ID of the cell for which output should be retrieved.\"}},\"required\":[\"filePath\",\"cellId\"]}},{\"type\":\"function\",\"name\":\"semantic_search\",\"description\":\"Run a natural language search for relevant code or documentation comments from the user's current workspace. Returns relevant code snippets from the user's current workspace if it is large, or the full contents of the workspace if it is small.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\",\"description\":\"The query to search the codebase for. Should contain all relevant context. Should ideally be text that might appear in the codebase, such as function names, variable names, or comments.\"}},\"required\":[\"query\"]}},{\"type\":\"function\",\"name\":\"session_store_sql\",\"description\":\"Query the local session store containing history from past coding sessions. Uses SQLite syntax (NOT DuckDB or Postgres). SQL queries are read-only — only SELECT and WITH are allowed. Use `datetime('now', '-1 day')` for date math (NOT `now() - INTERVAL '1 day'`), FTS5 `MATCH` for text search.\\n\\nTables: `sessions`, `turns`, `session_files`, `session_refs`, `checkpoints`, `search_index`. For column details and query patterns, use the **chronicle** skill.\\n\\nActions: 'query' (execute SQL — supports JOINs, FTS5 MATCH, aggregations), 'reindex' (rebuild index from debug logs).\",\"parameters\":{\"type\":\"object\",\"properties\":{\"action\":{\"type\":\"string\",\"enum\":[\"query\",\"reindex\"],\"description\":\"The action to perform. 'query' (default) executes a SQL query. 'reindex' rebuilds the local session index and syncs to cloud if enabled.\"},\"query\":{\"type\":\"string\",\"description\":\"A single read-only SQL query to execute. Required when action is 'query'. Supports SELECT, WITH, JOINs, aggregations, and FTS5 MATCH. Only one statement per call — do not combine multiple queries with semicolons.\"},\"force\":{\"type\":\"boolean\",\"description\":\"When true with action 'reindex', re-processes all sessions including already-indexed ones. Default false (skips already-indexed sessions).\"},\"description\":{\"type\":\"string\",\"description\":\"A 2-5 word summary of what this call does (e.g. 'Recent sessions overview', 'Generate standup', 'Reindex sessions').\"},\"subcommand\":{\"type\":\"string\",\"enum\":[\"standup\",\"tips\",\"cost-tips\",\"search\",\"improve\",\"reindex\"],\"description\":\"The chronicle subcommand that triggered this call (e.g. 'tips' for /chronicle tips). Used for telemetry attribution only — pass this whenever the call originates from a /chronicle slash command.\"}},\"required\":[\"description\"]}},{\"type\":\"function\",\"name\":\"view_image\",\"description\":\"View the contents of an image file. Use this instead of read_file for supported image files such as png, jpg, jpeg, gif, and webp. The tool returns the image directly to multimodal models and does not take line ranges or offsets.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"filePath\":{\"description\":\"The absolute path of the image file to view.\",\"type\":\"string\"}},\"required\":[\"filePath\"]}},{\"type\":\"function\",\"name\":\"vscode_listCodeUsages\",\"description\":\"Find all usages (references, definitions, and implementations) of a code symbol across the workspace. This tool locates where a symbol is referenced, defined, or implemented.\\n\\nInput:\\n- \\\"symbol\\\": The exact name of the symbol to search for (function, class, method, variable, type, etc.).\\n- \\\"uri\\\": A full URI (e.g. \\\"file:///path/to/file.ts\\\") of a file where the symbol appears. Provide either \\\"uri\\\" or \\\"filePath\\\".\\n- \\\"filePath\\\": A workspace-relative file path (e.g. \\\"src/utils/helpers.ts\\\") of a file where the symbol appears. Provide either \\\"uri\\\" or \\\"filePath\\\".\\n- \\\"lineContent\\\": A substring of the line of code where the symbol appears. This is used to locate the exact position in the file. Must be the actual text from the file - do NOT fabricate it.\\n\\nIMPORTANT: The file and line do NOT need to be the definition of the symbol. Any occurrence works - a usage, an import, a call site, etc. You can pick whichever occurrence is most convenient.\\n\\nIf the tool returns an error, retry with corrected input - ensure the file path is correct, the line content matches the actual file content, and the symbol name appears in that line.\\n\\nIf the file's language has no reference provider registered, the tool returns an error.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"symbol\":{\"type\":\"string\",\"description\":\"The exact name of the symbol (function, class, method, variable, type, etc.) to find usages of.\"},\"uri\":{\"type\":\"string\",\"description\":\"A full URI of a file where the symbol appears (e.g. \\\"file:///path/to/file.ts\\\"). Provide either \\\"uri\\\" or \\\"filePath\\\".\"},\"filePath\":{\"type\":\"string\",\"description\":\"A workspace-relative file path where the symbol appears (e.g. \\\"src/utils/helpers.ts\\\"). Provide either \\\"uri\\\" or \\\"filePath\\\".\"},\"lineContent\":{\"type\":\"string\",\"description\":\"A substring of the line of code where the symbol appears. Used to locate the exact position. Must be actual text from the file.\"}},\"required\":[\"symbol\",\"lineContent\"]}},{\"type\":\"function\",\"name\":\"get_task_output\",\"description\":\"Get the output of a task\",\"parameters\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The task ID for which to get the output.\"},\"workspaceFolder\":{\"type\":\"string\",\"description\":\"The workspace folder path containing the task\"}},\"required\":[\"id\",\"workspaceFolder\"]}},{\"type\":\"function\",\"name\":\"get_terminal_output\",\"description\":\"Get output from a terminal execution that was moved to background (identified by the `id` returned from run_in_terminal). Use this ONLY when the run_in_terminal result explicitly says the command was moved to background, timed out, or needs input. Do NOT call this after a sync command that completed normally — sync commands return full output inline. If a background command has not yet completed, you will be automatically notified when it finishes — do NOT poll; end your turn and wait.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The ID of an active terminal execution to check (returned by run_in_terminal for async executions, or for sync executions that timed out and were moved to the background). This must be the exact opaque UUID returned by that tool; terminal names, labels, or integers are invalid.\",\"pattern\":\"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$\"}},\"required\":[\"id\"]}},{\"type\":\"function\",\"name\":\"terminal_last_command\",\"description\":\"Get the last command run in the active terminal.\"},{\"type\":\"function\",\"name\":\"terminal_selection\",\"description\":\"Get the current selection in the active terminal.\"},{\"type\":\"function\",\"name\":\"testFailure\",\"description\":\"Includes test failure information in the prompt. Use this tool to get the details of test failures from the most recent test run. If there are no failures yet, suggest running tests first.\",\"parameters\":{\"type\":\"object\",\"properties\":{}}}]"
+                      }
+                    },
+                    {
+                      "key": "copilot_chat.chat_session_id",
+                      "value": {
+                        "stringValue": "call_z2PY7oiQ1vbmsXNOEUDkYwNw"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "timeUnixNano": "1788112532135400785",
+                  "name": "turn_end",
+                  "attributes": [
+                    {
+                      "key": "turnId",
+                      "value": {
+                        "stringValue": "0"
+                      }
+                    },
+                    {
+                      "key": "copilot_chat.chat_session_id",
+                      "value": {
+                        "stringValue": "call_z2PY7oiQ1vbmsXNOEUDkYwNw"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "timeUnixNano": "1788112532135415683",
+                  "name": "turn_start",
+                  "attributes": [
+                    {
+                      "key": "turnId",
+                      "value": {
+                        "stringValue": "1"
+                      }
+                    },
+                    {
+                      "key": "copilot_chat.chat_session_id",
+                      "value": {
+                        "stringValue": "call_z2PY7oiQ1vbmsXNOEUDkYwNw"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "timeUnixNano": "1788112536020709052",
+                  "name": "turn_end",
+                  "attributes": [
+                    {
+                      "key": "turnId",
+                      "value": {
+                        "stringValue": "1"
+                      }
+                    },
+                    {
+                      "key": "copilot_chat.chat_session_id",
+                      "value": {
+                        "stringValue": "call_z2PY7oiQ1vbmsXNOEUDkYwNw"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "timeUnixNano": "1788112536020719241",
+                  "name": "turn_start",
+                  "attributes": [
+                    {
+                      "key": "turnId",
+                      "value": {
+                        "stringValue": "2"
+                      }
+                    },
+                    {
+                      "key": "copilot_chat.chat_session_id",
+                      "value": {
+                        "stringValue": "call_z2PY7oiQ1vbmsXNOEUDkYwNw"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "timeUnixNano": "1788112539218597436",
+                  "name": "turn_end",
+                  "attributes": [
+                    {
+                      "key": "turnId",
+                      "value": {
+                        "stringValue": "2"
+                      }
+                    },
+                    {
+                      "key": "copilot_chat.chat_session_id",
+                      "value": {
+                        "stringValue": "call_z2PY7oiQ1vbmsXNOEUDkYwNw"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "timeUnixNano": "1788112539218606593",
+                  "name": "turn_start",
+                  "attributes": [
+                    {
+                      "key": "turnId",
+                      "value": {
+                        "stringValue": "3"
+                      }
+                    },
+                    {
+                      "key": "copilot_chat.chat_session_id",
+                      "value": {
+                        "stringValue": "call_z2PY7oiQ1vbmsXNOEUDkYwNw"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "timeUnixNano": "1788112548639798567",
+                  "name": "turn_end",
+                  "attributes": [
+                    {
+                      "key": "turnId",
+                      "value": {
+                        "stringValue": "3"
+                      }
+                    },
+                    {
+                      "key": "copilot_chat.chat_session_id",
+                      "value": {
+                        "stringValue": "call_z2PY7oiQ1vbmsXNOEUDkYwNw"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "status": {
+                "code": 1
+              }
+            },
+            {
+              "traceId": "e1a44be37a0a3dcccbfc70a07e2fc79f",
+              "spanId": "8a76260bbf1ec64b",
+              "parentSpanId": "6de44ea47d8e862e",
+              "flags": 769,
+              "name": "execute_tool runSubagent",
+              "kind": 1,
+              "startTimeUnixNano": "1788112526047000000",
+              "endTimeUnixNano": "1788112548645771434",
+              "attributes": [
+                {
+                  "key": "gen_ai.operation.name",
+                  "value": {
+                    "stringValue": "execute_tool"
+                  }
+                },
+                {
+                  "key": "gen_ai.conversation.id",
+                  "value": {
+                    "stringValue": "d1b30fef-089e-481b-b33a-e619c6f59ec1"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.name",
+                  "value": {
+                    "stringValue": "runSubagent"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.type",
+                  "value": {
+                    "stringValue": "function"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.call.id",
+                  "value": {
+                    "stringValue": "call_z2PY7oiQ1vbmsXNOEUDkYwNw"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.description",
+                  "value": {
+                    "stringValue": "Launch a new agent to handle complex, multi-step tasks autonomously. This tool is good at researching complex questions, searching for code, and executing multi-step tasks. When you are searching for a keyword or file and are not confident that you will find the right match in the first few tries, use this agent to perform the search for you.\n\n- Agents do not run async or in the background, you will wait for the agent's result.\n- When the agent is done, it will return a single message back to you. The result returned by the agent is not visible to the user. To show the user the result, you should send a text message back to the user with a concise summary of the result.\n- Each agent invocation is stateless. You will not be able to send additional messages to the agent, nor will the agent be able to communicate with you outside of its final report. Therefore, your prompt should contain a highly detailed task description for the agent to perform autonomously and you should specify exactly what information the agent should return back to you in its final and only message to you.\n- The agent's outputs should generally be trusted\n- Clearly tell the agent whether you expect it to write code or just to do research (search, file reads, web fetches, etc.), since it is not aware of the user's intent\n- If the user asks for a certain agent, you MUST provide that EXACT agent name (case-sensitive) to invoke that specific agent."
+                  }
+                },
+                {
+                  "key": "copilot_chat.session_id",
+                  "value": {
+                    "stringValue": "d1b30fef-089e-481b-b33a-e619c6f59ec1"
+                  }
+                },
+                {
+                  "key": "copilot_chat.chat_session_id",
+                  "value": {
+                    "stringValue": "d1b30fef-089e-481b-b33a-e619c6f59ec1"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.call.arguments",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.call.result",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                }
+              ],
+              "status": {
+                "code": 1
+              }
+            },
+            {
+              "traceId": "e1a44be37a0a3dcccbfc70a07e2fc79f",
+              "spanId": "e928b5a02a609e8d",
+              "parentSpanId": "6de44ea47d8e862e",
+              "flags": 257,
+              "name": "chat gpt-5.6-luna",
+              "kind": 3,
+              "startTimeUnixNano": "1788112548655000000",
+              "endTimeUnixNano": "1788112549928555322",
+              "attributes": [
+                {
+                  "key": "gen_ai.operation.name",
+                  "value": {
+                    "stringValue": "chat"
+                  }
+                },
+                {
+                  "key": "gen_ai.provider.name",
+                  "value": {
+                    "stringValue": "github"
+                  }
+                },
+                {
+                  "key": "gen_ai.request.model",
+                  "value": {
+                    "stringValue": "gpt-5.6-luna"
+                  }
+                },
+                {
+                  "key": "gen_ai.conversation.id",
+                  "value": {
+                    "stringValue": "d1b30fef-089e-481b-b33a-e619c6f59ec1"
+                  }
+                },
+                {
+                  "key": "gen_ai.request.max_tokens",
+                  "value": {
+                    "intValue": "128000"
+                  }
+                },
+                {
+                  "key": "copilot_chat.request.max_prompt_tokens",
+                  "value": {
+                    "intValue": "200000"
+                  }
+                },
+                {
+                  "key": "copilot_chat.session_id",
+                  "value": {
+                    "stringValue": "d1b30fef-089e-481b-b33a-e619c6f59ec1"
+                  }
+                },
+                {
+                  "key": "copilot_chat.chat_session_id",
+                  "value": {
+                    "stringValue": "d1b30fef-089e-481b-b33a-e619c6f59ec1"
+                  }
+                },
+                {
+                  "key": "gen_ai.agent.name",
+                  "value": {
+                    "stringValue": "panel/editAgent"
+                  }
+                },
+                {
+                  "key": "gen_ai.input.messages",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.definitions",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "copilot_chat.request.options",
+                  "value": {
+                    "stringValue": "{\"reasoning\":{\"effort\":\"none\"},\"text\":{\"verbosity\":\"low\"},\"truncation\":\"disabled\",\"store\":false,\"stream\":true,\"include\":[\"reasoning.encrypted_content\"]}"
+                  }
+                },
+                {
+                  "key": "copilot_chat.request.shape",
+                  "value": {
+                    "stringValue": "{\"api\":\"responses\",\"inputItemCount\":1,\"inputItemTypes\":[\"function_call_output\"],\"hasPreviousResponseId\":true}"
+                  }
+                },
+                {
+                  "key": "gen_ai.usage.input_tokens",
+                  "value": {
+                    "intValue": "15755"
+                  }
+                },
+                {
+                  "key": "gen_ai.usage.output_tokens",
+                  "value": {
+                    "intValue": "66"
+                  }
+                },
+                {
+                  "key": "gen_ai.response.model",
+                  "value": {
+                    "stringValue": "gpt-5.6-luna"
+                  }
+                },
+                {
+                  "key": "gen_ai.response.id",
+                  "value": {
+                    "stringValue": "0153838b-9869-40ef-8610-6691335efc4a"
+                  }
+                },
+                {
+                  "key": "gen_ai.response.finish_reasons",
+                  "value": {
+                    "arrayValue": {
+                      "values": [
+                        {
+                          "stringValue": "stop"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "key": "gen_ai.usage.cache_read.input_tokens",
+                  "value": {
+                    "intValue": "15296"
+                  }
+                },
+                {
+                  "key": "copilot_chat.time_to_first_token",
+                  "value": {
+                    "intValue": "317"
+                  }
+                },
+                {
+                  "key": "gen_ai.request.stream",
+                  "value": {
+                    "boolValue": true
+                  }
+                },
+                {
+                  "key": "gen_ai.response.time_to_first_chunk",
+                  "value": {
+                    "doubleValue": 0.692
+                  }
+                },
+                {
+                  "key": "copilot_chat.server_request_id",
+                  "value": {
+                    "stringValue": "0153838b-9869-40ef-8610-6691335efc4a"
+                  }
+                },
+                {
+                  "key": "copilot_chat.copilot_usage_nano_aiu",
+                  "value": {
+                    "intValue": "49972000"
+                  }
+                },
+                {
+                  "key": "gen_ai.output.messages",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                }
+              ],
+              "status": {}
+            },
+            {
+              "traceId": "e1a44be37a0a3dcccbfc70a07e2fc79f",
+              "spanId": "6de44ea47d8e862e",
+              "flags": 257,
+              "name": "invoke_agent GitHub Copilot Chat",
+              "kind": 1,
+              "startTimeUnixNano": "1788112523280000000",
+              "endTimeUnixNano": "1788112549930076496",
+              "attributes": [
+                {
+                  "key": "gen_ai.operation.name",
+                  "value": {
+                    "stringValue": "invoke_agent"
+                  }
+                },
+                {
+                  "key": "gen_ai.provider.name",
+                  "value": {
+                    "stringValue": "github"
+                  }
+                },
+                {
+                  "key": "gen_ai.agent.name",
+                  "value": {
+                    "stringValue": "GitHub Copilot Chat"
+                  }
+                },
+                {
+                  "key": "gen_ai.conversation.id",
+                  "value": {
+                    "stringValue": "d1b30fef-089e-481b-b33a-e619c6f59ec1"
+                  }
+                },
+                {
+                  "key": "copilot_chat.session_id",
+                  "value": {
+                    "stringValue": "d1b30fef-089e-481b-b33a-e619c6f59ec1"
+                  }
+                },
+                {
+                  "key": "copilot_chat.chat_session_id",
+                  "value": {
+                    "stringValue": "d1b30fef-089e-481b-b33a-e619c6f59ec1"
+                  }
+                },
+                {
+                  "key": "copilot_chat.mode_name",
+                  "value": {
+                    "stringValue": "Plan"
+                  }
+                },
+                {
+                  "key": "github.copilot.agent.type",
+                  "value": {
+                    "stringValue": "custom"
+                  }
+                },
+                {
+                  "key": "copilot_chat.repo.head_branch_name",
+                  "value": {
+                    "stringValue": "main"
+                  }
+                },
+                {
+                  "key": "github.copilot.git.branch",
+                  "value": {
+                    "stringValue": "main"
+                  }
+                },
+                {
+                  "key": "gen_ai.request.model",
+                  "value": {
+                    "stringValue": "gpt-5.6-luna"
+                  }
+                },
+                {
+                  "key": "gen_ai.input.messages",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "copilot_chat.user_request",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "copilot_chat.turn_count",
+                  "value": {
+                    "intValue": "2"
+                  }
+                },
+                {
+                  "key": "gen_ai.usage.input_tokens",
+                  "value": {
+                    "intValue": "31054"
+                  }
+                },
+                {
+                  "key": "gen_ai.usage.output_tokens",
+                  "value": {
+                    "intValue": "182"
+                  }
+                },
+                {
+                  "key": "gen_ai.usage.cache_read.input_tokens",
+                  "value": {
+                    "intValue": "15296"
+                  }
+                },
+                {
+                  "key": "gen_ai.response.model",
+                  "value": {
+                    "stringValue": "gpt-5.6-luna"
+                  }
+                },
+                {
+                  "key": "gen_ai.output.messages",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.definitions",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                }
+              ],
+              "events": [
+                {
+                  "timeUnixNano": "1788112523280380367",
+                  "name": "user_message",
+                  "attributes": [
+                    {
+                      "key": "content",
+                      "value": {
+                        "stringValue": "[REDACTED]"
+                      }
+                    },
+                    {
+                      "key": "copilot_chat.chat_session_id",
+                      "value": {
+                        "stringValue": "d1b30fef-089e-481b-b33a-e619c6f59ec1"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "timeUnixNano": "1788112523280393311",
+                  "name": "turn_start",
+                  "attributes": [
+                    {
+                      "key": "turnId",
+                      "value": {
+                        "stringValue": "0"
+                      }
+                    },
+                    {
+                      "key": "copilot_chat.chat_session_id",
+                      "value": {
+                        "stringValue": "d1b30fef-089e-481b-b33a-e619c6f59ec1"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "timeUnixNano": "1788112523290026756",
+                  "name": "tools_available",
+                  "attributes": [
+                    {
+                      "key": "toolDefinitions",
+                      "value": {
+                        "stringValue": "[{\"type\":\"function\",\"name\":\"fetch_webpage\",\"description\":\"Fetches the main content from a web page. This tool is useful for summarizing or analyzing the content of a webpage. You should use this tool when you think the user is looking for information from a specific webpage.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"urls\":{\"type\":\"array\",\"items\":{\"type\":\"string\"},\"description\":\"An array of URLs to fetch content from.\"},\"query\":{\"type\":\"string\",\"description\":\"The query to search for in the web page's content. This should be a clear and concise description of the content you want to find.\"}},\"required\":[\"urls\",\"query\"]}},{\"type\":\"function\",\"name\":\"file_search\",\"description\":\"Search for files in the workspace by glob pattern. This only returns the paths of matching files. Use this tool when you know the exact filename pattern of the files you're searching for. Glob patterns match from the root of the workspace folder. Examples:\\n- **/*.{js,ts} to match all js/ts files in the workspace.\\n- src/** to match all files under the top-level src folder.\\n- **/foo/**/*.js to match all js files under any foo folder in the workspace.\\n\\nIn a multi-root workspace, you can scope the search to a specific workspace folder by using the absolute path to the folder as the query, e.g. /path/to/folder/**/*.ts.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\",\"description\":\"Search for files with names or paths matching this glob pattern. Can also be an absolute path to a workspace folder to scope the search in a multi-root workspace.\"},\"maxResults\":{\"type\":\"number\",\"description\":\"The maximum number of results to return. Do not use this unless necessary, it can slow things down. By default, only some matches are returned. If you use this and don't see what you're looking for, you can try again with a more specific query or a larger maxResults.\"}},\"required\":[\"query\"]}},{\"type\":\"function\",\"name\":\"grep_search\",\"description\":\"Do a fast text search in the workspace. Use this tool when you want to search with an exact string or regex. If you are not sure what words will appear in the workspace, prefer using regex patterns with alternation (|) or character classes to search for multiple potential words at once instead of making separate searches. For example, use 'function|method|procedure' to look for all of those words at once. Use includePattern to search within files matching a specific pattern, or in a specific file, using a relative path. Use 'includeIgnoredFiles' to include files normally ignored by .gitignore, other ignore files, and `files.exclude` and `search.exclude` settings. Warning: using this may cause the search to be slower, only set it when you want to search in ignored folders like node_modules or build outputs. Use this tool when you want to see an overview of a particular file, instead of using read_file many times to look for code within a file.\\n\\nIn a multi-root workspace, you can scope the search to a specific workspace folder by using the absolute path to the folder as the includePattern, e.g. /path/to/folder.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\",\"description\":\"The pattern to search for in files in the workspace. Use regex with alternation (e.g., 'word1|word2|word3') or character classes to find multiple potential words in a single search. Be sure to set the isRegexp property properly to declare whether it's a regex or plain text pattern. Is case-insensitive.\"},\"isRegexp\":{\"type\":\"boolean\",\"description\":\"Whether the pattern is a regex.\"},\"includePattern\":{\"type\":\"string\",\"description\":\"Search files matching this glob pattern. Will be applied to the relative path of files within the workspace. To search recursively inside a folder, use a proper glob pattern like \\\"src/folder/**\\\". Do not use | in includePattern. Can also be an absolute path to a workspace folder to scope the search in a multi-root workspace.\"},\"maxResults\":{\"type\":\"number\",\"description\":\"The maximum number of results to return. Do not use this unless necessary, it can slow things down. By default, only some matches are returned. If you use this and don't see what you're looking for, you can try again with a more specific query or a larger maxResults.\"},\"includeIgnoredFiles\":{\"type\":\"boolean\",\"description\":\"Whether to include files that would normally be ignored according to .gitignore, other ignore files and `files.exclude` and `search.exclude` settings. Warning: using this may cause the search to be slower. Only set it when you want to search in ignored folders like node_modules or build outputs.\"}},\"required\":[\"query\",\"isRegexp\"]}},{\"type\":\"function\",\"name\":\"get_errors\",\"description\":\"Get any compile or lint errors in a specific file or across all files. If the user mentions errors or problems in a file, they may be referring to these. Use the tool to see the same errors that the user is seeing. If the user asks you to analyze all errors, or does not specify a file, use this tool to gather errors for all files. Also use this tool after editing a file to validate the change.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"filePaths\":{\"description\":\"The absolute paths to the files or folders to check for errors. Omit 'filePaths' when retrieving all errors.\",\"type\":\"array\",\"items\":{\"type\":\"string\"}}}}},{\"type\":\"function\",\"name\":\"copilot_getNotebookSummary\",\"description\":\"This is a tool returns the list of the Notebook cells along with the id, cell types, line ranges, language, execution information and output mime types for each cell. This is useful to get Cell Ids when executing a notebook or determine what cells have been executed and what order, or what cells have outputs. If required to read contents of a cell use this to determine the line range of a cells, and then use read_file tool to read a specific line range. Requery this tool if the contents of the notebook change.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"filePath\":{\"type\":\"string\",\"description\":\"An absolute path to the notebook file with the cell to run, or the URI of a untitled, not yet named, file, such as `untitled:Untitled-1.ipynb\"}},\"required\":[\"filePath\"]}},{\"type\":\"function\",\"name\":\"github_repo\",\"description\":\"Searches a GitHub repository for relevant source code snippets. Only use this tool if the user is very clearly asking for code snippets from a specific GitHub repository. Do not use this tool for Github repos that the user has open in their workspace.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"repo\":{\"type\":\"string\",\"description\":\"The name of the Github repository to search for code in. Should must be formatted as '<owner>/<repo>'.\"},\"query\":{\"type\":\"string\",\"description\":\"The query to search for repo. Should contain all relevant context.\"}},\"required\":[\"repo\",\"query\"]}},{\"type\":\"function\",\"name\":\"github_text_search\",\"description\":\"Lexically searches a GitHub repository or organization for files containing specific keywords or code patterns. Use this when looking for exact strings, function names, or identifiers in a GitHub repo or org. Unlike the semantic search tool, this uses keyword matching rather than meaning-based search.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"scope\":{\"type\":\"string\",\"description\":\"The GitHub scope to search. Use 'owner/repo' to search a single repository, or an org name (no slash) to search across an entire organization.\"},\"query\":{\"type\":\"string\",\"description\":\"The keyword search query. Supports GitHub code search syntax such as 'language:typescript', 'extension:ts', 'path:src/', etc.\"},\"maxResults\":{\"type\":\"number\",\"description\":\"Optional. The maximum number of search results to return. Defaults to 100.\"}},\"required\":[\"scope\",\"query\"]}},{\"type\":\"function\",\"name\":\"list_dir\",\"description\":\"List the contents of a directory. Result will have the name of the child. If the name ends in /, it's a folder, otherwise a file\",\"parameters\":{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\",\"description\":\"The absolute path to the directory to list.\"}},\"required\":[\"path\"]}},{\"type\":\"function\",\"name\":\"memory\",\"description\":\"Manage a persistent memory system with three scopes for storing notes and information across conversations.\\n\\nMemory is organized under /memories/ with three tiers:\\n- `/memories/` — User memory: persistent notes that survive across all workspaces and conversations. Store preferences, patterns, and general insights here.\\n- `/memories/session/` — Session memory: notes scoped to the current conversation. Store task-specific context and in-progress notes here. Cleared after the conversation ends.\\n- `/memories/repo/` — Repository memory: repository-scoped notes stored locally in the workspace. Store codebase conventions, build commands, project structure facts, and verified practices here.\\n\\nIMPORTANT: Before creating new memory files, first view the /memories/ directory to understand what already exists. This helps avoid duplicates and maintain organized notes.\\n\\nCommands:\\n- `view`: View contents of a file or list directory contents. Can be used on files or directories (e.g., \\\"/memories/\\\" to see all top-level items).\\n- `create`: Create a new file at the specified path with the given content. Fails if the file already exists.\\n- `str_replace`: Replace an exact string in a file with a new string. The old_str must appear exactly once in the file.\\n- `insert`: Insert text at a specific line number in a file. Line 0 inserts at the beginning.\\n- `delete`: Delete a file or directory (and all its contents).\\n- `rename`: Rename or move a file or directory from path to new_path. Cannot rename across scopes.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"command\":{\"type\":\"string\",\"enum\":[\"view\",\"create\",\"str_replace\",\"insert\",\"delete\",\"rename\"],\"description\":\"The operation to perform on the memory file system.\"},\"path\":{\"type\":\"string\",\"description\":\"The absolute path to the file or directory inside /memories/, e.g. \\\"/memories/notes.md\\\". Used by all commands except `rename`.\"},\"file_text\":{\"type\":\"string\",\"description\":\"Required for `create`. The content of the file to create.\"},\"old_str\":{\"type\":\"string\",\"description\":\"Required for `str_replace`. The exact string in the file to replace. Must appear exactly once.\"},\"new_str\":{\"type\":\"string\",\"description\":\"Required for `str_replace`. The new string to replace old_str with.\"},\"insert_line\":{\"type\":\"number\",\"description\":\"Required for `insert`. The 0-based line number to insert text at. 0 inserts before the first line.\"},\"insert_text\":{\"type\":\"string\",\"description\":\"Required for `insert`. The text to insert at the specified line.\"},\"view_range\":{\"type\":\"array\",\"items\":{\"type\":\"number\"},\"minItems\":2,\"maxItems\":2,\"description\":\"Optional for `view`. A two-element array [start_line, end_line] (1-indexed) to view a specific range of lines.\"},\"old_path\":{\"type\":\"string\",\"description\":\"Required for `rename`. The current path of the file or directory to rename.\"},\"new_path\":{\"type\":\"string\",\"description\":\"Required for `rename`. The new path for the file or directory.\"}},\"required\":[\"command\"]}},{\"type\":\"function\",\"name\":\"read_file\",\"description\":\"Read the contents of a file.\\n\\nYou must specify the line range you're interested in. Line numbers are 1-indexed. If the file contents returned are insufficient for your task, you may call this tool again to retrieve more content. Prefer reading larger ranges over doing many small reads. Binary files use startLine/endLine as byte offsets.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"filePath\":{\"description\":\"The absolute path of the file to read.\",\"type\":\"string\"},\"startLine\":{\"type\":\"number\",\"description\":\"The line number to start reading from, 1-based.\"},\"endLine\":{\"type\":\"number\",\"description\":\"The inclusive line number to end reading at, 1-based.\"}},\"required\":[\"filePath\",\"startLine\",\"endLine\"]}},{\"type\":\"function\",\"name\":\"read_notebook_cell_output\",\"description\":\"This tool will retrieve the output for a notebook cell from its most recent execution or restored from disk. The cell may have output even when it has not been run in the current kernel session. This tool has a higher token limit for output length than the runNotebookCell tool.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"filePath\":{\"type\":\"string\",\"description\":\"An absolute path to the notebook file with the cell to run, or the URI of a untitled, not yet named, file, such as `untitled:Untitled-1.ipynb\"},\"cellId\":{\"type\":\"string\",\"description\":\"The ID of the cell for which output should be retrieved.\"}},\"required\":[\"filePath\",\"cellId\"]}},{\"type\":\"function\",\"name\":\"semantic_search\",\"description\":\"Run a natural language search for relevant code or documentation comments from the user's current workspace. Returns relevant code snippets from the user's current workspace if it is large, or the full contents of the workspace if it is small.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\",\"description\":\"The query to search the codebase for. Should contain all relevant context. Should ideally be text that might appear in the codebase, such as function names, variable names, or comments.\"}},\"required\":[\"query\"]}},{\"type\":\"function\",\"name\":\"session_store_sql\",\"description\":\"Query the local session store containing history from past coding sessions. Uses SQLite syntax (NOT DuckDB or Postgres). SQL queries are read-only — only SELECT and WITH are allowed. Use `datetime('now', '-1 day')` for date math (NOT `now() - INTERVAL '1 day'`), FTS5 `MATCH` for text search.\\n\\nTables: `sessions`, `turns`, `session_files`, `session_refs`, `checkpoints`, `search_index`. For column details and query patterns, use the **chronicle** skill.\\n\\nActions: 'query' (execute SQL — supports JOINs, FTS5 MATCH, aggregations), 'reindex' (rebuild index from debug logs).\",\"parameters\":{\"type\":\"object\",\"properties\":{\"action\":{\"type\":\"string\",\"enum\":[\"query\",\"reindex\"],\"description\":\"The action to perform. 'query' (default) executes a SQL query. 'reindex' rebuilds the local session index and syncs to cloud if enabled.\"},\"query\":{\"type\":\"string\",\"description\":\"A single read-only SQL query to execute. Required when action is 'query'. Supports SELECT, WITH, JOINs, aggregations, and FTS5 MATCH. Only one statement per call — do not combine multiple queries with semicolons.\"},\"force\":{\"type\":\"boolean\",\"description\":\"When true with action 'reindex', re-processes all sessions including already-indexed ones. Default false (skips already-indexed sessions).\"},\"description\":{\"type\":\"string\",\"description\":\"A 2-5 word summary of what this call does (e.g. 'Recent sessions overview', 'Generate standup', 'Reindex sessions').\"},\"subcommand\":{\"type\":\"string\",\"enum\":[\"standup\",\"tips\",\"cost-tips\",\"search\",\"improve\",\"reindex\"],\"description\":\"The chronicle subcommand that triggered this call (e.g. 'tips' for /chronicle tips). Used for telemetry attribution only — pass this whenever the call originates from a /chronicle slash command.\"}},\"required\":[\"description\"]}},{\"type\":\"function\",\"name\":\"view_image\",\"description\":\"View the contents of an image file. Use this instead of read_file for supported image files such as png, jpg, jpeg, gif, and webp. The tool returns the image directly to multimodal models and does not take line ranges or offsets.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"filePath\":{\"description\":\"The absolute path of the image file to view.\",\"type\":\"string\"}},\"required\":[\"filePath\"]}},{\"type\":\"function\",\"name\":\"vscode_askQuestions\",\"description\":\"Use this tool to ask the user a small number of clarifying questions before proceeding. Provide the questions array with concise headers and prompts. Use options for fixed choices, set multiSelect when multiple selections are allowed. Users can always provide a freeform text answer alongside options unless you set allowFreeformInput to false.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"questions\":{\"type\":\"array\",\"description\":\"List of questions to ask the user. Order is preserved.\",\"items\":{\"type\":\"object\",\"properties\":{\"header\":{\"type\":\"string\",\"description\":\"Short identifier for the question. Must be unique so answers can be mapped back to the question. Maximum 50 characters.\",\"maxLength\":50},\"question\":{\"type\":\"string\",\"description\":\"The question text to display to the user. Keep it concise, ideally one sentence. Maximum 200 characters.\",\"maxLength\":200},\"multiSelect\":{\"type\":\"boolean\",\"description\":\"Allow selecting multiple options when options are provided.\"},\"allowFreeformInput\":{\"type\":\"boolean\",\"description\":\"Allow freeform text answers in addition to option selection. Defaults to true; set to false to restrict to predefined options only.\"},\"message\":{\"type\":\"string\",\"description\":\"Optional markdown message to display below the question text, providing additional context or details.\"},\"options\":{\"type\":\"array\",\"description\":\"Optional list of selectable answers. If omitted, the question is free text.\",\"items\":{\"type\":\"object\",\"properties\":{\"label\":{\"type\":\"string\",\"description\":\"Display label and value for the option.\"},\"description\":{\"type\":\"string\",\"description\":\"Optional secondary text shown with the option.\"},\"recommended\":{\"type\":\"boolean\",\"description\":\"Mark this option as the recommended default.\"}},\"required\":[\"label\"]}}},\"required\":[\"header\",\"question\"]},\"minItems\":1}},\"required\":[\"questions\"]}},{\"type\":\"function\",\"name\":\"vscode_listCodeUsages\",\"description\":\"Find all usages (references, definitions, and implementations) of a code symbol across the workspace. This tool locates where a symbol is referenced, defined, or implemented.\\n\\nInput:\\n- \\\"symbol\\\": The exact name of the symbol to search for (function, class, method, variable, type, etc.).\\n- \\\"uri\\\": A full URI (e.g. \\\"file:///path/to/file.ts\\\") of a file where the symbol appears. Provide either \\\"uri\\\" or \\\"filePath\\\".\\n- \\\"filePath\\\": A workspace-relative file path (e.g. \\\"src/utils/helpers.ts\\\") of a file where the symbol appears. Provide either \\\"uri\\\" or \\\"filePath\\\".\\n- \\\"lineContent\\\": A substring of the line of code where the symbol appears. This is used to locate the exact position in the file. Must be the actual text from the file - do NOT fabricate it.\\n\\nIMPORTANT: The file and line do NOT need to be the definition of the symbol. Any occurrence works - a usage, an import, a call site, etc. You can pick whichever occurrence is most convenient.\\n\\nIf the tool returns an error, retry with corrected input - ensure the file path is correct, the line content matches the actual file content, and the symbol name appears in that line.\\n\\nIf the file's language has no reference provider registered, the tool returns an error.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"symbol\":{\"type\":\"string\",\"description\":\"The exact name of the symbol (function, class, method, variable, type, etc.) to find usages of.\"},\"uri\":{\"type\":\"string\",\"description\":\"A full URI of a file where the symbol appears (e.g. \\\"file:///path/to/file.ts\\\"). Provide either \\\"uri\\\" or \\\"filePath\\\".\"},\"filePath\":{\"type\":\"string\",\"description\":\"A workspace-relative file path where the symbol appears (e.g. \\\"src/utils/helpers.ts\\\"). Provide either \\\"uri\\\" or \\\"filePath\\\".\"},\"lineContent\":{\"type\":\"string\",\"description\":\"A substring of the line of code where the symbol appears. Used to locate the exact position. Must be actual text from the file.\"}},\"required\":[\"symbol\",\"lineContent\"]}},{\"type\":\"function\",\"name\":\"get_task_output\",\"description\":\"Get the output of a task\",\"parameters\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The task ID for which to get the output.\"},\"workspaceFolder\":{\"type\":\"string\",\"description\":\"The workspace folder path containing the task\"}},\"required\":[\"id\",\"workspaceFolder\"]}},{\"type\":\"function\",\"name\":\"get_terminal_output\",\"description\":\"Get output from a terminal execution that was moved to background (identified by the `id` returned from run_in_terminal). Use this ONLY when the run_in_terminal result explicitly says the command was moved to background, timed out, or needs input. Do NOT call this after a sync command that completed normally — sync commands return full output inline. If a background command has not yet completed, you will be automatically notified when it finishes — do NOT poll; end your turn and wait.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The ID of an active terminal execution to check (returned by run_in_terminal for async executions, or for sync executions that timed out and were moved to the background). This must be the exact opaque UUID returned by that tool; terminal names, labels, or integers are invalid.\",\"pattern\":\"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$\"}},\"required\":[\"id\"]}},{\"type\":\"function\",\"name\":\"runSubagent\",\"description\":\"Launch a new agent to handle complex, multi-step tasks autonomously. This tool is good at researching complex questions, searching for code, and executing multi-step tasks. When you are searching for a keyword or file and are not confident that you will find the right match in the first few tries, use this agent to perform the search for you.\\n\\n- Agents do not run async or in the background, you will wait for the agent's result.\\n- When the agent is done, it will return a single message back to you. The result returned by the agent is not visible to the user. To show the user the result, you should send a text message back to the user with a concise summary of the result.\\n- Each agent invocation is stateless. You will not be able to send additional messages to the agent, nor will the agent be able to communicate with you outside of its final report. Therefore, your prompt should contain a highly detailed task description for the agent to perform autonomously and you should specify exactly what information the agent should return back to you in its final and only message to you.\\n- The agent's outputs should generally be trusted\\n- Clearly tell the agent whether you expect it to write code or just to do research (search, file reads, web fetches, etc.), since it is not aware of the user's intent\\n- If the user asks for a certain agent, you MUST provide that EXACT agent name (case-sensitive) to invoke that specific agent.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"prompt\":{\"type\":\"string\",\"description\":\"A detailed description of the task for the agent to perform\"},\"description\":{\"type\":\"string\",\"description\":\"A short (3-5 word) description of the task\"},\"agentName\":{\"type\":\"string\",\"description\":\"Optional name of a specific agent to invoke. If not provided, uses the current agent.\"},\"model\":{\"type\":\"string\",\"description\":\"Optional model for the subagent. Format: \\\"Model Name (Vendor)\\\", vendor is usually \\\"copilot\\\". Only use to enforce a specific model.\"}},\"required\":[\"prompt\",\"description\"]}},{\"type\":\"function\",\"name\":\"terminal_last_command\",\"description\":\"Get the last command run in the active terminal.\"},{\"type\":\"function\",\"name\":\"terminal_selection\",\"description\":\"Get the current selection in the active terminal.\"},{\"type\":\"function\",\"name\":\"testFailure\",\"description\":\"Includes test failure information in the prompt. Use this tool to get the details of test failures from the most recent test run. If there are no failures yet, suggest running tests first.\",\"parameters\":{\"type\":\"object\",\"properties\":{}}}]"
+                      }
+                    },
+                    {
+                      "key": "copilot_chat.chat_session_id",
+                      "value": {
+                        "stringValue": "d1b30fef-089e-481b-b33a-e619c6f59ec1"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "timeUnixNano": "1788112526027210635",
+                  "name": "turn_end",
+                  "attributes": [
+                    {
+                      "key": "turnId",
+                      "value": {
+                        "stringValue": "0"
+                      }
+                    },
+                    {
+                      "key": "copilot_chat.chat_session_id",
+                      "value": {
+                        "stringValue": "d1b30fef-089e-481b-b33a-e619c6f59ec1"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "timeUnixNano": "1788112526027221816",
+                  "name": "turn_start",
+                  "attributes": [
+                    {
+                      "key": "turnId",
+                      "value": {
+                        "stringValue": "1"
+                      }
+                    },
+                    {
+                      "key": "copilot_chat.chat_session_id",
+                      "value": {
+                        "stringValue": "d1b30fef-089e-481b-b33a-e619c6f59ec1"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "timeUnixNano": "1788112549929902138",
+                  "name": "turn_end",
+                  "attributes": [
+                    {
+                      "key": "turnId",
+                      "value": {
+                        "stringValue": "1"
+                      }
+                    },
+                    {
+                      "key": "copilot_chat.chat_session_id",
+                      "value": {
+                        "stringValue": "d1b30fef-089e-481b-b33a-e619c6f59ec1"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "status": {
+                "code": 1
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

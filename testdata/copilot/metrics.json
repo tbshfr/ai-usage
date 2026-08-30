@@ -1,0 +1,1797 @@
+{
+  "resourceMetrics": [
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "service.name",
+            "value": {
+              "stringValue": "copilot-chat"
+            }
+          },
+          {
+            "key": "service.version",
+            "value": {
+              "stringValue": "0.63.0"
+            }
+          },
+          {
+            "key": "session.id",
+            "value": {
+              "stringValue": "93668ce0-e5c4-486f-a17f-bc24f3b8c96e1788112426754"
+            }
+          }
+        ]
+      },
+      "scopeMetrics": [
+        {
+          "scope": {
+            "name": "copilot-chat",
+            "version": "0.63.0"
+          },
+          "metrics": [
+            {
+              "name": "copilot_chat.session.count",
+              "sum": {
+                "dataPoints": [
+                  {
+                    "startTimeUnixNano": "1788112450677000000",
+                    "timeUnixNano": "1788112519423000000",
+                    "asDouble": 2
+                  }
+                ],
+                "aggregationTemporality": 2,
+                "isMonotonic": true
+              }
+            },
+            {
+              "name": "gen_ai.client.operation.duration",
+              "histogram": {
+                "dataPoints": [
+                  {
+                    "attributes": [
+                      {
+                        "key": "gen_ai.operation.name",
+                        "value": {
+                          "stringValue": "chat"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.provider.name",
+                        "value": {
+                          "stringValue": "github"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.request.model",
+                        "value": {
+                          "stringValue": "gpt-4o-mini-2024-07-18"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788112451253000000",
+                    "timeUnixNano": "1788112519423000000",
+                    "count": "3",
+                    "sum": 1.121,
+                    "bucketCounts": [
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "3",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0"
+                    ],
+                    "explicitBounds": [
+                      0.01,
+                      0.02,
+                      0.04,
+                      0.08,
+                      0.16,
+                      0.32,
+                      0.64,
+                      1.28,
+                      2.56,
+                      5.12,
+                      10.24,
+                      20.48,
+                      40.96,
+                      81.92
+                    ],
+                    "min": 0.333,
+                    "max": 0.405
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "gen_ai.operation.name",
+                        "value": {
+                          "stringValue": "chat"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.provider.name",
+                        "value": {
+                          "stringValue": "github"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.request.model",
+                        "value": {
+                          "stringValue": "gpt-5.6-luna"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788112451941000000",
+                    "timeUnixNano": "1788112519423000000",
+                    "count": "2",
+                    "sum": 2.031,
+                    "bucketCounts": [
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "2",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0"
+                    ],
+                    "explicitBounds": [
+                      0.01,
+                      0.02,
+                      0.04,
+                      0.08,
+                      0.16,
+                      0.32,
+                      0.64,
+                      1.28,
+                      2.56,
+                      5.12,
+                      10.24,
+                      20.48,
+                      40.96,
+                      81.92
+                    ],
+                    "min": 0.995,
+                    "max": 1.036
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "gen_ai.operation.name",
+                        "value": {
+                          "stringValue": "chat"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.provider.name",
+                        "value": {
+                          "stringValue": "github"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.request.model",
+                        "value": {
+                          "stringValue": "claude-haiku-4.5"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788112481156000000",
+                    "timeUnixNano": "1788112519423000000",
+                    "count": "4",
+                    "sum": 4.011,
+                    "bucketCounts": [
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "1",
+                      "2",
+                      "1",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0"
+                    ],
+                    "explicitBounds": [
+                      0.01,
+                      0.02,
+                      0.04,
+                      0.08,
+                      0.16,
+                      0.32,
+                      0.64,
+                      1.28,
+                      2.56,
+                      5.12,
+                      10.24,
+                      20.48,
+                      40.96,
+                      81.92
+                    ],
+                    "min": 0.467,
+                    "max": 1.284
+                  }
+                ],
+                "aggregationTemporality": 2
+              }
+            },
+            {
+              "name": "gen_ai.client.token.usage",
+              "histogram": {
+                "dataPoints": [
+                  {
+                    "attributes": [
+                      {
+                        "key": "gen_ai.operation.name",
+                        "value": {
+                          "stringValue": "chat"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.provider.name",
+                        "value": {
+                          "stringValue": "github"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.token.type",
+                        "value": {
+                          "stringValue": "input"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.request.model",
+                        "value": {
+                          "stringValue": "gpt-4o-mini-2024-07-18"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.response.model",
+                        "value": {
+                          "stringValue": "gpt-4o-mini-2024-07-18"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788112451594000000",
+                    "timeUnixNano": "1788112519423000000",
+                    "count": "3",
+                    "sum": 766,
+                    "bucketCounts": [
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "2",
+                      "1",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0"
+                    ],
+                    "explicitBounds": [
+                      1,
+                      4,
+                      16,
+                      64,
+                      256,
+                      1024,
+                      4096,
+                      16384,
+                      65536,
+                      262144,
+                      1048576,
+                      4194304,
+                      16777216,
+                      67108864
+                    ],
+                    "min": 253,
+                    "max": 260
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "gen_ai.operation.name",
+                        "value": {
+                          "stringValue": "chat"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.provider.name",
+                        "value": {
+                          "stringValue": "github"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.token.type",
+                        "value": {
+                          "stringValue": "output"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.request.model",
+                        "value": {
+                          "stringValue": "gpt-4o-mini-2024-07-18"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.response.model",
+                        "value": {
+                          "stringValue": "gpt-4o-mini-2024-07-18"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788112451594000000",
+                    "timeUnixNano": "1788112519423000000",
+                    "count": "3",
+                    "sum": 150,
+                    "bucketCounts": [
+                      "0",
+                      "1",
+                      "0",
+                      "0",
+                      "2",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0"
+                    ],
+                    "explicitBounds": [
+                      1,
+                      4,
+                      16,
+                      64,
+                      256,
+                      1024,
+                      4096,
+                      16384,
+                      65536,
+                      262144,
+                      1048576,
+                      4194304,
+                      16777216,
+                      67108864
+                    ],
+                    "min": 4,
+                    "max": 74
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "gen_ai.operation.name",
+                        "value": {
+                          "stringValue": "chat"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.provider.name",
+                        "value": {
+                          "stringValue": "github"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.token.type",
+                        "value": {
+                          "stringValue": "input"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.request.model",
+                        "value": {
+                          "stringValue": "gpt-5.6-luna"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.response.model",
+                        "value": {
+                          "stringValue": "gpt-5.6-luna"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788112452940000000",
+                    "timeUnixNano": "1788112519423000000",
+                    "count": "2",
+                    "sum": 30748,
+                    "bucketCounts": [
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "2",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0"
+                    ],
+                    "explicitBounds": [
+                      1,
+                      4,
+                      16,
+                      64,
+                      256,
+                      1024,
+                      4096,
+                      16384,
+                      65536,
+                      262144,
+                      1048576,
+                      4194304,
+                      16777216,
+                      67108864
+                    ],
+                    "min": 15278,
+                    "max": 15470
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "gen_ai.operation.name",
+                        "value": {
+                          "stringValue": "chat"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.provider.name",
+                        "value": {
+                          "stringValue": "github"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.token.type",
+                        "value": {
+                          "stringValue": "output"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.request.model",
+                        "value": {
+                          "stringValue": "gpt-5.6-luna"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.response.model",
+                        "value": {
+                          "stringValue": "gpt-5.6-luna"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788112452940000000",
+                    "timeUnixNano": "1788112519423000000",
+                    "count": "2",
+                    "sum": 171,
+                    "bucketCounts": [
+                      "0",
+                      "0",
+                      "0",
+                      "1",
+                      "1",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0"
+                    ],
+                    "explicitBounds": [
+                      1,
+                      4,
+                      16,
+                      64,
+                      256,
+                      1024,
+                      4096,
+                      16384,
+                      65536,
+                      262144,
+                      1048576,
+                      4194304,
+                      16777216,
+                      67108864
+                    ],
+                    "min": 61,
+                    "max": 110
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "gen_ai.operation.name",
+                        "value": {
+                          "stringValue": "chat"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.provider.name",
+                        "value": {
+                          "stringValue": "github"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.token.type",
+                        "value": {
+                          "stringValue": "input"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.request.model",
+                        "value": {
+                          "stringValue": "claude-haiku-4.5"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.response.model",
+                        "value": {
+                          "stringValue": "claude-haiku-4-5-20251001"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788112485230000000",
+                    "timeUnixNano": "1788112519423000000",
+                    "count": "3",
+                    "sum": 42968,
+                    "bucketCounts": [
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "2",
+                      "1",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0"
+                    ],
+                    "explicitBounds": [
+                      1,
+                      4,
+                      16,
+                      64,
+                      256,
+                      1024,
+                      4096,
+                      16384,
+                      65536,
+                      262144,
+                      1048576,
+                      4194304,
+                      16777216,
+                      67108864
+                    ],
+                    "min": 11782,
+                    "max": 16573
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "gen_ai.operation.name",
+                        "value": {
+                          "stringValue": "chat"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.provider.name",
+                        "value": {
+                          "stringValue": "github"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.token.type",
+                        "value": {
+                          "stringValue": "output"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.request.model",
+                        "value": {
+                          "stringValue": "claude-haiku-4.5"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.response.model",
+                        "value": {
+                          "stringValue": "claude-haiku-4-5-20251001"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788112485230000000",
+                    "timeUnixNano": "1788112519423000000",
+                    "count": "3",
+                    "sum": 1143,
+                    "bucketCounts": [
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "1",
+                      "2",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0"
+                    ],
+                    "explicitBounds": [
+                      1,
+                      4,
+                      16,
+                      64,
+                      256,
+                      1024,
+                      4096,
+                      16384,
+                      65536,
+                      262144,
+                      1048576,
+                      4194304,
+                      16777216,
+                      67108864
+                    ],
+                    "min": 225,
+                    "max": 480
+                  }
+                ],
+                "aggregationTemporality": 2
+              }
+            },
+            {
+              "name": "copilot_chat.time_to_first_token",
+              "histogram": {
+                "dataPoints": [
+                  {
+                    "attributes": [
+                      {
+                        "key": "gen_ai.request.model",
+                        "value": {
+                          "stringValue": "gpt-4o-mini-2024-07-18"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788112451594000000",
+                    "timeUnixNano": "1788112519423000000",
+                    "count": "3",
+                    "sum": 1.123,
+                    "bucketCounts": [
+                      "0",
+                      "3",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0"
+                    ],
+                    "explicitBounds": [
+                      0,
+                      5,
+                      10,
+                      25,
+                      50,
+                      75,
+                      100,
+                      250,
+                      500,
+                      750,
+                      1000,
+                      2500,
+                      5000,
+                      7500,
+                      10000
+                    ],
+                    "min": 0.333,
+                    "max": 0.406
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "gen_ai.request.model",
+                        "value": {
+                          "stringValue": "gpt-5.6-luna"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788112452940000000",
+                    "timeUnixNano": "1788112519423000000",
+                    "count": "2",
+                    "sum": 2.034,
+                    "bucketCounts": [
+                      "0",
+                      "2",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0"
+                    ],
+                    "explicitBounds": [
+                      0,
+                      5,
+                      10,
+                      25,
+                      50,
+                      75,
+                      100,
+                      250,
+                      500,
+                      750,
+                      1000,
+                      2500,
+                      5000,
+                      7500,
+                      10000
+                    ],
+                    "min": 0.997,
+                    "max": 1.037
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "gen_ai.request.model",
+                        "value": {
+                          "stringValue": "claude-haiku-4.5"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788112485230000000",
+                    "timeUnixNano": "1788112519423000000",
+                    "count": "3",
+                    "sum": 3.5490000000000004,
+                    "bucketCounts": [
+                      "0",
+                      "3",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0"
+                    ],
+                    "explicitBounds": [
+                      0,
+                      5,
+                      10,
+                      25,
+                      50,
+                      75,
+                      100,
+                      250,
+                      500,
+                      750,
+                      1000,
+                      2500,
+                      5000,
+                      7500,
+                      10000
+                    ],
+                    "min": 1.098,
+                    "max": 1.284
+                  }
+                ],
+                "aggregationTemporality": 2
+              }
+            },
+            {
+              "name": "gen_ai.client.operation.time_to_first_chunk",
+              "histogram": {
+                "dataPoints": [
+                  {
+                    "attributes": [
+                      {
+                        "key": "gen_ai.operation.name",
+                        "value": {
+                          "stringValue": "chat"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.provider.name",
+                        "value": {
+                          "stringValue": "github"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.request.model",
+                        "value": {
+                          "stringValue": "gpt-4o-mini-2024-07-18"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.response.model",
+                        "value": {
+                          "stringValue": "gpt-4o-mini-2024-07-18"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788112451594000000",
+                    "timeUnixNano": "1788112519423000000",
+                    "count": "3",
+                    "sum": 1.161,
+                    "bucketCounts": [
+                      "0",
+                      "3",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0"
+                    ],
+                    "explicitBounds": [
+                      0,
+                      5,
+                      10,
+                      25,
+                      50,
+                      75,
+                      100,
+                      250,
+                      500,
+                      750,
+                      1000,
+                      2500,
+                      5000,
+                      7500,
+                      10000
+                    ],
+                    "min": 0.37,
+                    "max": 0.406
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "gen_ai.operation.name",
+                        "value": {
+                          "stringValue": "chat"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.provider.name",
+                        "value": {
+                          "stringValue": "github"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.request.model",
+                        "value": {
+                          "stringValue": "gpt-5.6-luna"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.response.model",
+                        "value": {
+                          "stringValue": "gpt-5.6-luna"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788112452940000000",
+                    "timeUnixNano": "1788112519423000000",
+                    "count": "2",
+                    "sum": 2.831,
+                    "bucketCounts": [
+                      "0",
+                      "2",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0"
+                    ],
+                    "explicitBounds": [
+                      0,
+                      5,
+                      10,
+                      25,
+                      50,
+                      75,
+                      100,
+                      250,
+                      500,
+                      750,
+                      1000,
+                      2500,
+                      5000,
+                      7500,
+                      10000
+                    ],
+                    "min": 1.375,
+                    "max": 1.456
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "gen_ai.operation.name",
+                        "value": {
+                          "stringValue": "chat"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.provider.name",
+                        "value": {
+                          "stringValue": "github"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.request.model",
+                        "value": {
+                          "stringValue": "claude-haiku-4.5"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.response.model",
+                        "value": {
+                          "stringValue": "claude-haiku-4-5-20251001"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788112485230000000",
+                    "timeUnixNano": "1788112519423000000",
+                    "count": "3",
+                    "sum": 3.5540000000000003,
+                    "bucketCounts": [
+                      "0",
+                      "3",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0"
+                    ],
+                    "explicitBounds": [
+                      0,
+                      5,
+                      10,
+                      25,
+                      50,
+                      75,
+                      100,
+                      250,
+                      500,
+                      750,
+                      1000,
+                      2500,
+                      5000,
+                      7500,
+                      10000
+                    ],
+                    "min": 1.097,
+                    "max": 1.285
+                  }
+                ],
+                "aggregationTemporality": 2
+              }
+            },
+            {
+              "name": "gen_ai.client.operation.time_per_output_chunk",
+              "histogram": {
+                "dataPoints": [
+                  {
+                    "attributes": [
+                      {
+                        "key": "gen_ai.operation.name",
+                        "value": {
+                          "stringValue": "chat"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.provider.name",
+                        "value": {
+                          "stringValue": "github"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.request.model",
+                        "value": {
+                          "stringValue": "gpt-4o-mini-2024-07-18"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.response.model",
+                        "value": {
+                          "stringValue": "gpt-4o-mini-2024-07-18"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788112451594000000",
+                    "timeUnixNano": "1788112519423000000",
+                    "count": "144",
+                    "sum": 0.7230000000000001,
+                    "bucketCounts": [
+                      "101",
+                      "43",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0"
+                    ],
+                    "explicitBounds": [
+                      0,
+                      5,
+                      10,
+                      25,
+                      50,
+                      75,
+                      100,
+                      250,
+                      500,
+                      750,
+                      1000,
+                      2500,
+                      5000,
+                      7500,
+                      10000
+                    ],
+                    "min": 0,
+                    "max": 0.135
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "gen_ai.operation.name",
+                        "value": {
+                          "stringValue": "chat"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.provider.name",
+                        "value": {
+                          "stringValue": "github"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.request.model",
+                        "value": {
+                          "stringValue": "gpt-5.6-luna"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.response.model",
+                        "value": {
+                          "stringValue": "gpt-5.6-luna"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788112452940000000",
+                    "timeUnixNano": "1788112519423000000",
+                    "count": "146",
+                    "sum": 1.7399999999999993,
+                    "bucketCounts": [
+                      "2",
+                      "144",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0"
+                    ],
+                    "explicitBounds": [
+                      0,
+                      5,
+                      10,
+                      25,
+                      50,
+                      75,
+                      100,
+                      250,
+                      500,
+                      750,
+                      1000,
+                      2500,
+                      5000,
+                      7500,
+                      10000
+                    ],
+                    "min": 0,
+                    "max": 0.125
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "gen_ai.operation.name",
+                        "value": {
+                          "stringValue": "chat"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.provider.name",
+                        "value": {
+                          "stringValue": "github"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.request.model",
+                        "value": {
+                          "stringValue": "claude-haiku-4.5"
+                        }
+                      },
+                      {
+                        "key": "gen_ai.response.model",
+                        "value": {
+                          "stringValue": "claude-haiku-4-5-20251001"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788112485230000000",
+                    "timeUnixNano": "1788112519423000000",
+                    "count": "150",
+                    "sum": 10.617999999999997,
+                    "bucketCounts": [
+                      "64",
+                      "86",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0"
+                    ],
+                    "explicitBounds": [
+                      0,
+                      5,
+                      10,
+                      25,
+                      50,
+                      75,
+                      100,
+                      250,
+                      500,
+                      750,
+                      1000,
+                      2500,
+                      5000,
+                      7500,
+                      10000
+                    ],
+                    "min": 0,
+                    "max": 0.431
+                  }
+                ],
+                "aggregationTemporality": 2
+              }
+            },
+            {
+              "name": "copilot_chat.agent.invocation.duration",
+              "histogram": {
+                "dataPoints": [
+                  {
+                    "attributes": [
+                      {
+                        "key": "gen_ai.agent.name",
+                        "value": {
+                          "stringValue": "GitHub Copilot Chat"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788112452945000000",
+                    "timeUnixNano": "1788112519423000000",
+                    "count": "2",
+                    "sum": 21.051,
+                    "bucketCounts": [
+                      "0",
+                      "1",
+                      "0",
+                      "1",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0"
+                    ],
+                    "explicitBounds": [
+                      0,
+                      5,
+                      10,
+                      25,
+                      50,
+                      75,
+                      100,
+                      250,
+                      500,
+                      750,
+                      1000,
+                      2500,
+                      5000,
+                      7500,
+                      10000
+                    ],
+                    "min": 2.27,
+                    "max": 18.781
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "gen_ai.agent.name",
+                        "value": {
+                          "stringValue": "Explore"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788112495356000000",
+                    "timeUnixNano": "1788112519423000000",
+                    "count": "1",
+                    "sum": 15.58,
+                    "bucketCounts": [
+                      "0",
+                      "0",
+                      "0",
+                      "1",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0"
+                    ],
+                    "explicitBounds": [
+                      0,
+                      5,
+                      10,
+                      25,
+                      50,
+                      75,
+                      100,
+                      250,
+                      500,
+                      750,
+                      1000,
+                      2500,
+                      5000,
+                      7500,
+                      10000
+                    ],
+                    "min": 15.58,
+                    "max": 15.58
+                  }
+                ],
+                "aggregationTemporality": 2
+              }
+            },
+            {
+              "name": "copilot_chat.agent.turn.count",
+              "histogram": {
+                "dataPoints": [
+                  {
+                    "attributes": [
+                      {
+                        "key": "gen_ai.agent.name",
+                        "value": {
+                          "stringValue": "GitHub Copilot Chat"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788112452945000000",
+                    "timeUnixNano": "1788112519423000000",
+                    "count": "2",
+                    "sum": 2,
+                    "bucketCounts": [
+                      "0",
+                      "2",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0"
+                    ],
+                    "explicitBounds": [
+                      0,
+                      5,
+                      10,
+                      25,
+                      50,
+                      75,
+                      100,
+                      250,
+                      500,
+                      750,
+                      1000,
+                      2500,
+                      5000,
+                      7500,
+                      10000
+                    ],
+                    "min": 1,
+                    "max": 1
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "gen_ai.agent.name",
+                        "value": {
+                          "stringValue": "Explore"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788112495356000000",
+                    "timeUnixNano": "1788112519423000000",
+                    "count": "1",
+                    "sum": 3,
+                    "bucketCounts": [
+                      "0",
+                      "1",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0"
+                    ],
+                    "explicitBounds": [
+                      0,
+                      5,
+                      10,
+                      25,
+                      50,
+                      75,
+                      100,
+                      250,
+                      500,
+                      750,
+                      1000,
+                      2500,
+                      5000,
+                      7500,
+                      10000
+                    ],
+                    "min": 3,
+                    "max": 3
+                  }
+                ],
+                "aggregationTemporality": 2
+              }
+            },
+            {
+              "name": "copilot_chat.tool.call.count",
+              "sum": {
+                "dataPoints": [
+                  {
+                    "attributes": [
+                      {
+                        "key": "gen_ai.tool.name",
+                        "value": {
+                          "stringValue": "list_dir"
+                        }
+                      },
+                      {
+                        "key": "success",
+                        "value": {
+                          "boolValue": true
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788112485386000000",
+                    "timeUnixNano": "1788112519423000000",
+                    "asDouble": 2
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "gen_ai.tool.name",
+                        "value": {
+                          "stringValue": "read_file"
+                        }
+                      },
+                      {
+                        "key": "success",
+                        "value": {
+                          "boolValue": true
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788112485466000000",
+                    "timeUnixNano": "1788112519423000000",
+                    "asDouble": 6
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "gen_ai.tool.name",
+                        "value": {
+                          "stringValue": "grep_search"
+                        }
+                      },
+                      {
+                        "key": "success",
+                        "value": {
+                          "boolValue": true
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788112494872000000",
+                    "timeUnixNano": "1788112519423000000",
+                    "asDouble": 1
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "gen_ai.tool.name",
+                        "value": {
+                          "stringValue": "runSubagent"
+                        }
+                      },
+                      {
+                        "key": "success",
+                        "value": {
+                          "boolValue": true
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788112495511000000",
+                    "timeUnixNano": "1788112519423000000",
+                    "asDouble": 1
+                  }
+                ],
+                "aggregationTemporality": 2,
+                "isMonotonic": true
+              }
+            },
+            {
+              "name": "copilot_chat.tool.call.duration",
+              "histogram": {
+                "dataPoints": [
+                  {
+                    "attributes": [
+                      {
+                        "key": "gen_ai.tool.name",
+                        "value": {
+                          "stringValue": "list_dir"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788112485386000000",
+                    "timeUnixNano": "1788112519423000000",
+                    "count": "2",
+                    "sum": 147,
+                    "bucketCounts": [
+                      "0",
+                      "0",
+                      "0",
+                      "1",
+                      "0",
+                      "0",
+                      "0",
+                      "1",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0"
+                    ],
+                    "explicitBounds": [
+                      0,
+                      5,
+                      10,
+                      25,
+                      50,
+                      75,
+                      100,
+                      250,
+                      500,
+                      750,
+                      1000,
+                      2500,
+                      5000,
+                      7500,
+                      10000
+                    ],
+                    "min": 13,
+                    "max": 134
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "gen_ai.tool.name",
+                        "value": {
+                          "stringValue": "read_file"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788112485466000000",
+                    "timeUnixNano": "1788112519423000000",
+                    "count": "6",
+                    "sum": 1181,
+                    "bucketCounts": [
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "6",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0"
+                    ],
+                    "explicitBounds": [
+                      0,
+                      5,
+                      10,
+                      25,
+                      50,
+                      75,
+                      100,
+                      250,
+                      500,
+                      750,
+                      1000,
+                      2500,
+                      5000,
+                      7500,
+                      10000
+                    ],
+                    "min": 173,
+                    "max": 233
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "gen_ai.tool.name",
+                        "value": {
+                          "stringValue": "grep_search"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788112494872000000",
+                    "timeUnixNano": "1788112519423000000",
+                    "count": "1",
+                    "sum": 247,
+                    "bucketCounts": [
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "1",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0"
+                    ],
+                    "explicitBounds": [
+                      0,
+                      5,
+                      10,
+                      25,
+                      50,
+                      75,
+                      100,
+                      250,
+                      500,
+                      750,
+                      1000,
+                      2500,
+                      5000,
+                      7500,
+                      10000
+                    ],
+                    "min": 247,
+                    "max": 247
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "gen_ai.tool.name",
+                        "value": {
+                          "stringValue": "runSubagent"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788112495511000000",
+                    "timeUnixNano": "1788112519423000000",
+                    "count": "1",
+                    "sum": 15782,
+                    "bucketCounts": [
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "1"
+                    ],
+                    "explicitBounds": [
+                      0,
+                      5,
+                      10,
+                      25,
+                      50,
+                      75,
+                      100,
+                      250,
+                      500,
+                      750,
+                      1000,
+                      2500,
+                      5000,
+                      7500,
+                      10000
+                    ],
+                    "min": 15782,
+                    "max": 15782
+                  }
+                ],
+                "aggregationTemporality": 2
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

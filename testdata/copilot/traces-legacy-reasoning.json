@@ -1,0 +1,429 @@
+{
+  "resourceSpans": [
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "service.name",
+            "value": {
+              "stringValue": "copilot-chat"
+            }
+          },
+          {
+            "key": "service.version",
+            "value": {
+              "stringValue": "0.63.0"
+            }
+          },
+          {
+            "key": "session.id",
+            "value": {
+              "stringValue": "93668ce0-e5c4-486f-a17f-bc24f3b8c96e1788112426754"
+            }
+          }
+        ]
+      },
+      "scopeSpans": [
+        {
+          "scope": {
+            "name": "copilot-chat",
+            "version": "0.63.0"
+          },
+          "spans": [
+            {
+              "traceId": "e1a44be37a0a3dcccbfc70a07e2fc79f",
+              "spanId": "af46879ca61f7b65",
+              "parentSpanId": "03f64ade2bc916de",
+              "flags": 257,
+              "name": "chat claude-haiku-4.5",
+              "kind": 3,
+              "startTimeUnixNano": "1788112536168000000",
+              "endTimeUnixNano": "1788112539216878230",
+              "attributes": [
+                {
+                  "key": "gen_ai.operation.name",
+                  "value": {
+                    "stringValue": "chat"
+                  }
+                },
+                {
+                  "key": "gen_ai.provider.name",
+                  "value": {
+                    "stringValue": "github"
+                  }
+                },
+                {
+                  "key": "gen_ai.request.model",
+                  "value": {
+                    "stringValue": "claude-haiku-4.5"
+                  }
+                },
+                {
+                  "key": "gen_ai.conversation.id",
+                  "value": {
+                    "stringValue": "d1b30fef-089e-481b-b33a-e619c6f59ec1"
+                  }
+                },
+                {
+                  "key": "gen_ai.request.max_tokens",
+                  "value": {
+                    "intValue": "64000"
+                  }
+                },
+                {
+                  "key": "copilot_chat.request.max_prompt_tokens",
+                  "value": {
+                    "intValue": "135997"
+                  }
+                },
+                {
+                  "key": "copilot_chat.session_id",
+                  "value": {
+                    "stringValue": "d1b30fef-089e-481b-b33a-e619c6f59ec1"
+                  }
+                },
+                {
+                  "key": "copilot_chat.chat_session_id",
+                  "value": {
+                    "stringValue": "call_z2PY7oiQ1vbmsXNOEUDkYwNw"
+                  }
+                },
+                {
+                  "key": "copilot_chat.parent_chat_session_id",
+                  "value": {
+                    "stringValue": "d1b30fef-089e-481b-b33a-e619c6f59ec1"
+                  }
+                },
+                {
+                  "key": "copilot_chat.debug_log_label",
+                  "value": {
+                    "stringValue": "runSubagent-Explore"
+                  }
+                },
+                {
+                  "key": "gen_ai.agent.name",
+                  "value": {
+                    "stringValue": "tool/runSubagent-Explore"
+                  }
+                },
+                {
+                  "key": "copilot_chat.user_request",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "gen_ai.system_instructions",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "gen_ai.input.messages",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.definitions",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "copilot_chat.request.options",
+                  "value": {
+                    "stringValue": "{\"thinking\":{\"type\":\"enabled\",\"budget_tokens\":16000},\"stream\":true}"
+                  }
+                },
+                {
+                  "key": "copilot_chat.request.shape",
+                  "value": {
+                    "stringValue": "{\"api\":\"messages\",\"messageCount\":5}"
+                  }
+                },
+                {
+                  "key": "gen_ai.usage.input_tokens",
+                  "value": {
+                    "intValue": "17560"
+                  }
+                },
+                {
+                  "key": "gen_ai.usage.output_tokens",
+                  "value": {
+                    "intValue": "238"
+                  }
+                },
+                {
+                  "key": "gen_ai.response.model",
+                  "value": {
+                    "stringValue": "claude-haiku-4-5-20251001"
+                  }
+                },
+                {
+                  "key": "gen_ai.response.id",
+                  "value": {
+                    "stringValue": "54635df6-6ccf-43d7-98a0-0362c404027d"
+                  }
+                },
+                {
+                  "key": "gen_ai.response.finish_reasons",
+                  "value": {
+                    "arrayValue": {
+                      "values": [
+                        {
+                          "stringValue": "stop"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "key": "gen_ai.usage.cache_read.input_tokens",
+                  "value": {
+                    "intValue": "14752"
+                  }
+                },
+                {
+                  "key": "gen_ai.usage.cache_creation.input_tokens",
+                  "value": {
+                    "intValue": "2794"
+                  }
+                },
+                {
+                  "key": "copilot_chat.time_to_first_token",
+                  "value": {
+                    "intValue": "1027"
+                  }
+                },
+                {
+                  "key": "gen_ai.request.stream",
+                  "value": {
+                    "boolValue": true
+                  }
+                },
+                {
+                  "key": "gen_ai.response.time_to_first_chunk",
+                  "value": {
+                    "doubleValue": 1.026
+                  }
+                },
+                {
+                  "key": "copilot_chat.server_request_id",
+                  "value": {
+                    "stringValue": "54635df6-6ccf-43d7-98a0-0362c404027d"
+                  }
+                },
+                {
+                  "key": "gen_ai.usage.reasoning_tokens",
+                  "value": {
+                    "intValue": "40"
+                  }
+                },
+                {
+                  "key": "gen_ai.usage.reasoning.output_tokens",
+                  "value": {
+                    "intValue": "40"
+                  }
+                },
+                {
+                  "key": "copilot_chat.copilot_usage_nano_aiu",
+                  "value": {
+                    "intValue": "617170000"
+                  }
+                },
+                {
+                  "key": "gen_ai.output.messages",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "copilot_chat.reasoning_content",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                }
+              ],
+              "status": {}
+            },
+            {
+              "traceId": "e1a44be37a0a3dcccbfc70a07e2fc79f",
+              "spanId": "e3aff5fd668456f8",
+              "parentSpanId": "03f64ade2bc916de",
+              "flags": 769,
+              "name": "execute_tool read_file",
+              "kind": 1,
+              "startTimeUnixNano": "1788112539289000000",
+              "endTimeUnixNano": "1788112539346983185",
+              "attributes": [
+                {
+                  "key": "gen_ai.operation.name",
+                  "value": {
+                    "stringValue": "execute_tool"
+                  }
+                },
+                {
+                  "key": "gen_ai.conversation.id",
+                  "value": {
+                    "stringValue": "call_z2PY7oiQ1vbmsXNOEUDkYwNw"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.name",
+                  "value": {
+                    "stringValue": "read_file"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.type",
+                  "value": {
+                    "stringValue": "function"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.call.id",
+                  "value": {
+                    "stringValue": "toolu_01FYeZDEk8mFb3yczRDbkyX7"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.description",
+                  "value": {
+                    "stringValue": "Read the contents of a file.\n\nYou must specify the line range you're interested in. Line numbers are 1-indexed. If the file contents returned are insufficient for your task, you may call this tool again to retrieve more content. Prefer reading larger ranges over doing many small reads. Binary files use startLine/endLine as byte offsets."
+                  }
+                },
+                {
+                  "key": "copilot_chat.session_id",
+                  "value": {
+                    "stringValue": "call_z2PY7oiQ1vbmsXNOEUDkYwNw"
+                  }
+                },
+                {
+                  "key": "copilot_chat.chat_session_id",
+                  "value": {
+                    "stringValue": "call_z2PY7oiQ1vbmsXNOEUDkYwNw"
+                  }
+                },
+                {
+                  "key": "copilot_chat.parent_chat_session_id",
+                  "value": {
+                    "stringValue": "d1b30fef-089e-481b-b33a-e619c6f59ec1"
+                  }
+                },
+                {
+                  "key": "copilot_chat.debug_log_label",
+                  "value": {
+                    "stringValue": "runSubagent-Explore"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.call.arguments",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.call.result",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                }
+              ],
+              "status": {
+                "code": 1
+              }
+            },
+            {
+              "traceId": "e1a44be37a0a3dcccbfc70a07e2fc79f",
+              "spanId": "7cf3cff3dabe1981",
+              "parentSpanId": "03f64ade2bc916de",
+              "flags": 769,
+              "name": "execute_tool read_file",
+              "kind": 1,
+              "startTimeUnixNano": "1788112539290000000",
+              "endTimeUnixNano": "1788112539347957496",
+              "attributes": [
+                {
+                  "key": "gen_ai.operation.name",
+                  "value": {
+                    "stringValue": "execute_tool"
+                  }
+                },
+                {
+                  "key": "gen_ai.conversation.id",
+                  "value": {
+                    "stringValue": "call_z2PY7oiQ1vbmsXNOEUDkYwNw"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.name",
+                  "value": {
+                    "stringValue": "read_file"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.type",
+                  "value": {
+                    "stringValue": "function"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.call.id",
+                  "value": {
+                    "stringValue": "toolu_01UVWcjBo18ZeZKXYrChZ2dL"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.description",
+                  "value": {
+                    "stringValue": "Read the contents of a file.\n\nYou must specify the line range you're interested in. Line numbers are 1-indexed. If the file contents returned are insufficient for your task, you may call this tool again to retrieve more content. Prefer reading larger ranges over doing many small reads. Binary files use startLine/endLine as byte offsets."
+                  }
+                },
+                {
+                  "key": "copilot_chat.session_id",
+                  "value": {
+                    "stringValue": "call_z2PY7oiQ1vbmsXNOEUDkYwNw"
+                  }
+                },
+                {
+                  "key": "copilot_chat.chat_session_id",
+                  "value": {
+                    "stringValue": "call_z2PY7oiQ1vbmsXNOEUDkYwNw"
+                  }
+                },
+                {
+                  "key": "copilot_chat.parent_chat_session_id",
+                  "value": {
+                    "stringValue": "d1b30fef-089e-481b-b33a-e619c6f59ec1"
+                  }
+                },
+                {
+                  "key": "copilot_chat.debug_log_label",
+                  "value": {
+                    "stringValue": "runSubagent-Explore"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.call.arguments",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.call.result",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                }
+              ],
+              "status": {
+                "code": 1
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

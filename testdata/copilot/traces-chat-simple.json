@@ -1,0 +1,399 @@
+{
+  "resourceSpans": [
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "service.name",
+            "value": {
+              "stringValue": "copilot-chat"
+            }
+          },
+          {
+            "key": "service.version",
+            "value": {
+              "stringValue": "0.63.0"
+            }
+          },
+          {
+            "key": "session.id",
+            "value": {
+              "stringValue": "93668ce0-e5c4-486f-a17f-bc24f3b8c96e1788112426754"
+            }
+          }
+        ]
+      },
+      "scopeSpans": [
+        {
+          "scope": {
+            "name": "copilot-chat",
+            "version": "0.63.0"
+          },
+          "spans": [
+            {
+              "traceId": "513f6ee14cafef0feeab5be6e1532686",
+              "spanId": "bbfb3e1c9a58ecbf",
+              "flags": 257,
+              "name": "chat gpt-4o-mini-2024-07-18",
+              "kind": 3,
+              "startTimeUnixNano": "1788112523281000000",
+              "endTimeUnixNano": "1788112523866146147",
+              "attributes": [
+                {
+                  "key": "gen_ai.operation.name",
+                  "value": {
+                    "stringValue": "chat"
+                  }
+                },
+                {
+                  "key": "gen_ai.provider.name",
+                  "value": {
+                    "stringValue": "github"
+                  }
+                },
+                {
+                  "key": "gen_ai.request.model",
+                  "value": {
+                    "stringValue": "gpt-4o-mini-2024-07-18"
+                  }
+                },
+                {
+                  "key": "gen_ai.request.max_tokens",
+                  "value": {
+                    "intValue": "4096"
+                  }
+                },
+                {
+                  "key": "gen_ai.request.temperature",
+                  "value": {
+                    "doubleValue": 0.1
+                  }
+                },
+                {
+                  "key": "gen_ai.request.top_p",
+                  "value": {
+                    "intValue": "1"
+                  }
+                },
+                {
+                  "key": "copilot_chat.request.max_prompt_tokens",
+                  "value": {
+                    "intValue": "12285"
+                  }
+                },
+                {
+                  "key": "copilot_chat.parent_chat_session_id",
+                  "value": {
+                    "stringValue": "d1b30fef-089e-481b-b33a-e619c6f59ec1"
+                  }
+                },
+                {
+                  "key": "copilot_chat.debug_log_label",
+                  "value": {
+                    "stringValue": "title"
+                  }
+                },
+                {
+                  "key": "gen_ai.agent.name",
+                  "value": {
+                    "stringValue": "title"
+                  }
+                },
+                {
+                  "key": "copilot_chat.user_request",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "gen_ai.system_instructions",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "gen_ai.input.messages",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "copilot_chat.request.options",
+                  "value": {
+                    "stringValue": "{\"stream\":true}"
+                  }
+                },
+                {
+                  "key": "copilot_chat.request.shape",
+                  "value": {
+                    "stringValue": "{\"api\":\"messages\",\"messageCount\":2}"
+                  }
+                },
+                {
+                  "key": "gen_ai.usage.input_tokens",
+                  "value": {
+                    "intValue": "260"
+                  }
+                },
+                {
+                  "key": "gen_ai.usage.output_tokens",
+                  "value": {
+                    "intValue": "4"
+                  }
+                },
+                {
+                  "key": "gen_ai.response.model",
+                  "value": {
+                    "stringValue": "gpt-4o-mini-2024-07-18"
+                  }
+                },
+                {
+                  "key": "gen_ai.response.id",
+                  "value": {
+                    "stringValue": "5f06cd87-2b1c-4703-bd58-adcb9b6118b2"
+                  }
+                },
+                {
+                  "key": "gen_ai.response.finish_reasons",
+                  "value": {
+                    "arrayValue": {
+                      "values": [
+                        {
+                          "stringValue": "stop"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "key": "gen_ai.usage.cache_read.input_tokens",
+                  "value": {
+                    "intValue": "0"
+                  }
+                },
+                {
+                  "key": "copilot_chat.time_to_first_token",
+                  "value": {
+                    "intValue": "515"
+                  }
+                },
+                {
+                  "key": "gen_ai.request.stream",
+                  "value": {
+                    "boolValue": true
+                  }
+                },
+                {
+                  "key": "gen_ai.response.time_to_first_chunk",
+                  "value": {
+                    "doubleValue": 0.517
+                  }
+                },
+                {
+                  "key": "copilot_chat.server_request_id",
+                  "value": {
+                    "stringValue": "5f06cd87-2b1c-4703-bd58-adcb9b6118b2"
+                  }
+                },
+                {
+                  "key": "copilot_chat.copilot_usage_nano_aiu",
+                  "value": {
+                    "intValue": "0"
+                  }
+                },
+                {
+                  "key": "gen_ai.output.messages",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                }
+              ],
+              "status": {}
+            },
+            {
+              "traceId": "e1a44be37a0a3dcccbfc70a07e2fc79f",
+              "spanId": "4cd74e2873537318",
+              "parentSpanId": "6de44ea47d8e862e",
+              "flags": 257,
+              "name": "chat gpt-5.6-luna",
+              "kind": 3,
+              "startTimeUnixNano": "1788112523561000000",
+              "endTimeUnixNano": "1788112526024137079",
+              "attributes": [
+                {
+                  "key": "gen_ai.operation.name",
+                  "value": {
+                    "stringValue": "chat"
+                  }
+                },
+                {
+                  "key": "gen_ai.provider.name",
+                  "value": {
+                    "stringValue": "github"
+                  }
+                },
+                {
+                  "key": "gen_ai.request.model",
+                  "value": {
+                    "stringValue": "gpt-5.6-luna"
+                  }
+                },
+                {
+                  "key": "gen_ai.conversation.id",
+                  "value": {
+                    "stringValue": "d1b30fef-089e-481b-b33a-e619c6f59ec1"
+                  }
+                },
+                {
+                  "key": "gen_ai.request.max_tokens",
+                  "value": {
+                    "intValue": "128000"
+                  }
+                },
+                {
+                  "key": "copilot_chat.request.max_prompt_tokens",
+                  "value": {
+                    "intValue": "200000"
+                  }
+                },
+                {
+                  "key": "copilot_chat.session_id",
+                  "value": {
+                    "stringValue": "d1b30fef-089e-481b-b33a-e619c6f59ec1"
+                  }
+                },
+                {
+                  "key": "copilot_chat.chat_session_id",
+                  "value": {
+                    "stringValue": "d1b30fef-089e-481b-b33a-e619c6f59ec1"
+                  }
+                },
+                {
+                  "key": "gen_ai.agent.name",
+                  "value": {
+                    "stringValue": "panel/editAgent"
+                  }
+                },
+                {
+                  "key": "copilot_chat.user_request",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "gen_ai.system_instructions",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "gen_ai.input.messages",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.definitions",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "copilot_chat.request.options",
+                  "value": {
+                    "stringValue": "{\"reasoning\":{\"effort\":\"none\"},\"text\":{\"verbosity\":\"low\"},\"truncation\":\"disabled\",\"store\":false,\"stream\":true,\"include\":[\"reasoning.encrypted_content\"]}"
+                  }
+                },
+                {
+                  "key": "copilot_chat.request.shape",
+                  "value": {
+                    "stringValue": "{\"api\":\"responses\",\"inputItemCount\":3,\"inputItemTypes\":[\"message\",\"message\",\"message\"]}"
+                  }
+                },
+                {
+                  "key": "gen_ai.usage.input_tokens",
+                  "value": {
+                    "intValue": "15299"
+                  }
+                },
+                {
+                  "key": "gen_ai.usage.output_tokens",
+                  "value": {
+                    "intValue": "116"
+                  }
+                },
+                {
+                  "key": "gen_ai.response.model",
+                  "value": {
+                    "stringValue": "gpt-5.6-luna"
+                  }
+                },
+                {
+                  "key": "gen_ai.response.id",
+                  "value": {
+                    "stringValue": "0153838b-9869-40ef-8610-6691335efc4a"
+                  }
+                },
+                {
+                  "key": "gen_ai.response.finish_reasons",
+                  "value": {
+                    "arrayValue": {
+                      "values": [
+                        {
+                          "stringValue": "stop"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "key": "gen_ai.usage.cache_read.input_tokens",
+                  "value": {
+                    "intValue": "0"
+                  }
+                },
+                {
+                  "key": "copilot_chat.time_to_first_token",
+                  "value": {
+                    "intValue": "1010"
+                  }
+                },
+                {
+                  "key": "gen_ai.request.stream",
+                  "value": {
+                    "boolValue": true
+                  }
+                },
+                {
+                  "key": "gen_ai.response.time_to_first_chunk",
+                  "value": {
+                    "doubleValue": 1.495
+                  }
+                },
+                {
+                  "key": "copilot_chat.server_request_id",
+                  "value": {
+                    "stringValue": "0153838b-9869-40ef-8610-6691335efc4a"
+                  }
+                },
+                {
+                  "key": "copilot_chat.copilot_usage_nano_aiu",
+                  "value": {
+                    "intValue": "396380000"
+                  }
+                },
+                {
+                  "key": "gen_ai.output.messages",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                }
+              ],
+              "status": {}
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

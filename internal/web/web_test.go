@@ -13,7 +13,7 @@ const fullRangeQuery = "from=2024-01-01&to=2026-04-01"
 
 func newServer(t *testing.T) *httptest.Server {
 	t.Helper()
-	return httptest.NewServer(New(seedtest.DB(t)))
+	return httptest.NewServer(New(seedtest.DB(t), "test"))
 }
 
 func get(t *testing.T, url string) (int, string) {
@@ -78,6 +78,16 @@ func TestDashboardPageRenders(t *testing.T) {
 	)
 	// Cost is not on the dashboard cards — only in the detail expansion.
 	wantNotContains(t, body, "$2.8500", "Usage over time")
+}
+
+func TestFooterShowsVersion(t *testing.T) {
+	srv := newServer(t)
+	defer srv.Close()
+	status, body := get(t, srv.URL+"/")
+	if status != http.StatusOK {
+		t.Fatalf("status %d", status)
+	}
+	wantContains(t, body, "All timestamps are UTC. · vtest")
 }
 
 func TestPeriodDetailFragmentHasCost(t *testing.T) {

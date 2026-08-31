@@ -23,12 +23,9 @@ func NewWithAuth(db *sql.DB, logger *slog.Logger, stats StatsFunc, version strin
 	if logger == nil {
 		logger = slog.Default()
 	}
-	if version == "" {
-		version = "dev"
-	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "version": version})
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 	mux.HandleFunc("GET /ready", func(w http.ResponseWriter, r *http.Request) {
 		if err := db.PingContext(r.Context()); err != nil {
@@ -39,9 +36,9 @@ func NewWithAuth(db *sql.DB, logger *slog.Logger, stats StatsFunc, version strin
 	})
 	mux.Handle("/api/", apiRoutes(db, stats, logger))
 	if dash != nil {
-		mux.Handle("/", web.NewAuthed(db, dash))
+		mux.Handle("/", web.NewAuthed(db, dash, version))
 	} else {
-		mux.Handle("/", web.New(db))
+		mux.Handle("/", web.New(db, version))
 	}
 	h := accessLog(logger, mux)
 	if dash != nil {

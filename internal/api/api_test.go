@@ -34,17 +34,13 @@ func TestHealthAndReady(t *testing.T) {
 		t.Errorf("health status = %d, want 200", resp.StatusCode)
 	}
 	var health struct {
-		Status  string `json:"status"`
-		Version string `json:"version"`
+		Status string `json:"status"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&health); err != nil {
 		t.Fatal(err)
 	}
 	if health.Status != "ok" {
 		t.Errorf("health status field = %q, want ok", health.Status)
-	}
-	if health.Version != "test" {
-		t.Errorf("health version = %q, want test", health.Version)
 	}
 
 	resp, err = http.Get(srv.URL + "/ready")

@@ -33,19 +33,23 @@ var staticFS = func() fs.FS {
 
 // New returns the dashboard UI routes (pages, fragments, static assets).
 // Templates are parsed once at package init from the embedded FS.
-func New(db *sql.DB) http.Handler {
-	return newMux(db, nil)
+// An empty version renders as "dev".
+func New(db *sql.DB, version string) http.Handler {
+	return newMux(db, nil, version)
 }
 
 // NewAuthed adds the login/logout routes and applies the dashboard
 // guard to every UI route; api.NewWithAuth additionally wraps the whole
 // dashboard port so /api/* is protected as well.
-func NewAuthed(db *sql.DB, dash *auth.Dashboard) http.Handler {
-	return dash.Middleware(newMux(db, dash))
+func NewAuthed(db *sql.DB, dash *auth.Dashboard, version string) http.Handler {
+	return dash.Middleware(newMux(db, dash, version))
 }
 
-func newMux(db *sql.DB, dash *auth.Dashboard) http.Handler {
-	s := &server{db: db, dash: dash, limiter: newLoginLimiter()}
+func newMux(db *sql.DB, dash *auth.Dashboard, version string) http.Handler {
+	if version == "" {
+		version = "dev"
+	}
+	s := &server{db: db, dash: dash, limiter: newLoginLimiter(), version: version}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", s.dashboard)
 	mux.HandleFunc("GET /trends", s.trends)
@@ -84,6 +88,7 @@ type server struct {
 	db      *sql.DB
 	dash    *auth.Dashboard
 	limiter *loginLimiter
+	version string
 }
 
 // pageData is the single view model passed to every template set; each
@@ -92,6 +97,7 @@ type pageData struct {
 	Title       string
 	Active      string
 	ShowLogout  bool
+	Version     string
 	Error       string
 	F           filterView
 	Cards       []cardView
@@ -690,12 +696,14 @@ func toAny(v []int64) []any {
 
 func (s *server) render(w http.ResponseWriter, name string, d *pageData) {
 	d.ShowLogout = s.dash != nil
+	d.Version = s.version
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_ = pageTmpls[name].ExecuteTemplate(w, "layout", d)
 }
 
 func (s *server) renderFrag(w http.ResponseWriter, name string, d *pageData) {
 	d.ShowLogout = s.dash != nil
+	d.Version = s.version
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_ = fragTmpls[name].ExecuteTemplate(w, name, d)
 }

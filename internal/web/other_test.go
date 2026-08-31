@@ -52,5 +52,5 @@ func TestSessionsOtherGroupsPerDay(t *testing.T) {
 // newServerFromDB is newServer with a custom seed.
 func newServerFromDB(t *testing.T, db *sql.DB) *httptest.Server {
 	t.Helper()
-	return httptest.NewServer(New(db))
+	return httptest.NewServer(New(db, "test"))
 }

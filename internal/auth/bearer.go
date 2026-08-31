@@ -21,7 +21,7 @@ func Bearer(logger *slog.Logger, token string, next http.Handler) http.Handler {
 			return
 		}
 		logger.Warn("request rejected", "reason", "missing or invalid bearer token", "path", r.URL.Path)
-		w.Header().Set("WWW-Authenticate", `Bearer realm="ai-usage"`)
+		w.Header().Set("WWW-Authenticate", `Bearer realm="restricted"`)
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 	})
 }

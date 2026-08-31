@@ -133,7 +133,7 @@ func TestLoginBadCredentials(t *testing.T) {
 		}
 	}
 	_, body, _ := do(t, srv, "GET", "/login", "", nil)
-	wantContains(t, body, "AI Usage")
+	wantContains(t, body, "Sign in")
 }
 
 func TestLoginLogoutFlow(t *testing.T) {

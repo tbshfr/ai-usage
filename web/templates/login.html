@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{{.Title}} · AI Usage</title>
+<title>{{.Title}}</title>
 <link rel="stylesheet" href="/static/app.css">
 <style>
 .login-wrap { max-width: 22rem; margin: 6rem auto 0; }
@@ -18,7 +18,7 @@
 <body>
 <main class="login-wrap">
   <div class="login-card">
-    <h1>AI Usage</h1>
+    <h1>Sign in</h1>
     {{with .Error}}<p class="login-error">{{.}}</p>{{end}}
     <form method="post" action="/login">
       <label for="username">Username</label>

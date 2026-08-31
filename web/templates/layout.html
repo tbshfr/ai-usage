@@ -1,0 +1,25 @@
+{{define "layout"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.Title}} · AI Usage</title>
+<link rel="stylesheet" href="/static/vendor/uplot.min.css">
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="/">AI Usage</a>
+  <nav>
+    <a href="/"{{if eq .Active "overview"}} class="active"{{end}}>Overview</a>
+    <a href="/breakdowns"{{if eq .Active "breakdowns"}} class="active"{{end}}>Breakdowns</a>
+    <a href="/generations"{{if eq .Active "recent"}} class="active"{{end}}>Recent</a>
+  </nav>
+</header>
+<main>{{template "content" .}}</main>
+<footer class="muted">All timestamps are UTC.</footer>
+<script src="/static/vendor/htmx.min.js"></script>
+<script src="/static/vendor/uplot.min.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>{{end}}

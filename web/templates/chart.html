@@ -1,0 +1,18 @@
+{{define "timeseries"}}
+<div class="chart-head">
+  <h2>Usage over time <span class="muted">(UTC {{.Chart.Bucket}} buckets)</span></h2>
+  <select name="bucket" aria-label="Granularity"
+          hx-get="/fragments/timeseries" hx-target="#timeseries"
+          hx-include="[name=bucket], #filter-bar">
+    <option value="day"{{if eq .Chart.Bucket "day"}} selected{{end}}>Day</option>
+    <option value="week"{{if eq .Chart.Bucket "week"}} selected{{end}}>Week</option>
+    <option value="month"{{if eq .Chart.Bucket "month"}} selected{{end}}>Month</option>
+  </select>
+</div>
+{{if .Chart.HasData}}
+<div id="chart" class="chart"></div>
+<script>renderTokenChart('chart', {{toJSON .Chart.Data}});</script>
+{{else}}
+<p class="muted">No usage in this range.</p>
+{{end}}
+{{end}}

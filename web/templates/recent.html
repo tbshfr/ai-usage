@@ -1,0 +1,6 @@
+{{define "content"}}
+{{template "filterbar" .}}
+<div id="recent-rows" hx-get="/fragments/recent-rows" hx-trigger="change from:#filter-bar" hx-include="#filter-bar">
+{{template "recent-rows" .}}
+</div>
+{{end}}

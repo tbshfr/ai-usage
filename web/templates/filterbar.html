@@ -1,0 +1,20 @@
+{{define "filterbar"}}
+<form id="filter-bar" method="get" action="{{.F.Action}}" class="filterbar">
+  <span class="presets">
+    {{range .F.Presets}}<a href="{{.URL}}"{{if .Active}} class="active"{{end}}>{{.Label}}</a>{{end}}
+  </span>
+  <select name="source" aria-label="Source">
+    <option value="">All sources</option>
+    {{range .F.Sources}}<option value="{{.}}"{{if eq . $.F.Selected.Source}} selected{{end}}>{{friendlySource .}}</option>{{end}}
+  </select>
+  <select name="provider" aria-label="Provider">
+    <option value="">All providers</option>
+    {{range .F.Providers}}<option value="{{.}}"{{if eq . $.F.Selected.Provider}} selected{{end}}>{{.}}</option>{{end}}
+  </select>
+  <select name="model" aria-label="Model">
+    <option value="">All models</option>
+    {{range .F.Models}}<option value="{{.}}"{{if eq . $.F.Selected.Model}} selected{{end}}>{{.}}</option>{{end}}
+  </select>
+  <noscript><button type="submit">Apply</button></noscript>
+</form>
+{{end}}

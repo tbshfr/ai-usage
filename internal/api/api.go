@@ -6,6 +6,8 @@ import (
 	"log/slog"
 	"net/http"
 	"time"
+
+	"github.com/tbshfr/ai-usage/internal/web"
 )
 
 // New returns the dashboard-port HTTP handler: liveness/readiness probes plus
@@ -26,6 +28,7 @@ func New(db *sql.DB, logger *slog.Logger, stats StatsFunc) http.Handler {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ready"})
 	})
 	mux.Handle("/api/", apiRoutes(db, stats))
+	mux.Handle("/", web.New(db))
 	return accessLog(logger, mux)
 }
 

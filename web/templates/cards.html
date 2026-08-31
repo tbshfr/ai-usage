@@ -1,0 +1,18 @@
+{{define "overview-cards"}}
+<div class="cards">
+  {{range .Cards}}
+  <div class="card">
+    <h3>{{.Label}}</h3>
+    <dl>
+      <dt>Requests</dt><dd>{{commas .S.Requests}}</dd>
+      <dt>Input</dt><dd>{{tokens .S.InputTokens}}</dd>
+      <dt>Output</dt><dd>{{tokens .S.OutputTokens}}</dd>
+      <dt>Cache read</dt><dd>{{tokens .S.CacheReadTokens}}</dd>
+      <dt>Cache creation</dt><dd>{{tokens .S.CacheCreationTokens}}</dd>
+      <dt>Reasoning</dt><dd>{{tokens .S.ReasoningTokens}}</dd>
+    </dl>
+    <p class="cost">{{costLine .S.CostKnownCount .S.CostUnknownCount .S.CostTotal}}</p>
+  </div>
+  {{end}}
+</div>
+{{end}}

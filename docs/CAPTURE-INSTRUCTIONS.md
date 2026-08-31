@@ -1,75 +1,110 @@
-# Telemetry capture instructions (Phase 1)
+# Telemetry capture instructions (fixture refresh)
 
-This walks you through generating real telemetry from OpenCode and VS Code
-Copilot into the Phase 1 capture harness. The captured data becomes the
-sanitized fixtures that later phases build against.
+This is the single source of truth for refreshing the sanitized fixtures
+under `testdata/opencode/` and `testdata/copilot/`. Run it when a source
+tool or plugin changes its telemetry.
 
-## 1. Start the capture harness
+The current app does not persist raw payloads, so capture into a small
+throwaway receiver first, then sanitize. **Never commit unsanitized
+captures.**
 
-```bash
-go build -o ai-usage ./cmd/ai-usage
-./ai-usage --dump-dir /tmp/ai-usage-capture/opencode
-```
+## 1. Capture raw OTLP
 
-It listens on `:4318` (OTLP/HTTP). Every received batch is written unchanged to
-the dump directory plus an `index.jsonl` summary.
+Create a throwaway capture receiver in a scratch directory (outside this
+repo) and run it:
 
-## 2. OpenCode
+```go
+// main.go — minimal OTLP/HTTP capture receiver; module with
+// go.opentelemetry.io/collector/pdata and the standard library only.
+package main
 
-Add the OTel plugin to `~/.config/opencode/opencode.json`:
+import (
+	"fmt"
+	"go.opentelemetry.io/collector/pdata/plog"
+	"go.opentelemetry.io/collector/pdata/pmetric"
+	"go.opentelemetry.io/collector/pdata/ptrace"
+	"io"
+	"net/http"
+	"os"
+)
 
-```jsonc
-{
-  "plugin": [["@devtheops/opencode-plugin-otel", {
-    "enabled": true,
-    "endpoint": "http://localhost:4318",
-    "protocol": "http/protobuf"
-  }]]
+func main() {
+	for _, route := range []struct {
+		path string
+		kind string
+	}{{"/v1/traces", "traces"}, {"/v1/metrics", "metrics"}, {"/v1/logs", "logs"}} {
+		kind := route.kind
+		http.HandleFunc(route.path, func(w http.ResponseWriter, r *http.Request) {
+			body, _ := io.ReadAll(r.Body)
+			name := fmt.Sprintf("%s/%s-%d.%s", os.Args[1], kind, len(body), encoding(r))
+			os.WriteFile(name, body, 0o600)
+			w.WriteHeader(200)
+		})
+	}
+	http.ListenAndServe("127.0.0.1:4318", nil)
+}
+
+func encoding(r *http.Request) string {
+	if r.Header.Get("Content-Type") == "application/json" {
+		return "json"
+	}
+	return "pb"
 }
 ```
 
-Env-var alternative: `OPENCODE_ENABLE_TELEMETRY=1`,
-`OPENCODE_OTLP_ENDPOINT=http://localhost:4318`,
-`OPENCODE_OTLP_PROTOCOL=http/protobuf`.
+```bash
+mkdir -p /tmp/ai-usage-capture/opencode /tmp/ai-usage-capture/copilot
+go mod init capture && go mod tidy && go run . /tmp/ai-usage-capture
+```
 
-Prompts are NOT captured unless `OPENCODE_CAPTURE_PROMPT_IN_LOGS` is set —
-leave it unset.
+## 2. OpenCode
 
-Run the harness with `--dump-dir /tmp/ai-usage-capture/opencode` and use
-opencode normally:
+Configure the plugin to point at the capture receiver (see
+[`source-setup.md`](source-setup.md) for the full config) and use OpenCode
+normally:
 
 1. One plain question.
 2. One request that triggers a tool call.
 3. One multi-turn conversation (so cache behavior shows up).
 4. Usage of the small model if configured (e.g. title generation).
 
+Prompts are NOT captured unless `OPENCODE_CAPTURE_PROMPT_IN_LOGS` is set —
+leave it unset.
+
 ## 3. VS Code GitHub Copilot
 
-Add to VS Code `settings.json`:
-
-```jsonc
-{
-  "github.copilot.chat.otel.enabled": true
-  // endpoint already defaults to http://localhost:4318 (OTLP HTTP)
-  // captureContent stays false — do not enable it
-}
-```
-
-Restart VS Code, run the harness with
-`--dump-dir /tmp/ai-usage-capture/copilot`, and use it:
+Set `"github.copilot.chat.otel.enabled": true` in VS Code `settings.json`
+(endpoint already defaults to `http://localhost:4318`; `captureContent`
+stays false), restart VS Code, and use it:
 
 1. One plain chat question.
 2. One agent-mode task that calls tools and runs at least 2 LLM round-trips.
 3. One longer multi-turn conversation.
 4. Inline chat / tab completion if available.
 
-## 4. Done?
+## 4. Sanitize into fixtures
 
-Check the dump directories contain non-empty files:
+Check the capture directories are non-empty, then sanitize each payload
+and write it to `testdata/`:
 
 ```bash
-ls -la /tmp/ai-usage-capture/opencode /tmp/ai-usage-capture/copilot
+go run ./cmd/sanitize traces /tmp/ai-usage-capture/copilot/traces-123.pb > testdata/copilot/traces-chat-simple.json
+go run ./cmd/sanitize metrics /tmp/ai-usage-capture/opencode/metrics-123.pb > testdata/opencode/metrics.json
 ```
 
-Then tell the agent the capture is complete. Nothing else is needed — the
-agent handles inspection, sanitization, fixtures, and `docs/telemetry.md`.
+`cmd/sanitize` accepts both OTLP/JSON and OTLP/protobuf input and redacts
+content-bearing attributes (`input.value`, `gen_ai.output.messages`,
+`copilot_chat.user_request`, …) and span status messages to
+`"[REDACTED]"`.
+
+Verify no content leaked:
+
+```bash
+grep -rn "REDACTED" testdata/ | wc -l   # redactions present
+grep -rniE "prompt|completion" --include=*.json testdata/ | grep -v REDACTED
+```
+
+Finally, update the "Fixture provenance" table in
+[`telemetry.md`](telemetry.md) so every committed fixture maps to its
+source batch, and re-run the verification commands from
+[`docs/plans/README.md`](plans/README.md).

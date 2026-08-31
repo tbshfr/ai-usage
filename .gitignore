@@ -3,3 +3,8 @@ temp/*
 temp/
 sanitize
 /ai-usage
+dist/
+*.db
+*.db-wal
+*.db-shm
+ai-usage-capture/

@@ -11,6 +11,8 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -22,6 +24,9 @@ import (
 )
 
 const shutdownGrace = 10 * time.Second
+
+// version is set at build time via -ldflags "-X main.version=...".
+var version = "dev"
 
 func main() {
 	cfg, err := config.LoadOS()
@@ -48,6 +53,7 @@ func main() {
 }
 
 func run(cfg *config.Config, logger *slog.Logger) error {
+	printBanner(cfg)
 	logger.Info("ai-usage starting",
 		"dashboard", cfg.HTTPAddr,
 		"otlp_http", cfg.OTLPHTTPAddr,
@@ -68,7 +74,7 @@ func run(cfg *config.Config, logger *slog.Logger) error {
 	pipeline := ingest.NewPipeline(db, logger)
 	dashboardSrv := &http.Server{
 		Addr:              cfg.HTTPAddr,
-		Handler:           api.New(db, logger, pipeline.Stats),
+		Handler:           api.New(db, logger, pipeline.Stats, version),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	otlpSrv := &http.Server{
@@ -130,4 +136,36 @@ func run(cfg *config.Config, logger *slog.Logger) error {
 	}
 	logger.Info("shutdown complete")
 	return nil
+}
+
+func printBanner(cfg *config.Config) {
+	dbPath := cfg.DatabasePath
+	if home, err := os.UserHomeDir(); err == nil && home != "" {
+		if rel, err := filepath.Rel(home, dbPath); err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			dbPath = filepath.Join("~", rel)
+		}
+	}
+	grpc := cfg.OTLPGRPCAddr
+	if grpc == "" {
+		grpc = "(disabled)"
+	}
+	fmt.Printf(`
+AI Usage Dashboard (%s)
+
+Dashboard: %s
+OTLP HTTP: %s
+OTLP gRPC: %s
+Database:  %s
+
+`, version, httpURL(cfg.HTTPAddr), httpURL(cfg.OTLPHTTPAddr), grpc, dbPath)
+}
+
+func httpURL(addr string) string {
+	if addr == "" {
+		return "(disabled)"
+	}
+	if strings.HasPrefix(addr, ":") {
+		return "http://localhost" + addr
+	}
+	return "http://" + addr
 }

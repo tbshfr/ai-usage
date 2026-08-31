@@ -191,16 +191,16 @@ gofmt -l .
 
 ## Phase sequence and prerequisites
 
-| Phase | File | Depends on |
-|-------|------|------------|
-| 1 | `phase-1-telemetry-capture.md` | nothing (creates the Go module) |
-| 2 | `phase-2-skeleton.md` | Phase 1 (module + fixtures exist) |
-| 3 | `phase-3-ingestion.md` | Phase 2 (config, DB, receivers running) + Phase 1 (fixtures, truth-signal decision) |
-| 4 | `phase-4-persistence.md` | Phase 3 (records being stored) |
-| 5 | `phase-5-api.md` | Phase 4 |
-| 6 | `phase-6-ui.md` | Phase 5 |
-| 7 | `phase-7-hardening.md` | Phases 1–6 |
-| 8 | `phase-8-distribution.md` | Phase 7 |
+| Phase | File | Depends on | Status |
+|-------|------|------------|--------|
+| 1 | `phase-1-telemetry-capture.md` | nothing (creates the Go module) | done |
+| 2 | `phase-2-skeleton.md` | Phase 1 (module + fixtures exist) | done |
+| 3 | `phase-3-ingestion.md` | Phase 2 (config, DB, receivers running) + Phase 1 (fixtures, truth-signal decision) | done |
+| 4 | `phase-4-persistence.md` | Phase 3 (records being stored) | done |
+| 5 | `phase-5-api.md` | Phase 4 | done |
+| 6 | `phase-6-ui.md` | Phase 5 | done |
+| 7 | `phase-7-hardening.md` | Phases 1–6 | done |
+| 8 | `phase-8-distribution.md` | Phase 7 | done |
 
 Each phase plan is self-contained: an agent that has read this README plus its
 phase file can execute it. Do not start a phase before its prerequisites are

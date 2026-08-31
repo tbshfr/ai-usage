@@ -22,7 +22,7 @@ func testLogger(t *testing.T) *slog.Logger {
 
 func newServer(t *testing.T, db *sql.DB, stats StatsFunc) *httptest.Server {
 	t.Helper()
-	srv := httptest.NewServer(New(db, testLogger(t), stats))
+	srv := httptest.NewServer(New(db, testLogger(t), stats, "test"))
 	t.Cleanup(srv.Close)
 	return srv
 }
@@ -415,7 +415,7 @@ func TestAccessLogAtDebugLevel(t *testing.T) {
 	db := seedtest.DB(t)
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	srv := httptest.NewServer(New(db, logger, nil))
+	srv := httptest.NewServer(New(db, logger, nil, "test"))
 	t.Cleanup(srv.Close)
 
 	status, _ := get(t, srv.URL+"/api/summary?"+fullRangeQuery)
@@ -431,7 +431,7 @@ func TestAccessLogAtDebugLevel(t *testing.T) {
 
 	buf.Reset()
 	logger2 := slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelInfo}))
-	srv2 := httptest.NewServer(New(db, logger2, nil))
+	srv2 := httptest.NewServer(New(db, logger2, nil, "test"))
 	t.Cleanup(srv2.Close)
 	get(t, srv2.URL+"/api/summary")
 	if buf.String() != "" {

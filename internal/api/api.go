@@ -12,13 +12,16 @@ import (
 
 // New returns the dashboard-port HTTP handler: liveness/readiness probes plus
 // the JSON API routes from server.go, with debug-level access logging.
-func New(db *sql.DB, logger *slog.Logger, stats StatsFunc) http.Handler {
+func New(db *sql.DB, logger *slog.Logger, stats StatsFunc, version string) http.Handler {
 	if logger == nil {
 		logger = slog.Default()
 	}
+	if version == "" {
+		version = "dev"
+	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "version": version})
 	})
 	mux.HandleFunc("GET /ready", func(w http.ResponseWriter, r *http.Request) {
 		if err := db.PingContext(r.Context()); err != nil {

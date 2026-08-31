@@ -89,10 +89,10 @@ func bucketParam(r *http.Request) (storage.Bucket, error) {
 		b = storage.BucketDay
 	}
 	switch b {
-	case storage.BucketDay, storage.BucketWeek, storage.BucketMonth:
+	case storage.BucketHour, storage.BucketDay, storage.BucketWeek, storage.BucketMonth:
 		return b, nil
 	default:
-		return "", badRequest{fmt.Errorf("invalid bucket %q (want day, week, or month)", b)}
+		return "", badRequest{fmt.Errorf("invalid bucket %q (want hour, day, week, or month)", b)}
 	}
 }
 

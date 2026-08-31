@@ -1,6 +1,7 @@
 {{define "breakdowns"}}
 <section>
   <h2>By source</h2>
+  <div class="table-scroll">
   <table>
     <thead><tr><th>Source</th><th>Requests</th><th>Total tokens</th><th>Input</th><th>Output</th><th>Cache read</th><th>Cache creation</th><th>Cache hit</th><th>Reasoning</th><th>Cost</th></tr></thead>
     <tbody>
@@ -36,10 +37,12 @@
       {{end}}
     </tbody>
   </table>
+</div>
 </section>
 <section>
   <h2>By provider</h2>
   <p class="muted">Raw provider as reported by the source. Use the model table below for the underlying-provider drill-down (e.g. Copilot's <code>github</code> rows).</p>
+  <div class="table-scroll">
   <table>
     <thead><tr><th>Provider</th><th>Requests</th><th>Total tokens</th><th>Input</th><th>Output</th><th>Cache read</th><th>Cache creation</th><th>Cache hit</th><th>Reasoning</th><th>Cost</th></tr></thead>
     <tbody>
@@ -75,9 +78,11 @@
       {{end}}
     </tbody>
   </table>
+</div>
 </section>
 <section>
   <h2>By model</h2>
+  <div class="table-scroll">
   <table>
     <thead><tr><th>Model</th><th>Underlying provider</th><th>Requests</th><th>Total tokens</th><th>Input</th><th>Output</th><th>Cache read</th><th>Cache creation</th><th>Cache hit</th><th>Reasoning</th><th>Cost</th></tr></thead>
     <tbody>
@@ -115,5 +120,6 @@
       {{end}}
     </tbody>
   </table>
+</div>
 </section>
 {{end}}

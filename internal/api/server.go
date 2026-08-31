@@ -54,9 +54,9 @@ func apiRoutes(db *sql.DB, stats StatsFunc) *http.ServeMux {
 			bucket = storage.BucketDay
 		}
 		switch bucket {
-		case storage.BucketDay, storage.BucketWeek, storage.BucketMonth:
+		case storage.BucketHour, storage.BucketDay, storage.BucketWeek, storage.BucketMonth:
 		default:
-			writeErr(w, http.StatusBadRequest, fmt.Sprintf("invalid bucket %q (want day, week, or month)", bucket))
+			writeErr(w, http.StatusBadRequest, fmt.Sprintf("invalid bucket %q (want hour, day, week, or month)", bucket))
 			return
 		}
 		f, ok := filterParam(w, r)

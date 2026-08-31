@@ -12,15 +12,54 @@ import (
 
 const dayMs = 86400000
 
-// Bucket selects the timeseries granularity. All bucketing is done in UTC
-// day boundaries in v1 (the API layer documents this so the UI can label it).
+// Bucket selects the timeseries granularity. Hour and day are grouped
+// directly in SQL; week (Monday-anchored) and month (calendar month) merge
+// UTC day rows in Go. All bucketing is done in UTC (the API layer documents
+// this so the UI can label it).
 type Bucket string
 
 const (
+	BucketHour  Bucket = "hour"
 	BucketDay   Bucket = "day"
 	BucketWeek  Bucket = "week"
 	BucketMonth Bucket = "month"
 )
+
+// valid reports whether b is a known bucket.
+func (b Bucket) valid() bool {
+	switch b {
+	case BucketHour, BucketDay, BucketWeek, BucketMonth:
+		return true
+	}
+	return false
+}
+
+// expr is the SQL grouping expression: UTC hour or UTC day starts.
+func (b Bucket) expr() string {
+	if b == BucketHour {
+		return "timestamp / 3600000 * 3600000"
+	}
+	return "timestamp / 86400000 * 86400000"
+}
+
+// directSQL is true when SQL rows are already the wanted buckets (hour,
+// day); week and month merge day rows in Go.
+func (b Bucket) directSQL() bool { return b == BucketHour || b == BucketDay }
+
+// SpanSeconds is the nominal bucket width in seconds, used by the UI to
+// keep the time axis meaningful when the range holds a single bucket.
+func (b Bucket) SpanSeconds() int64 {
+	switch b {
+	case BucketHour:
+		return 3600
+	case BucketDay:
+		return 86400
+	case BucketWeek:
+		return 7 * 86400
+	default:
+		return 30 * 86400
+	}
+}
 
 // SummaryResult holds totals for a filter range. CostTotal is nil when no
 // row in the range reported cost ("no cost data" must never surface as 0).
@@ -147,22 +186,21 @@ FROM generations WHERE ` + where
 	return s, nil
 }
 
-// Timeseries returns per-bucket aggregates. SQL groups by UTC day
-// (timestamp/86400000*86400000, integer math); day rows are merged in Go for
-// week (Monday-anchored) and month (calendar month) buckets.
+// Timeseries returns per-bucket aggregates. Hour and day buckets are grouped
+// in SQL; day rows are merged in Go for week (Monday-anchored) and month
+// (calendar month) buckets.
 func Timeseries(ctx context.Context, db *sql.DB, f Filter, bucket Bucket) ([]TimeseriesPoint, error) {
-	switch bucket {
-	case BucketDay, BucketWeek, BucketMonth:
-	default:
-		return nil, fmt.Errorf("invalid bucket %q (want day, week, or month)", bucket)
+	if !bucket.valid() {
+		return nil, fmt.Errorf("invalid bucket %q (want hour, day, week, or month)", bucket)
 	}
 	f, err := f.normalize(time.Now())
 	if err != nil {
 		return nil, err
 	}
 	where, args := f.whereSQL()
+	expr := bucket.expr()
 	q := `SELECT
-	timestamp / 86400000 * 86400000,
+	` + expr + `,
 	COUNT(*),
 	COALESCE(SUM(input_tokens), 0),
 	COALESCE(SUM(output_tokens), 0),
@@ -171,7 +209,7 @@ func Timeseries(ctx context.Context, db *sql.DB, f Filter, bucket Bucket) ([]Tim
 	COALESCE(SUM(reasoning_tokens), 0),
 	COUNT(cost),
 	SUM(cost)
-FROM generations WHERE ` + where + ` GROUP BY timestamp / 86400000 * 86400000 ORDER BY 1`
+FROM generations WHERE ` + where + ` GROUP BY ` + expr + ` ORDER BY 1`
 	rows, err := db.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, fmt.Errorf("timeseries query: %w", err)
@@ -203,7 +241,7 @@ FROM generations WHERE ` + where + ` GROUP BY timestamp / 86400000 * 86400000 OR
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("timeseries rows: %w", err)
 	}
-	if bucket == BucketDay {
+	if bucket.directSQL() {
 		out := make([]TimeseriesPoint, len(days))
 		for i, d := range days {
 			pt := d.point

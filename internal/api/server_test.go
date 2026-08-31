@@ -244,7 +244,7 @@ func TestTimeseriesDefaultBucketIsDay(t *testing.T) {
 func TestTimeseriesBadBucket(t *testing.T) {
 	srv := newServer(t, seedtest.DB(t), nil)
 
-	status, body := get(t, srv.URL+"/api/timeseries?"+fullRangeQuery+"&bucket=hour")
+	status, body := get(t, srv.URL+"/api/timeseries?"+fullRangeQuery+"&bucket=year")
 	if status != http.StatusBadRequest || !strings.Contains(body, "bucket") {
 		t.Errorf("status = %d body %s, want 400 mentioning bucket", status, body)
 	}

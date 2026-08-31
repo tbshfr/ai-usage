@@ -195,21 +195,21 @@ func (p TimeseriesSourcePoint) TotalTokens() int64 {
 	return p.InputTokens + p.OutputTokens + p.CacheReadTokens + p.CacheCreationTokens + p.ReasoningTokens
 }
 
-// TimeseriesBySource returns per-day token aggregates per source; days are
-// merged in Go for week and month buckets like Timeseries.
+// TimeseriesBySource returns per-bucket token aggregates per source; hour
+// and day buckets are grouped in SQL, week and month buckets merge day rows
+// in Go like Timeseries.
 func TimeseriesBySource(ctx context.Context, db *sql.DB, f Filter, bucket Bucket) ([]TimeseriesSourcePoint, error) {
-	switch bucket {
-	case BucketDay, BucketWeek, BucketMonth:
-	default:
-		return nil, fmt.Errorf("invalid bucket %q (want day, week, or month)", bucket)
+	if !bucket.valid() {
+		return nil, fmt.Errorf("invalid bucket %q (want hour, day, week, or month)", bucket)
 	}
 	f, err := f.normalize(time.Now())
 	if err != nil {
 		return nil, err
 	}
 	where, args := f.whereSQL()
+	expr := bucket.expr()
 	q := `SELECT
-	timestamp / 86400000 * 86400000,
+	` + expr + `,
 	source,
 	COUNT(*),
 	COALESCE(SUM(input_tokens), 0),
@@ -244,7 +244,7 @@ FROM generations WHERE ` + where + ` GROUP BY 1, source ORDER BY 1`
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("source timeseries rows: %w", err)
 	}
-	if bucket == BucketDay {
+	if bucket.directSQL() {
 		return days, nil
 	}
 	return mergeSourceDays(days, bucket), nil

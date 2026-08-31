@@ -11,7 +11,8 @@
     <a href="{{.SortAsc.Page}}" hx-get="{{.SortAsc.Frag}}" hx-target="#session-list" hx-push-url="{{.SortAsc.Page}}"{{if eq (printf "%v" .SortOrder) "asc"}} class="active"{{end}}>Oldest first</a>
   </span>
 </div>
-<table class="rows">
+<div class="table-scroll">
+  <table class="rows">
   <thead><tr>
     <th>Time</th><th>Source</th>{{if not .F.Selected.Conversation}}<th>Conversation</th>{{end}}<th>Provider</th><th>Model</th><th>Input</th><th>Output</th><th>Cache read</th><th>Cache creation</th><th>Reasoning</th><th>Cost</th><th>Duration</th>
   </tr></thead>
@@ -36,6 +37,7 @@
     {{end}}
   </tbody>
 </table>
+</div>
 <div class="pager">
   {{if .Recent.HasPrev}}<button hx-get="/fragments/session-list?offset={{.Recent.PrevOffset}}" hx-target="#session-list" hx-include="#filter-bar">&larr; Prev</button>{{end}}
   {{if .Recent.HasNext}}<button hx-get="/fragments/session-list?offset={{.Recent.NextOffset}}" hx-target="#session-list" hx-include="#filter-bar">Next &rarr;</button>{{end}}

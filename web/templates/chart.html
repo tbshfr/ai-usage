@@ -4,6 +4,7 @@
   <select name="bucket" aria-label="Granularity"
           hx-get="/fragments/trends" hx-target="#trends"
           hx-include="[name=bucket], #filter-bar">
+    <option value="hour"{{if eq .Charts.Bucket "hour"}} selected{{end}}>Hour</option>
     <option value="day"{{if eq .Charts.Bucket "day"}} selected{{end}}>Day</option>
     <option value="week"{{if eq .Charts.Bucket "week"}} selected{{end}}>Week</option>
     <option value="month"{{if eq .Charts.Bucket "month"}} selected{{end}}>Month</option>

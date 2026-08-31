@@ -157,6 +157,42 @@ func TestConversationsOtherGroupsPerDay(t *testing.T) {
 	}
 }
 
+func TestTimeseriesHourBuckets(t *testing.T) {
+	db := seedtest.DB(t)
+	ctx := context.Background()
+	// Seed rows all sit within the first hour of their day (00:00-00:19),
+	// so hour buckets must equal the day buckets.
+	days, err := storage.Timeseries(ctx, db, seedtest.FullRange(), storage.BucketDay)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hours, err := storage.Timeseries(ctx, db, seedtest.FullRange(), storage.BucketHour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(hours) != len(days) {
+		t.Fatalf("got %d hour buckets, want %d (equal to day buckets)", len(hours), len(days))
+	}
+	for i := range days {
+		d, h := days[i], hours[i]
+		d.CostTotal, h.CostTotal = nil, nil
+		if h != d {
+			t.Errorf("hour bucket %d = %+v, want %+v", i, h, d)
+		}
+	}
+	// source split supports hour buckets too
+	byHour, err := storage.TimeseriesBySource(ctx, db, seedtest.FullRange(), storage.BucketHour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(byHour) != 12 { // 6 days x 2 sources
+		t.Errorf("got %d source-hour points, want 12: %+v", len(byHour), byHour)
+	}
+	if _, err := storage.Timeseries(ctx, db, seedtest.FullRange(), "year"); err == nil {
+		t.Error("invalid bucket must error")
+	}
+}
+
 func TestTimeseriesBySource(t *testing.T) {
 	db := seedtest.DB(t)
 	ctx := context.Background()
@@ -216,7 +252,7 @@ func TestTimeseriesBySource(t *testing.T) {
 		t.Errorf("copilot week of Feb 23 = %d, want 1110", got)
 	}
 
-	if _, err := storage.TimeseriesBySource(ctx, db, seedtest.FullRange(), "hour"); err == nil {
+	if _, err := storage.TimeseriesBySource(ctx, db, seedtest.FullRange(), "year"); err == nil {
 		t.Error("invalid bucket must error")
 	}
 }

@@ -1,6 +1,9 @@
 // Warm harmonic palette: terracotta, amber, sage, dusty rose, plum, sand.
 const PALETTE = ['#c96f4a', '#dfa14f', '#7d9b76', '#b06a6a', '#8b7d9b', '#a89f91'];
 
+// Live chart instances; stale ones (htmx-swapped away) are pruned on resize.
+const charts = [];
+
 function renderChart(id, d) {
   const el = document.getElementById(id);
   if (!el || !window.uPlot || !d.labels.length) return;
@@ -13,12 +16,27 @@ function renderChart(id, d) {
     width: 2,
     spanGaps: false,
     points: { show: d.labels.length < 40 },
-    value: (u, v) => v == null ? null : (s.fmt === 'pct' ? v.toFixed(1) + '%' : v.toLocaleString()),
+    value: (u, v) => v == null ? '' : (s.fmt === 'pct' ? v.toFixed(1) + '%' : v.toLocaleString()),
   })));
+  // Keep the time axis meaningful: pad it to at least one bucket span, so
+  // single-bucket ranges (e.g. one day of data on week/month buckets) still
+  // show a scale that matches the selected granularity.
+  const span = d.span || 0;
+  const scales = { y: {} };
+  if (span) {
+    scales.x = {
+      range: (u, min, max) => {
+        if (max - min >= span) return [min, max];
+        const mid = (min + max) / 2;
+        return [mid - span / 2, mid + span / 2];
+      },
+    };
+  }
+  if (isPct) scales.y = { range: [0, 100] };
   const opts = {
     width: el.clientWidth || 900,
     height: 280,
-    scales: { y: { range: isPct ? [0, 100] : undefined } },
+    scales,
     axes: [
       {
         stroke: '#94836f',
@@ -36,8 +54,29 @@ function renderChart(id, d) {
     series,
   };
   el.textContent = '';
-  new uPlot(opts, rows, el);
+  const u = new uPlot(opts, rows, el);
+  for (let i = charts.length - 1; i >= 0; i--) {
+    if (!charts[i].el.isConnected) charts.splice(i, 1);
+  }
+  charts.push({ u, el });
 }
+
+// Keep charts fitted to the viewport (rotation, window resize).
+let resizeRAF = 0;
+window.addEventListener('resize', () => {
+  cancelAnimationFrame(resizeRAF);
+  resizeRAF = requestAnimationFrame(() => {
+    for (let i = charts.length - 1; i >= 0; i--) {
+      const { u, el } = charts[i];
+      if (!el.isConnected) {
+        charts.splice(i, 1);
+        continue;
+      }
+      const w = el.clientWidth;
+      if (w && w !== u.width) u.setSize({ width: w, height: u.height });
+    }
+  });
+});
 
 function abbrev(v) {
   if (Math.abs(v) >= 1e9) return (v / 1e9).toFixed(1) + 'B';

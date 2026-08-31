@@ -63,6 +63,30 @@ code.copy:hover { color: var(--accent); }
 
 main { max-width: 1200px; margin: 0 auto; padding: 1.4rem; }
 
+/* Narrow viewports: stack the topbar, shrink gutters. */
+@media (max-width: 640px) {
+  main { padding: 0.8rem; }
+  .topbar {
+    flex-wrap: wrap;
+    gap: 0.3rem 1rem;
+    padding: 0.55rem 0.9rem;
+  }
+  .topbar nav {
+    width: 100%;
+    overflow-x: auto;
+    white-space: nowrap;
+    padding-bottom: 0.15rem;
+  }
+  .filterbar select { flex: 1 1 45%; }
+  .stat-card.hero { padding: 1.1rem 1.2rem; }
+  .stat-big { font-size: 2.3rem; }
+  .stat-breakdown { gap: 0.25rem 1rem; }
+  .chart-head { flex-wrap: wrap; }
+  .list-head { align-items: flex-start; flex-direction: column; gap: 0.4rem; }
+  dl.detail { grid-template-columns: 1fr; gap: 0.25rem; }
+  dl.detail dt { margin-top: 0.3rem; }
+}
+
 .filterbar {
   display: flex;
   flex-wrap: wrap;
@@ -120,7 +144,7 @@ a.conv:hover { color: var(--accent); }
 .hero-row { margin-bottom: 0.9rem; }
 .period-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
   gap: 0.9rem;
 }
 .stat-card {
@@ -265,7 +289,13 @@ dl.detail-grid dd {
 
 h2 { font-size: 1.15rem; margin: 1.2rem 0 0.5rem; }
 
-/* Tables */
+/* Tables (horizontally scrollable on narrow screens) */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.table-scroll table { min-width: 640px; }
+.table-scroll table.rows { min-width: 840px; }
 table {
   width: 100%;
   border-collapse: separate;
@@ -320,7 +350,7 @@ td { font-variant-numeric: tabular-nums; }
 
 .conv-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(290px, 100%), 1fr));
   gap: 0.9rem;
 }
 .conv-card {

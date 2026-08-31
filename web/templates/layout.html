@@ -6,6 +6,11 @@
 <title>{{.Title}} · AI Usage</title>
 <link rel="stylesheet" href="/static/vendor/uplot.min.css">
 <link rel="stylesheet" href="/static/app.css">
+<!-- Loaded blocking (no defer) in the head: page templates render inline
+     chart scripts in the body that call renderChart() on first paint. -->
+<script src="/static/vendor/htmx.min.js"></script>
+<script src="/static/vendor/uplot.min.js"></script>
+<script src="/static/app.js"></script>
 </head>
 <body>
 <header class="topbar">
@@ -20,8 +25,5 @@
 </header>
 <main>{{template "content" .}}</main>
 <footer class="muted">All timestamps are UTC.</footer>
-<script src="/static/vendor/htmx.min.js"></script>
-<script src="/static/vendor/uplot.min.js"></script>
-<script src="/static/app.js"></script>
 </body>
 </html>{{end}}

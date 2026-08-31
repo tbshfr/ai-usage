@@ -151,6 +151,9 @@ type trendsView struct {
 type chartJSON struct {
 	Labels []int64       `json:"labels"`
 	Series []chartSeries `json:"series"`
+	// Span is the nominal bucket width in seconds; the chart pads the time
+	// axis to at least one span so single-bucket ranges still scale.
+	Span int64 `json:"span,omitempty"`
 }
 
 type chartSeries struct {
@@ -336,13 +339,13 @@ func (s *server) trendsData(r *http.Request) (*pageData, error) {
 	if err != nil {
 		return nil, err
 	}
-	d.Charts.TokenData, d.Charts.HasTokens = buildTokenChart(pts)
+	d.Charts.TokenData, d.Charts.HasTokens = buildTokenChart(pts, bucket)
 	spts, err := storage.TimeseriesBySource(r.Context(), s.db, f, bucket)
 	if err != nil {
 		return nil, err
 	}
-	d.Charts.SourceData, d.Charts.HasSource = buildSourceChart(spts)
-	d.Charts.CacheData, d.Charts.HasCache = buildCacheChart(pts)
+	d.Charts.SourceData, d.Charts.HasSource = buildSourceChart(spts, bucket)
+	d.Charts.CacheData, d.Charts.HasCache = buildCacheChart(pts, bucket)
 	return d, nil
 }
 
@@ -583,8 +586,8 @@ func (s *server) base(ctx context.Context, title, active, action string, u uiFil
 	return d, nil
 }
 
-func buildTokenChart(pts []storage.TimeseriesPoint) (chartJSON, bool) {
-	var c chartJSON
+func buildTokenChart(pts []storage.TimeseriesPoint, bucket storage.Bucket) (chartJSON, bool) {
+	c := chartJSON{Span: bucket.SpanSeconds()}
 	var input, output, cacheRead, cacheCreate, reasoning []int64
 	for _, p := range pts {
 		c.Labels = append(c.Labels, p.BucketStart)
@@ -605,10 +608,11 @@ func buildTokenChart(pts []storage.TimeseriesPoint) (chartJSON, bool) {
 }
 
 // buildSourceChart renders one line of total tokens per source per bucket.
-func buildSourceChart(pts []storage.TimeseriesSourcePoint) (chartJSON, bool) {
+func buildSourceChart(pts []storage.TimeseriesSourcePoint, bucket storage.Bucket) (chartJSON, bool) {
 	if len(pts) == 0 {
 		return chartJSON{}, false
 	}
+	c := chartJSON{Span: bucket.SpanSeconds()}
 	bySource := map[string]map[int64]int64{}
 	labels := []int64{}
 	seen := map[int64]bool{}
@@ -628,7 +632,7 @@ func buildSourceChart(pts []storage.TimeseriesSourcePoint) (chartJSON, bool) {
 		sources = append(sources, src)
 	}
 	sort.Strings(sources)
-	c := chartJSON{Labels: labels}
+	c = chartJSON{Labels: labels, Span: bucket.SpanSeconds()}
 	for _, src := range sources {
 		vals := make([]any, len(labels))
 		for i, l := range labels {
@@ -641,8 +645,8 @@ func buildSourceChart(pts []storage.TimeseriesSourcePoint) (chartJSON, bool) {
 
 // buildCacheChart renders the aggregate cache hit rate per bucket as a
 // percentage line; nil gaps where no prompt tokens were reported.
-func buildCacheChart(pts []storage.TimeseriesPoint) (chartJSON, bool) {
-	var c chartJSON
+func buildCacheChart(pts []storage.TimeseriesPoint, bucket storage.Bucket) (chartJSON, bool) {
+	c := chartJSON{Span: bucket.SpanSeconds()}
 	anyRate := false
 	vals := make([]any, 0, len(pts))
 	for _, p := range pts {

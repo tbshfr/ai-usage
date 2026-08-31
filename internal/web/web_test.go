@@ -123,6 +123,10 @@ func TestTrendsPageAndFragment(t *testing.T) {
 	wantContains(t, body, `"name":"Cache hit rate","fmt":"pct"`, `value="month" selected`)
 	wantNotContains(t, body, "Cost (reported only)", `"scale":"cost"`)
 
+	// hour buckets are valid and carry the bucket span for axis padding
+	_, body = get(t, srv.URL+"/fragments/trends?"+fullRangeQuery+"&bucket=hour")
+	wantContains(t, body, `value="hour" selected`, `"span":3600`)
+
 	// today is always past the fixed seed dates
 	_, body = get(t, srv.URL+"/fragments/trends?range=today")
 	wantContains(t, body, "No usage in this range.")
@@ -131,7 +135,7 @@ func TestTrendsPageAndFragment(t *testing.T) {
 	if status != http.StatusBadRequest {
 		t.Fatalf("invalid range: status %d, want 400", status)
 	}
-	status, _ = get(t, srv.URL+"/trends?"+fullRangeQuery+"&bucket=hour")
+	status, _ = get(t, srv.URL+"/trends?"+fullRangeQuery+"&bucket=year")
 	if status != http.StatusBadRequest {
 		t.Fatalf("invalid bucket: status %d, want 400", status)
 	}

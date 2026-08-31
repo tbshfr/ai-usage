@@ -326,7 +326,7 @@ func TestTimeseriesMonthBuckets(t *testing.T) {
 
 func TestTimeseriesInvalidBucket(t *testing.T) {
 	db := seedtest.DB(t)
-	if _, err := storage.Timeseries(context.Background(), db, seedtest.FullRange(), "hour"); err == nil {
+	if _, err := storage.Timeseries(context.Background(), db, seedtest.FullRange(), "year"); err == nil {
 		t.Error("invalid bucket must error")
 	}
 }

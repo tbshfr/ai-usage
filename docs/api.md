@@ -58,10 +58,11 @@ cacheReadTokens + cacheCreationTokens` when it excludes them (per-model
 breakdowns are exact; mixed aggregates are approximated). It is `null` when
 no prompt tokens were reported in range.
 
-### `GET /api/timeseries?bucket=day|week|month`
+### `GET /api/timeseries?bucket=hour|day|week|month`
 
-Per-bucket aggregates (default `bucket=day`; week buckets start Monday,
-month buckets at the 1st; all UTC). `bucketStart` is RFC3339.
+Per-bucket aggregates (default `bucket=day`; hour buckets at the hour,
+week buckets start Monday, month buckets at the 1st; all UTC).
+`bucketStart` is RFC3339.
 
 `/api/timeseries?bucket=month`
 

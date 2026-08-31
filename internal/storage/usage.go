@@ -13,13 +13,16 @@ import (
 
 // Filter is the single filter type used by every query method. Zero From
 // means no lower bound; zero To means now. Source/Provider/Model match raw
-// stored values exactly ("" = all).
+// stored values exactly ("" = all). Conversation matches conversation_id
+// exactly; the sentinel value "none" selects rows with no conversation ID
+// (e.g. Copilot title-generation requests).
 type Filter struct {
-	From     time.Time
-	To       time.Time
-	Source   string
-	Provider string
-	Model    string
+	From         time.Time
+	To           time.Time
+	Source       string
+	Provider     string
+	Model        string
+	Conversation string
 }
 
 func (f Filter) normalize(now time.Time) (Filter, error) {
@@ -27,6 +30,7 @@ func (f Filter) normalize(now time.Time) (Filter, error) {
 	out.Source = strings.TrimSpace(out.Source)
 	out.Provider = strings.TrimSpace(out.Provider)
 	out.Model = strings.TrimSpace(out.Model)
+	out.Conversation = strings.TrimSpace(out.Conversation)
 	if out.To.IsZero() {
 		out.To = now
 	}
@@ -57,8 +61,19 @@ func (f Filter) whereSQL() (string, []any) {
 			args = append(args, col.val)
 		}
 	}
+	switch {
+	case f.Conversation == ConversationNone:
+		conds = append(conds, "conversation_id IS NULL")
+	case f.Conversation != "":
+		conds = append(conds, "conversation_id = ?")
+		args = append(args, f.Conversation)
+	}
 	return strings.Join(conds, " AND "), args
 }
+
+// ConversationNone is the Filter.Conversation sentinel that selects rows
+// without a conversation ID (title generations and similar).
+const ConversationNone = "none"
 
 // InsertGeneration stores one record, returning true when a new row was
 // inserted. On ID conflict it merges: NULL columns are filled from the new

@@ -41,6 +41,7 @@ func apiRoutes(db *sql.DB, stats StatsFunc) *http.ServeMux {
 			OutputTokens:        s.OutputTokens,
 			CacheReadTokens:     s.CacheReadTokens,
 			CacheCreationTokens: s.CacheCreationTokens,
+			CacheHitRate:        s.CacheHitRate(),
 			ReasoningTokens:     s.ReasoningTokens,
 			CostKnownCount:      s.CostKnownCount,
 			CostTotal:           s.CostTotal,
@@ -177,6 +178,7 @@ func breakdownOf(ctx context.Context, db *sql.DB, f storage.Filter, column strin
 			OutputTokens:        b.OutputTokens,
 			CacheReadTokens:     b.CacheReadTokens,
 			CacheCreationTokens: b.CacheCreationTokens,
+			CacheHitRate:        b.CacheHitRate(),
 			ReasoningTokens:     b.ReasoningTokens,
 			CostKnownCount:      b.CostKnownCount,
 			CostUnknownCount:    b.CostUnknownCount,
@@ -191,9 +193,10 @@ func breakdownOf(ctx context.Context, db *sql.DB, f storage.Filter, column strin
 func filterParam(w http.ResponseWriter, r *http.Request) (storage.Filter, bool) {
 	q := r.URL.Query()
 	f := storage.Filter{
-		Source:   q.Get("source"),
-		Provider: q.Get("provider"),
-		Model:    q.Get("model"),
+		Source:       q.Get("source"),
+		Provider:     q.Get("provider"),
+		Model:        q.Get("model"),
+		Conversation: q.Get("conversation"),
 	}
 	var err error
 	if f.From, err = timeParam(q.Get("from"), "from"); err != nil {
@@ -256,20 +259,22 @@ func filterEchoOf(r *http.Request, f storage.Filter) filterEcho {
 		to = f.To.Format(time.RFC3339)
 	}
 	return filterEcho{
-		From:     from,
-		To:       to,
-		Source:   r.URL.Query().Get("source"),
-		Provider: r.URL.Query().Get("provider"),
-		Model:    r.URL.Query().Get("model"),
+		From:         from,
+		To:           to,
+		Source:       r.URL.Query().Get("source"),
+		Provider:     r.URL.Query().Get("provider"),
+		Model:        r.URL.Query().Get("model"),
+		Conversation: r.URL.Query().Get("conversation"),
 	}
 }
 
 type filterEcho struct {
-	From     string `json:"from"`
-	To       string `json:"to"`
-	Source   string `json:"source"`
-	Provider string `json:"provider"`
-	Model    string `json:"model"`
+	From         string `json:"from"`
+	To           string `json:"to"`
+	Source       string `json:"source"`
+	Provider     string `json:"provider"`
+	Model        string `json:"model"`
+	Conversation string `json:"conversation"`
 }
 
 type summaryResponse struct {
@@ -279,6 +284,7 @@ type summaryResponse struct {
 	OutputTokens        int64      `json:"outputTokens"`
 	CacheReadTokens     int64      `json:"cacheReadTokens"`
 	CacheCreationTokens int64      `json:"cacheCreationTokens"`
+	CacheHitRate        *float64   `json:"cacheHitRate"`
 	ReasoningTokens     int64      `json:"reasoningTokens"`
 	CostKnownCount      int64      `json:"costKnownCount"`
 	CostTotal           *float64   `json:"costTotal"`
@@ -304,6 +310,7 @@ type breakdownRow struct {
 	OutputTokens        int64    `json:"outputTokens"`
 	CacheReadTokens     int64    `json:"cacheReadTokens"`
 	CacheCreationTokens int64    `json:"cacheCreationTokens"`
+	CacheHitRate        *float64 `json:"cacheHitRate"`
 	ReasoningTokens     int64    `json:"reasoningTokens"`
 	CostKnownCount      int64    `json:"costKnownCount"`
 	CostUnknownCount    int64    `json:"costUnknownCount"`

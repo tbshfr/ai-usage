@@ -153,6 +153,45 @@ func TestRecentRowsFilterNarrowing(t *testing.T) {
 	}
 }
 
+func TestRecentConversationColumn(t *testing.T) {
+	srv := newServer(t)
+	defer srv.Close()
+	status, body := get(t, srv.URL+"/generations?"+fullRangeQuery)
+	if status != http.StatusOK {
+		t.Fatalf("status %d", status)
+	}
+	// conversation column with click-to-filter links (IDs truncated for display)
+	wantContains(t, body,
+		"<th>Conversation</th>",
+		`title="Filter recent by conversation" href="/generations?conversation=conv-copilot`,
+		"conv-copil",
+	)
+	wantNotContains(t, body, ">other<") // every seeded row has a conversation ID
+
+	// click-through narrows to that conversation
+	_, body = get(t, srv.URL+"/fragments/recent-rows?"+fullRangeQuery+"&conversation=conv-opencode")
+	wantContains(t, body, "claude-haiku-4-5-20251001")
+	wantNotContains(t, body, "gpt-4.1")
+
+	// "other" (no conversation ID, e.g. Copilot title generations): no seeded rows qualify
+	_, body = get(t, srv.URL+"/fragments/recent-rows?"+fullRangeQuery+"&conversation=none")
+	wantContains(t, body, "No requests in this range.")
+
+	// conversation filter echoes into the preset links and the clear chip
+	_, body = get(t, srv.URL+"/generations?"+fullRangeQuery+"&conversation=conv-opencode")
+	wantContains(t, body, "conversation=conv-opencode", "Clear conversation filter")
+}
+
+func TestRecentCacheHitRateCard(t *testing.T) {
+	srv := newServer(t)
+	defer srv.Close()
+	status, body := get(t, srv.URL+"/?"+fullRangeQuery)
+	if status != http.StatusOK {
+		t.Fatalf("status %d", status)
+	}
+	wantContains(t, body, "Cache hit rate", "20.6%")
+}
+
 func TestBreakdownsFragment(t *testing.T) {
 	srv := newServer(t)
 	defer srv.Close()
@@ -165,6 +204,7 @@ func TestBreakdownsFragment(t *testing.T) {
 		"VS Code Copilot", "OpenCode",
 		"github", "openai",
 		"$2.8500",
+		"Cache hit",
 	)
 
 	// copilot-only: model rows must show the cost-null contract

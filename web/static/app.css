@@ -71,6 +71,19 @@ main { max-width: 1200px; margin: 0 auto; padding: 1.2rem; }
   border-radius: 6px;
   padding: 0.25rem 0.4rem;
 }
+.filterbar a.chip {
+  background: var(--bg);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 0.25rem 0.5rem;
+  color: var(--text);
+  max-width: 18rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+a.conv { color: var(--muted); font-family: monospace; font-size: 0.85em; }
+a.conv:hover { color: var(--accent); }
 .filterbar button {
   background: var(--accent);
   color: var(--bg);

@@ -63,6 +63,41 @@ type Breakdown struct {
 	CostTotal           *float64
 }
 
+// CacheHitRate returns the fraction of prompt tokens served from cache.
+//
+// The two token conventions in docs/telemetry.md (open question 1) are
+// handled per aggregate: when the prompt sum includes cached tokens
+// (input >= cacheRead + cacheCreation) the denominator is the prompt sum;
+// when it excludes them (the opencode anomaly, cache_read > prompt) the
+// denominator is input + cache tokens. Mixed-convention aggregates are
+// approximated; per-model rows in the breakdowns are exact because one
+// model consistently uses one convention. Nil means no prompt tokens were
+// reported at all (denominator zero); prompts with zero cache reads report
+// an honest 0.0%.
+func CacheHitRate(input, cacheRead, cacheCreation int64) *float64 {
+	cached := cacheRead + cacheCreation
+	denom := input
+	if input < cached {
+		denom = input + cached
+	}
+	if denom <= 0 {
+		return nil
+	}
+	rate := float64(cacheRead) / float64(denom)
+	return &rate
+}
+
+// CacheHitRate applies CacheHitRate to the aggregate sums; nil when no
+// cache/prompt activity was reported.
+func (s SummaryResult) CacheHitRate() *float64 {
+	return CacheHitRate(s.InputTokens, s.CacheReadTokens, s.CacheCreationTokens)
+}
+
+// CacheHitRate applies CacheHitRate to the group's sums.
+func (b Breakdown) CacheHitRate() *float64 {
+	return CacheHitRate(b.InputTokens, b.CacheReadTokens, b.CacheCreationTokens)
+}
+
 // Summary returns totals for the filter range.
 func Summary(ctx context.Context, db *sql.DB, f Filter) (SummaryResult, error) {
 	f, err := f.normalize(time.Now())

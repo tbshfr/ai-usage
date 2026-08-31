@@ -16,13 +16,14 @@ never computed.
 
 All list/aggregate endpoints accept:
 
-| Parameter  | Meaning                                                      |
-|------------|--------------------------------------------------------------|
-| `from`     | RFC3339 or `YYYY-MM-DD` (date-only = UTC midnight); optional |
-| `to`       | RFC3339 or `YYYY-MM-DD`; optional, defaults to now           |
-| `source`   | exact match (`opencode`, `copilot`); optional                |
-| `provider` | exact match on raw stored provider; optional                 |
-| `model`    | exact match on raw stored model; optional                    |
+| Parameter     | Meaning                                                                      |
+|---------------|------------------------------------------------------------------------------|
+| `from`        | RFC3339 or `YYYY-MM-DD` (date-only = UTC midnight); optional                 |
+| `to`          | RFC3339 or `YYYY-MM-DD`; optional, defaults to now                           |
+| `source`      | exact match (`opencode`, `copilot`); optional                                |
+| `provider`    | exact match on raw stored provider; optional                                 |
+| `model`       | exact match on raw stored model; optional                                    |
+| `conversation`| exact match on conversation/session ID; the sentinel `none` selects requests without a conversation ID (e.g. Copilot title generations); optional |
 
 Invalid values → `400` with `{"error":"...","status":400}`.
 
@@ -36,18 +37,26 @@ Totals for the filter range, plus the filter echo.
 
 ```json
 {
-  "filter": {"from":"2026-02-01T00:00:00Z","to":"2026-03-01T00:00:00Z","source":"","provider":"","model":""},
+  "filter": {"from":"2026-02-01T00:00:00Z","to":"2026-03-01T00:00:00Z","source":"","provider":"","model":"","conversation":""},
   "requests": 7,
   "inputTokens": 596,
   "outputTokens": 436,
   "cacheReadTokens": 400,
   "cacheCreationTokens": 21,
+  "cacheHitRate": 0.66,
   "reasoningTokens": 0,
   "costKnownCount": 3,
   "costTotal": 0.9,
   "costUnknownCount": 4
 }
 ```
+
+`cacheHitRate` is the fraction of prompt tokens served from cache:
+`cacheRead / denominator`, where the denominator is `inputTokens` when the
+source's prompt count includes cached tokens, or `inputTokens +
+cacheReadTokens + cacheCreationTokens` when it excludes them (per-model
+breakdowns are exact; mixed aggregates are approximated). It is `null` when
+no prompt tokens were reported in range.
 
 ### `GET /api/timeseries?bucket=day|week|month`
 
@@ -85,6 +94,7 @@ One row per source (request/token totals, nullable cost).
     "outputTokens": 184,
     "cacheReadTokens": 0,
     "cacheCreationTokens": 56,
+    "cacheHitRate": null,
     "reasoningTokens": 0,
     "costKnownCount": 8,
     "costUnknownCount": 0,
@@ -92,6 +102,8 @@ One row per source (request/token totals, nullable cost).
   }
 ]
 ```
+
+`cacheHitRate` follows the same rule as on `/api/summary`.
 
 ### `GET /api/providers`
 

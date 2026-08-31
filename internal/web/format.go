@@ -11,22 +11,26 @@ import (
 
 	"github.com/tbshfr/ai-usage"
 	"github.com/tbshfr/ai-usage/internal/normalize"
+	"github.com/tbshfr/ai-usage/internal/storage"
 )
 
 const emDash = "—"
 
 var funcs = template.FuncMap{
-	"commas":         commas,
-	"tokens":         tokens,
-	"cost":           cost,
-	"costLine":       costLine,
-	"costCell":       costCell,
-	"dur":            dur,
-	"utc":            utc,
-	"friendlySource": friendlySource,
-	"underlying":     normalize.UnderlyingProvider,
-	"copyID":         copyID,
-	"toJSON":         toJSON,
+	"commas":           commas,
+	"tokens":           tokens,
+	"cost":             cost,
+	"costLine":         costLine,
+	"costCell":         costCell,
+	"dur":              dur,
+	"utc":              utc,
+	"friendlySource":   friendlySource,
+	"underlying":       normalize.UnderlyingProvider,
+	"copyID":           copyID,
+	"toJSON":           toJSON,
+	"pct":              pct,
+	"shortConv":        shortConv,
+	"conversationLink": conversationLink,
 }
 
 var pageTmpls = map[string]*template.Template{
@@ -167,4 +171,34 @@ func toJSON(v any) template.JS {
 		return "null"
 	}
 	return template.JS(b)
+}
+
+// pct renders a nullable rate (0..1) as a percentage, or an em dash when nil.
+func pct(v *float64) string {
+	if v == nil {
+		return emDash
+	}
+	return strconv.FormatFloat(*v*100, 'f', 1, 64) + "%"
+}
+
+// shortConv truncates a conversation ID for table display.
+func shortConv(s string) string {
+	if len(s) <= 10 {
+		return s
+	}
+	return s[:10] + "…"
+}
+
+// conversationLink renders an anchor filtering Recent by conversation; conv
+// "" becomes the "none" filter (title generations and similar).
+func conversationLink(u uiFilter, conv string) template.HTML {
+	href := conversationURL(u, conv)
+	if conv == "" {
+		conv = storage.ConversationNone
+	}
+	label := "other"
+	if conv != storage.ConversationNone {
+		label = template.HTMLEscapeString(shortConv(conv))
+	}
+	return template.HTML(`<a class="conv" title="Filter recent by conversation" href="` + href + `">` + label + `</a>`)
 }

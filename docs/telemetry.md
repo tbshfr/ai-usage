@@ -208,7 +208,10 @@ logs) is dropped before normalization.
    `cache_read` > `prompt` (e.g. prompt 136, cache_read 6912), suggesting
    the plugin's prompt count excludes cached tokens for some providers while
    others include them. Default: store both as reported; do not attempt to
-   reconcile in SQL.
+   reconcile in SQL. *Resolved for display:* the cache hit rate
+   (`storage.CacheHitRate`) picks the denominator per aggregate — prompt
+   sum when it includes cached tokens, prompt sum + cache tokens when it
+   excludes them.
 2. **Legacy + new reasoning attributes present simultaneously** with equal
    values in capture. Default: prefer `gen_ai.usage.reasoning.output_tokens`,
    fall back to the legacy alias; if both present they are equal, so either

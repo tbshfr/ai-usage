@@ -2,7 +2,7 @@
 <section>
   <h2>By source</h2>
   <table>
-    <thead><tr><th>Source</th><th>Requests</th><th>Input</th><th>Output</th><th>Cache read</th><th>Cache creation</th><th>Reasoning</th><th>Cost</th></tr></thead>
+    <thead><tr><th>Source</th><th>Requests</th><th>Input</th><th>Output</th><th>Cache read</th><th>Cache creation</th><th>Cache hit</th><th>Reasoning</th><th>Cost</th></tr></thead>
     <tbody>
       {{range .Breaks.Source}}
       <tr>
@@ -12,11 +12,12 @@
         <td>{{commas .OutputTokens}}</td>
         <td>{{commas .CacheReadTokens}}</td>
         <td>{{commas .CacheCreationTokens}}</td>
+        <td>{{pct .CacheHitRate}}</td>
         <td>{{commas .ReasoningTokens}}</td>
         <td>{{costCell .CostKnownCount .CostTotal}}</td>
       </tr>
       {{else}}
-      <tr><td colspan="8" class="muted">No requests in this range.</td></tr>
+      <tr><td colspan="9" class="muted">No requests in this range.</td></tr>
       {{end}}
     </tbody>
   </table>
@@ -44,7 +45,7 @@
 <section>
   <h2>By model</h2>
   <table>
-    <thead><tr><th>Model</th><th>Underlying provider</th><th>Requests</th><th>Input</th><th>Output</th><th>Cache read</th><th>Cache creation</th><th>Reasoning</th><th>Cost</th></tr></thead>
+    <thead><tr><th>Model</th><th>Underlying provider</th><th>Requests</th><th>Input</th><th>Output</th><th>Cache read</th><th>Cache creation</th><th>Cache hit</th><th>Reasoning</th><th>Cost</th></tr></thead>
     <tbody>
       {{range .Breaks.Model}}
       <tr>
@@ -55,11 +56,12 @@
         <td>{{commas .OutputTokens}}</td>
         <td>{{commas .CacheReadTokens}}</td>
         <td>{{commas .CacheCreationTokens}}</td>
+        <td>{{pct .CacheHitRate}}</td>
         <td>{{commas .ReasoningTokens}}</td>
         <td>{{costCell .CostKnownCount .CostTotal}}</td>
       </tr>
       {{else}}
-      <tr><td colspan="9" class="muted">No requests in this range.</td></tr>
+      <tr><td colspan="10" class="muted">No requests in this range.</td></tr>
       {{end}}
     </tbody>
   </table>

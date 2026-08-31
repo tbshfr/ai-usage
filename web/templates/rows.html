@@ -1,11 +1,12 @@
 {{define "recent-rows"}}
 <table class="rows">
-  <thead><tr><th>Time</th><th>Source</th><th>Provider</th><th>Model</th><th>Input</th><th>Output</th><th>Cache read</th><th>Cache creation</th><th>Reasoning</th><th>Cost</th><th>Duration</th></tr></thead>
+  <thead><tr><th>Time</th><th>Source</th><th>Conversation</th><th>Provider</th><th>Model</th><th>Input</th><th>Output</th><th>Cache read</th><th>Cache creation</th><th>Reasoning</th><th>Cost</th><th>Duration</th></tr></thead>
   <tbody>
     {{range .Recent.Rows}}
     <tr>
       <td><a href="/generations/{{.ID}}">{{utc .Timestamp}}</a></td>
       <td>{{friendlySource .Source}}</td>
+      <td>{{conversationLink $.F.Selected .ConversationID}}</td>
       <td>{{or .Provider "—"}}</td>
       <td>{{or .Model "—"}}</td>
       <td>{{tokens .InputTokens}}</td>
@@ -17,7 +18,7 @@
       <td>{{dur .Duration}}</td>
     </tr>
     {{else}}
-    <tr><td colspan="11" class="muted">No requests in this range.</td></tr>
+    <tr><td colspan="12" class="muted">No requests in this range.</td></tr>
     {{end}}
   </tbody>
 </table>

@@ -15,6 +15,8 @@
     <option value="">All models</option>
     {{range .F.Models}}<option value="{{.}}"{{if eq . $.F.Selected.Model}} selected{{end}}>{{.}}</option>{{end}}
   </select>
+  <input type="hidden" name="conversation" value="{{.F.Selected.Conversation}}">
+  {{if .F.ConversationURL}}<a class="chip" href="{{.F.ConversationURL}}" title="Clear conversation filter">conversation: {{if eq .F.Selected.Conversation "none"}}other{{else}}{{.F.Selected.Conversation}}{{end}} &times;</a>{{end}}
   <noscript><button type="submit">Apply</button></noscript>
 </form>
 {{end}}

@@ -134,6 +134,66 @@ func TestSummaryBadFilters(t *testing.T) {
 	}
 }
 
+func TestSummaryCacheHitRate(t *testing.T) {
+	srv := newServer(t, seedtest.DB(t), nil)
+	status, body := get(t, srv.URL+"/api/summary?"+fullRangeQuery)
+	if status != http.StatusOK {
+		t.Fatalf("status = %d, body %s", status, body)
+	}
+	var got struct {
+		CacheReadTokens     int64    `json:"cacheReadTokens"`
+		CacheCreationTokens int64    `json:"cacheCreationTokens"`
+		CacheHitRate        *float64 `json:"cacheHitRate"`
+	}
+	if err := json.Unmarshal([]byte(body), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.CacheReadTokens != 410 || got.CacheCreationTokens != 56 {
+		t.Fatalf("cache totals = %d/%d, want 410/56", got.CacheReadTokens, got.CacheCreationTokens)
+	}
+	if got.CacheHitRate == nil {
+		t.Fatal("cacheHitRate is nil, want 410/1987")
+	}
+	if *got.CacheHitRate < 0.2063 || *got.CacheHitRate > 0.2064 {
+		t.Errorf("cacheHitRate = %v, want ~0.2063 (410/1987)", *got.CacheHitRate)
+	}
+}
+
+func TestGenerationsConversationFilter(t *testing.T) {
+	srv := newServer(t, seedtest.DB(t), nil)
+	status, body := get(t, srv.URL+"/api/generations?"+fullRangeQuery+"&conversation=conv-opencode")
+	if status != http.StatusOK {
+		t.Fatalf("status = %d, body %s", status, body)
+	}
+	var rows []struct {
+		ConversationID string `json:"conversationId"`
+		Source         string `json:"source"`
+	}
+	if err := json.Unmarshal([]byte(body), &rows); err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 8 {
+		t.Fatalf("rows = %d, want 8", len(rows))
+	}
+	for _, r := range rows {
+		if r.ConversationID != "conv-opencode" || r.Source != "opencode" {
+			t.Errorf("row leaked past conversation filter: %+v", r)
+		}
+	}
+
+	// the "none" sentinel selects rows without a conversation ID
+	status, body = get(t, srv.URL+"/api/generations?"+fullRangeQuery+"&conversation=none")
+	if status != http.StatusOK {
+		t.Fatalf("status = %d, body %s", status, body)
+	}
+	if err := json.Unmarshal([]byte(body), &rows); err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 0 {
+		t.Errorf("conversation=none rows = %d, want 0 (all seeded rows have an ID)", len(rows))
+	}
+}
+
 func TestTimeseriesEndpoint(t *testing.T) {
 	srv := newServer(t, seedtest.DB(t), nil)
 

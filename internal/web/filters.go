@@ -11,11 +11,14 @@ import (
 
 // uiFilter is the filter state echoed back to the templates: the selected
 // range preset plus the dropdown values (same query params as the JSON API).
+// Conversation mirrors the storage filter; the "none" sentinel selects
+// requests without a conversation ID (title generations).
 type uiFilter struct {
-	Range    string
-	Source   string
-	Provider string
-	Model    string
+	Range        string
+	Source       string
+	Provider     string
+	Model        string
+	Conversation string
 }
 
 var rangeKeys = []struct{ key, label string }{
@@ -31,12 +34,13 @@ var rangeKeys = []struct{ key, label string }{
 func parseFilter(r *http.Request) (storage.Filter, uiFilter, error) {
 	q := r.URL.Query()
 	u := uiFilter{
-		Range:    q.Get("range"),
-		Source:   q.Get("source"),
-		Provider: q.Get("provider"),
-		Model:    q.Get("model"),
+		Range:        q.Get("range"),
+		Source:       q.Get("source"),
+		Provider:     q.Get("provider"),
+		Model:        q.Get("model"),
+		Conversation: q.Get("conversation"),
 	}
-	f := storage.Filter{Source: u.Source, Provider: u.Provider, Model: u.Model}
+	f := storage.Filter{Source: u.Source, Provider: u.Provider, Model: u.Model, Conversation: u.Conversation}
 	var err error
 	if f.From, err = timeParam(q.Get("from"), "from"); err != nil {
 		return f, u, err
@@ -119,6 +123,9 @@ func presetViews(action string, u uiFilter) []presetView {
 		if u.Model != "" {
 			q.Set("model", u.Model)
 		}
+		if u.Conversation != "" {
+			q.Set("conversation", u.Conversation)
+		}
 		active := u.Range == k.key || (k.key == "all" && (u.Range == "" || u.Range == "all"))
 		out = append(out, presetView{
 			Label:  k.label,
@@ -127,6 +134,46 @@ func presetViews(action string, u uiFilter) []presetView {
 		})
 	}
 	return out
+}
+
+// conversationURL builds a /generations link that keeps the current filters
+// but switches the conversation filter to conv (storage.ConversationNone for
+// rows without a conversation ID).
+func conversationURL(u uiFilter, conv string) string {
+	q := url.Values{}
+	if u.Range != "" && u.Range != "all" {
+		q.Set("range", u.Range)
+	}
+	if u.Source != "" {
+		q.Set("source", u.Source)
+	}
+	if u.Provider != "" {
+		q.Set("provider", u.Provider)
+	}
+	if u.Model != "" {
+		q.Set("model", u.Model)
+	}
+	q.Set("conversation", conv)
+	return "/generations?" + q.Encode()
+}
+
+// withoutConversationURL builds the current page URL minus the conversation
+// filter, used by the clear chip in the filter bar.
+func withoutConversationURL(action string, u uiFilter) string {
+	q := url.Values{}
+	if u.Range != "" {
+		q.Set("range", u.Range)
+	}
+	if u.Source != "" {
+		q.Set("source", u.Source)
+	}
+	if u.Provider != "" {
+		q.Set("provider", u.Provider)
+	}
+	if u.Model != "" {
+		q.Set("model", u.Model)
+	}
+	return action + "?" + q.Encode()
 }
 
 func startOfDay(t time.Time) time.Time {

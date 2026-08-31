@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/tbshfr/ai-usage/internal/normalize"
 	"github.com/tbshfr/ai-usage/internal/storage"
 	"github.com/tbshfr/ai-usage/internal/storage/seedtest"
 )
@@ -128,6 +129,95 @@ func TestFilterNormalization(t *testing.T) {
 	}
 	if s.Requests != 20 {
 		t.Errorf("Requests = %d, want 20 (all seeded rows are in the past)", s.Requests)
+	}
+}
+
+func TestCacheHitRate(t *testing.T) {
+	// prompt count includes cached tokens (OpenAI-style): denom = input
+	if r := storage.CacheHitRate(1000, 800, 100); r == nil || !almostEqual(*r, 0.8) {
+		t.Errorf("CacheHitRate(1000, 800, 100) = %v, want 0.8", r)
+	}
+	// prompt count excludes cached tokens (opencode anomaly, telemetry.md Q1):
+	// denom = input + cache read
+	r := storage.CacheHitRate(3425, 3520, 0)
+	if r == nil || !almostEqual(*r, 3520.0/6945.0) {
+		t.Errorf("CacheHitRate(3425, 3520, 0) = %v, want %v", r, 3520.0/6945.0)
+	}
+	// prompts but no cache activity is an honest 0.0%, not nil
+	if r := storage.CacheHitRate(260, 0, 0); r == nil || *r != 0 {
+		t.Errorf("CacheHitRate(260, 0, 0) = %v, want 0", r)
+	}
+	// no tokens reported at all: nil, never a fabricated 0%
+	if r := storage.CacheHitRate(0, 0, 0); r != nil {
+		t.Errorf("CacheHitRate(0, 0, 0) = %v, want nil", r)
+	}
+}
+
+func TestSummaryCacheHitRate(t *testing.T) {
+	db := seedtest.DB(t)
+	s, err := storage.Summary(context.Background(), db, seedtest.FullRange())
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 1987 input, 410 read, 56 creation → denom = 410+56+max(0, 1987-466) = 1987
+	if r := s.CacheHitRate(); r == nil || !almostEqual(*r, 410.0/1987.0) {
+		t.Errorf("summary hit rate = %v, want %v", r, 410.0/1987.0)
+	}
+}
+
+func TestConversationFilter(t *testing.T) {
+	db := seedtest.DB(t)
+	ctx := context.Background()
+
+	for _, tc := range []struct {
+		conv string
+		want int64
+	}{
+		{"conv-copilot", 12},
+		{"conv-opencode", 8},
+		{storage.ConversationNone, 0}, // every seeded row has a conversation ID
+		{"", 20},
+	} {
+		f := seedtest.FullRange()
+		f.Conversation = tc.conv
+		s, err := storage.Summary(ctx, db, f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if s.Requests != tc.want {
+			t.Errorf("conversation=%q: Requests = %d, want %d", tc.conv, s.Requests, tc.want)
+		}
+	}
+
+	// a Copilot title generation has no conversation ID
+	title := normalize.Generation{
+		ID:           "t1",
+		Timestamp:    time.Date(2026, 3, 3, 0, 0, 0, 0, time.UTC),
+		Source:       "copilot",
+		Provider:     "github",
+		Model:        "gpt-4o-mini-2024-07-18",
+		InputTokens:  seedtest.IP(260),
+		OutputTokens: seedtest.IP(4),
+		AgentName:    "title",
+	}
+	if _, err := storage.InsertGeneration(ctx, db, title); err != nil {
+		t.Fatal(err)
+	}
+	f := seedtest.FullRange()
+	f.Conversation = storage.ConversationNone
+	s, err := storage.Summary(ctx, db, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Requests != 1 {
+		t.Errorf("conversation=none after title insert: Requests = %d, want 1", s.Requests)
+	}
+	rows, err := storage.RecentGenerations(ctx, db, f, 10, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 || rows[0].ID != "t1" || rows[0].AgentName != "title" {
+		t.Errorf("conversation=none rows = %+v, want the title generation", rows)
 	}
 }
 

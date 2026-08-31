@@ -9,6 +9,7 @@
       <dt>Output</dt><dd>{{tokens .S.OutputTokens}}</dd>
       <dt>Cache read</dt><dd>{{tokens .S.CacheReadTokens}}</dd>
       <dt>Cache creation</dt><dd>{{tokens .S.CacheCreationTokens}}</dd>
+      <dt>Cache hit rate</dt><dd>{{pct .S.CacheHitRate}}</dd>
       <dt>Reasoning</dt><dd>{{tokens .S.ReasoningTokens}}</dd>
     </dl>
     <p class="cost">{{costLine .S.CostKnownCount .S.CostUnknownCount .S.CostTotal}}</p>

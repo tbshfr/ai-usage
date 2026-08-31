@@ -80,12 +80,13 @@ type pageData struct {
 }
 
 type filterView struct {
-	Action    string
-	Presets   []presetView
-	Sources   []string
-	Providers []string
-	Models    []string
-	Selected  uiFilter
+	Action          string
+	Presets         []presetView
+	Sources         []string
+	Providers       []string
+	Models          []string
+	Selected        uiFilter
+	ConversationURL string // current page minus the conversation filter, "" when no conversation filter is set
 }
 
 type presetView struct {
@@ -323,10 +324,11 @@ func (s *server) cards(ctx context.Context, u uiFilter) ([]cardView, error) {
 	out := make([]cardView, 0, len(ranges))
 	for _, rg := range ranges {
 		s, err := storage.Summary(ctx, s.db, storage.Filter{
-			From:     rg.from,
-			Source:   u.Source,
-			Provider: u.Provider,
-			Model:    u.Model,
+			From:         rg.from,
+			Source:       u.Source,
+			Provider:     u.Provider,
+			Model:        u.Model,
+			Conversation: u.Conversation,
 		})
 		if err != nil {
 			return nil, err
@@ -343,6 +345,9 @@ func (s *server) base(ctx context.Context, title, active, action string, u uiFil
 	d.F.Action = action
 	d.F.Selected = u
 	d.F.Presets = presetViews(action, u)
+	if u.Conversation != "" {
+		d.F.ConversationURL = withoutConversationURL(action, u)
+	}
 	var err error
 	if d.F.Sources, err = storage.DistinctSources(ctx, s.db, storage.Filter{}); err != nil {
 		return nil, err

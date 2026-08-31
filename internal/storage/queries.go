@@ -98,6 +98,16 @@ func (b Breakdown) CacheHitRate() *float64 {
 	return CacheHitRate(b.InputTokens, b.CacheReadTokens, b.CacheCreationTokens)
 }
 
+// TotalTokens is the sum of all five token columns.
+func (s SummaryResult) TotalTokens() int64 {
+	return s.InputTokens + s.OutputTokens + s.CacheReadTokens + s.CacheCreationTokens + s.ReasoningTokens
+}
+
+// TotalTokens is the sum of all five token columns.
+func (b Breakdown) TotalTokens() int64 {
+	return b.InputTokens + b.OutputTokens + b.CacheReadTokens + b.CacheCreationTokens + b.ReasoningTokens
+}
+
 // Summary returns totals for the filter range.
 func Summary(ctx context.Context, db *sql.DB, f Filter) (SummaryResult, error) {
 	f, err := f.normalize(time.Now())
@@ -376,27 +386,31 @@ func distinct(ctx context.Context, db *sql.DB, f Filter, column string) ([]strin
 	return out, nil
 }
 
-// RecentGenerations returns full records ordered by timestamp DESC for the
-// recent-requests table.
+// RecentGenerations returns full records ordered by timestamp (OrderDesc =
+// newest first, the default) for the requests table.
 const generationColumns = `
 	id, timestamp, source, service_name, provider, model,
 	input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens, reasoning_tokens,
 	cost, conversation_id, trace_id, span_id, duration_ms,
 	agent_name, git_repo, git_branch`
 
-func RecentGenerations(ctx context.Context, db *sql.DB, f Filter, limit, offset int) ([]normalize.Generation, error) {
+func RecentGenerations(ctx context.Context, db *sql.DB, f Filter, order Order, limit, offset int) ([]normalize.Generation, error) {
 	if limit <= 0 {
 		return nil, fmt.Errorf("limit must be positive, got %d", limit)
 	}
 	if offset < 0 {
 		return nil, fmt.Errorf("offset must be non-negative, got %d", offset)
 	}
-	f, err := f.normalize(time.Now())
+	dir, err := order.validate()
+	if err != nil {
+		return nil, err
+	}
+	f, err = f.normalize(time.Now())
 	if err != nil {
 		return nil, err
 	}
 	where, args := f.whereSQL()
-	q := `SELECT ` + generationColumns + ` FROM generations WHERE ` + where + ` ORDER BY timestamp DESC LIMIT ? OFFSET ?`
+	q := `SELECT ` + generationColumns + ` FROM generations WHERE ` + where + ` ORDER BY timestamp ` + string(dir) + ` LIMIT ? OFFSET ?`
 	args = append(args, limit, offset)
 	rows, err := db.QueryContext(ctx, q, args...)
 	if err != nil {

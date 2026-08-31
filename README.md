@@ -4,13 +4,14 @@ A local dashboard for your AI usage. It receives OpenTelemetry telemetry
 directly from **OpenCode** (via the community OTel plugin) and **VS Code
 GitHub Copilot** (native OTel support), normalizes every LLM call into one
 canonical record, and stores it in a single SQLite file — all inside one
-Go binary. A small web dashboard and JSON API on `:8080` show requests,
-token counts, and trends over time — including cache hit rate, per-source
-breakdowns (VS Code Copilot vs OpenCode), and a recent-requests view that
-can be filtered by conversation. Cost is displayed **only where the
-source itself reports it** (OpenCode reports a USD estimate; Copilot
-reports none) — this project has no pricing subsystem and never computes
-cost.
+Go binary. A small web dashboard and JSON API on `:8080` show today's
+token usage up front with weekly/monthly/all-time totals beside it (each
+with the cache hit rate; click a card for details), a **Trends** page with
+charts, per-source/provider/model breakdowns, and a **Sessions** view that
+groups requests by conversation with a sortable request list. Cost is
+displayed **only where the source itself reports it** (OpenCode reports a
+USD estimate; Copilot reports none) — this project has no pricing
+subsystem and never computes cost.
 
 ```
 OpenCode / VS Code Copilot ──OTLP──▶ ai-usage ──▶ SQLite ──▶ dashboard + JSON API

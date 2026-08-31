@@ -1,8 +1,8 @@
 {{define "filterbar"}}
 <form id="filter-bar" method="get" action="{{.F.Action}}" class="filterbar">
-  <span class="presets">
+  {{if .F.Presets}}<span class="presets">
     {{range .F.Presets}}<a href="{{.URL}}"{{if .Active}} class="active"{{end}}>{{.Label}}</a>{{end}}
-  </span>
+  </span>{{end}}
   <select name="source" aria-label="Source">
     <option value="">All sources</option>
     {{range .F.Sources}}<option value="{{.}}"{{if eq . $.F.Selected.Source}} selected{{end}}>{{friendlySource .}}</option>{{end}}
@@ -16,6 +16,7 @@
     {{range .F.Models}}<option value="{{.}}"{{if eq . $.F.Selected.Model}} selected{{end}}>{{.}}</option>{{end}}
   </select>
   <input type="hidden" name="conversation" value="{{.F.Selected.Conversation}}">
+  {{range .F.Hidden}}{{if .Value}}<input type="hidden" name="{{.Name}}" value="{{.Value}}">{{end}}{{end}}
   {{if .F.ConversationURL}}<a class="chip" href="{{.F.ConversationURL}}" title="Clear conversation filter">conversation: {{if eq .F.Selected.Conversation "none"}}other{{else}}{{.F.Selected.Conversation}}{{end}} &times;</a>{{end}}
   <noscript><button type="submit">Apply</button></noscript>
 </form>

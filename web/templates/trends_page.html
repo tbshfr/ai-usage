@@ -1,0 +1,6 @@
+{{define "content"}}
+{{template "filterbar" .}}
+<div id="trends" hx-get="/fragments/trends" hx-trigger="change from:#filter-bar" hx-include="#filter-bar, [name=bucket]">
+{{template "trends" .}}
+</div>
+{{end}}

@@ -1,0 +1,7 @@
+{{define "session-list"}}
+{{if eq .View "requests"}}
+{{template "session-rows" .}}
+{{else}}
+{{template "conversations" .}}
+{{end}}
+{{end}}

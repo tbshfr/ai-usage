@@ -212,7 +212,7 @@ func TestConversationFilter(t *testing.T) {
 	if s.Requests != 1 {
 		t.Errorf("conversation=none after title insert: Requests = %d, want 1", s.Requests)
 	}
-	rows, err := storage.RecentGenerations(ctx, db, f, 10, 0)
+	rows, err := storage.RecentGenerations(ctx, db, f, storage.OrderDesc, 10, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -464,7 +464,7 @@ func TestRecentGenerationsPagination(t *testing.T) {
 	db := seedtest.DB(t)
 	ctx := context.Background()
 
-	page1, err := storage.RecentGenerations(ctx, db, seedtest.FullRange(), 5, 0)
+	page1, err := storage.RecentGenerations(ctx, db, seedtest.FullRange(), storage.OrderDesc, 5, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -482,7 +482,7 @@ func TestRecentGenerationsPagination(t *testing.T) {
 		t.Errorf("o6 cost = %v, want 0.60", page1[0].Cost)
 	}
 
-	page2, err := storage.RecentGenerations(ctx, db, seedtest.FullRange(), 2, 4)
+	page2, err := storage.RecentGenerations(ctx, db, seedtest.FullRange(), storage.OrderDesc, 2, 4)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -490,7 +490,7 @@ func TestRecentGenerationsPagination(t *testing.T) {
 		t.Errorf("page2 = %+v, want [c12 o5]", page2)
 	}
 
-	all, err := storage.RecentGenerations(ctx, db, seedtest.FullRange(), 100, 0)
+	all, err := storage.RecentGenerations(ctx, db, seedtest.FullRange(), storage.OrderDesc, 100, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -503,10 +503,10 @@ func TestRecentGenerationsPagination(t *testing.T) {
 		}
 	}
 
-	if _, err := storage.RecentGenerations(ctx, db, seedtest.FullRange(), 0, 0); err == nil {
+	if _, err := storage.RecentGenerations(ctx, db, seedtest.FullRange(), storage.OrderDesc, 0, 0); err == nil {
 		t.Error("limit 0 must error")
 	}
-	if _, err := storage.RecentGenerations(ctx, db, seedtest.FullRange(), 5, -1); err == nil {
+	if _, err := storage.RecentGenerations(ctx, db, seedtest.FullRange(), storage.OrderDesc, 5, -1); err == nil {
 		t.Error("negative offset must error")
 	}
 }

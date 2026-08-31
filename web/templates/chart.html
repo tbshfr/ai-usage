@@ -1,18 +1,35 @@
-{{define "timeseries"}}
+{{define "trends"}}
 <div class="chart-head">
-  <h2>Usage over time <span class="muted">(UTC {{.Chart.Bucket}} buckets)</span></h2>
+  <h2>Trends <span class="muted">(UTC {{.Charts.Bucket}} buckets)</span></h2>
   <select name="bucket" aria-label="Granularity"
-          hx-get="/fragments/timeseries" hx-target="#timeseries"
+          hx-get="/fragments/trends" hx-target="#trends"
           hx-include="[name=bucket], #filter-bar">
-    <option value="day"{{if eq .Chart.Bucket "day"}} selected{{end}}>Day</option>
-    <option value="week"{{if eq .Chart.Bucket "week"}} selected{{end}}>Week</option>
-    <option value="month"{{if eq .Chart.Bucket "month"}} selected{{end}}>Month</option>
+    <option value="day"{{if eq .Charts.Bucket "day"}} selected{{end}}>Day</option>
+    <option value="week"{{if eq .Charts.Bucket "week"}} selected{{end}}>Week</option>
+    <option value="month"{{if eq .Charts.Bucket "month"}} selected{{end}}>Month</option>
   </select>
 </div>
-{{if .Chart.HasData}}
-<div id="chart" class="chart"></div>
-<script>renderTokenChart('chart', {{toJSON .Chart.Data}});</script>
+{{if .Charts.HasTokens}}
+<section class="panel">
+  <h3>Tokens over time</h3>
+  <div id="chart-tokens" class="chart"></div>
+  <script>renderChart('chart-tokens', {{toJSON .Charts.TokenData}});</script>
+</section>
 {{else}}
 <p class="muted">No usage in this range.</p>
+{{end}}
+{{if .Charts.HasSource}}
+<section class="panel">
+  <h3>Tokens by source</h3>
+  <div id="chart-sources" class="chart"></div>
+  <script>renderChart('chart-sources', {{toJSON .Charts.SourceData}});</script>
+</section>
+{{end}}
+{{if .Charts.HasCache}}
+<section class="panel">
+  <h3>Cache hit rate</h3>
+  <div id="chart-cache" class="chart"></div>
+  <script>renderChart('chart-cache', {{toJSON .Charts.CacheData}});</script>
+</section>
 {{end}}
 {{end}}

@@ -83,18 +83,27 @@ func timeParam(v, name string) (time.Time, error) {
 	return time.Time{}, badRequest{fmt.Errorf("invalid %s %q (want RFC3339 or YYYY-MM-DD)", name, v)}
 }
 
-func bucketParam(w http.ResponseWriter, r *http.Request) (storage.Bucket, bool) {
+func bucketParam(r *http.Request) (storage.Bucket, error) {
 	b := storage.Bucket(r.URL.Query().Get("bucket"))
 	if b == "" {
 		b = storage.BucketDay
 	}
 	switch b {
 	case storage.BucketDay, storage.BucketWeek, storage.BucketMonth:
-		return b, true
+		return b, nil
 	default:
-		http.Error(w, fmt.Sprintf("invalid bucket %q (want day, week, or month)", b), http.StatusBadRequest)
-		return "", false
+		return "", badRequest{fmt.Errorf("invalid bucket %q (want day, week, or month)", b)}
 	}
+}
+
+// orderParam reads the asc/desc sort direction for list views; empty means
+// newest first.
+func orderParam(r *http.Request) (storage.Order, error) {
+	o, err := storage.ParseOrder(r.URL.Query().Get("sort"))
+	if err != nil {
+		return "", badRequest{err}
+	}
+	return o, nil
 }
 
 func offsetParam(r *http.Request) (int, error) {
@@ -136,7 +145,7 @@ func presetViews(action string, u uiFilter) []presetView {
 	return out
 }
 
-// conversationURL builds a /generations link that keeps the current filters
+// conversationURL builds a /sessions link that keeps the current filters
 // but switches the conversation filter to conv (storage.ConversationNone for
 // rows without a conversation ID).
 func conversationURL(u uiFilter, conv string) string {
@@ -154,7 +163,7 @@ func conversationURL(u uiFilter, conv string) string {
 		q.Set("model", u.Model)
 	}
 	q.Set("conversation", conv)
-	return "/generations?" + q.Encode()
+	return "/sessions?" + q.Encode()
 }
 
 // withoutConversationURL builds the current page URL minus the conversation

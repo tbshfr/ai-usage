@@ -1,0 +1,6 @@
+{{define "content"}}
+{{template "filterbar" .}}
+<div id="session-list" hx-get="/fragments/session-list" hx-trigger="change from:#filter-bar" hx-include="#filter-bar">
+{{template "session-list" .}}
+</div>
+{{end}}

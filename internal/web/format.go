@@ -24,6 +24,8 @@ var funcs = template.FuncMap{
 	"costCell":         costCell,
 	"dur":              dur,
 	"utc":              utc,
+	"utcTime":          utcTime,
+	"utcDate":          utcDate,
 	"friendlySource":   friendlySource,
 	"underlying":       normalize.UnderlyingProvider,
 	"copyID":           copyID,
@@ -31,13 +33,17 @@ var funcs = template.FuncMap{
 	"pct":              pct,
 	"shortConv":        shortConv,
 	"conversationLink": conversationLink,
+	"convHref":         convHref,
+	"convTitle":        convTitle,
+	"convSub":          convSub,
 }
 
 var pageTmpls = map[string]*template.Template{
 	"login":      mustParse("login.html"),
-	"overview":   mustParse("layout.html", "filterbar.html", "cards.html", "chart.html", "overview.html"),
+	"dashboard":  mustParse("layout.html", "filterbar.html", "cards.html", "dashboard.html"),
+	"trends":     mustParse("layout.html", "filterbar.html", "chart.html", "trends_page.html"),
 	"breakdowns": mustParse("layout.html", "filterbar.html", "breakdowns.html", "breakdowns_page.html"),
-	"recent":     mustParse("layout.html", "filterbar.html", "rows.html", "recent.html"),
+	"sessions":   mustParse("layout.html", "filterbar.html", "session_list.html", "conversations.html", "rows.html", "sessions_page.html"),
 	"detail":     mustParse("layout.html", "detail.html"),
 }
 
@@ -45,10 +51,11 @@ var pageTmpls = map[string]*template.Template{
 // are included by the page sets, so a fragment is always also a
 // full-HTML-renderable page section.
 var fragTmpls = map[string]*template.Template{
-	"overview-cards": mustParse("cards.html"),
-	"timeseries":     mustParse("chart.html"),
-	"breakdowns":     mustParse("breakdowns.html"),
-	"recent-rows":    mustParse("rows.html"),
+	"dashboard-stats": mustParse("cards.html"),
+	"period-detail":   mustParse("cards.html"),
+	"trends":          mustParse("chart.html"),
+	"breakdowns":      mustParse("breakdowns.html"),
+	"session-list":    mustParse("session_list.html", "conversations.html", "rows.html"),
 }
 
 func mustParse(files ...string) *template.Template {
@@ -145,6 +152,16 @@ func utc(t time.Time) string {
 	return t.UTC().Format("2006-01-02 15:04 UTC")
 }
 
+// utcTime is the clock part of a timestamp: "12:15".
+func utcTime(t time.Time) string {
+	return t.UTC().Format("15:04")
+}
+
+// utcDate is the UTC date of a timestamp: "2026-03-02".
+func utcDate(t time.Time) string {
+	return t.UTC().Format("2006-01-02")
+}
+
 func friendlySource(s string) string {
 	switch s {
 	case "opencode":
@@ -189,10 +206,10 @@ func shortConv(s string) string {
 	return s[:10] + "…"
 }
 
-// conversationLink renders an anchor filtering Recent by conversation; conv
+// conversationLink renders an anchor filtering Sessions by conversation; conv
 // "" becomes the "none" filter (title generations and similar).
 func conversationLink(u uiFilter, conv string) template.HTML {
-	href := conversationURL(u, conv)
+	href := convHref(u, conv)
 	if conv == "" {
 		conv = storage.ConversationNone
 	}
@@ -200,5 +217,45 @@ func conversationLink(u uiFilter, conv string) template.HTML {
 	if conv != storage.ConversationNone {
 		label = template.HTMLEscapeString(shortConv(conv))
 	}
-	return template.HTML(`<a class="conv" title="Filter recent by conversation" href="` + href + `">` + label + `</a>`)
+	return template.HTML(`<a class="conv" title="Show this conversation's requests" href="` + href + `">` + label + `</a>`)
+}
+
+// convHref builds the /sessions drill-down URL for a conversation key; ""
+// (the other-groups) becomes the "none" sentinel filter.
+func convHref(u uiFilter, key string) string {
+	if key == "" {
+		key = storage.ConversationNone
+	}
+	return conversationURL(u, key)
+}
+
+// convTitle picks the conversation card's headline: agent, repo, or model.
+func convTitle(c storage.ConversationSummary) string {
+	if c.AgentName != "" {
+		return c.AgentName
+	}
+	if c.GitRepo != "" {
+		return c.GitRepo
+	}
+	if c.Model != "" {
+		return c.Model
+	}
+	return "Session"
+}
+
+// convSub is the conversation card's muted second line, skipping anything
+// already shown as the title.
+func convSub(c storage.ConversationSummary) string {
+	title := convTitle(c)
+	parts := []string{}
+	if c.GitRepo != "" && c.GitRepo != title {
+		parts = append(parts, c.GitRepo)
+	}
+	if c.Model != "" && c.Model != title {
+		parts = append(parts, c.Model)
+	}
+	if len(parts) == 0 {
+		parts = append(parts, shortConv(c.Key))
+	}
+	return strings.Join(parts, " · ")
 }

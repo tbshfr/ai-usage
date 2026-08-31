@@ -1,19 +1,53 @@
-{{define "overview-cards"}}
-<div class="cards">
-  {{range .Cards}}
-  <div class="card">
-    <h3>{{.Label}}</h3>
-    <dl>
-      <dt>Requests</dt><dd>{{commas .S.Requests}}</dd>
-      <dt>Input</dt><dd>{{tokens .S.InputTokens}}</dd>
-      <dt>Output</dt><dd>{{tokens .S.OutputTokens}}</dd>
-      <dt>Cache read</dt><dd>{{tokens .S.CacheReadTokens}}</dd>
-      <dt>Cache creation</dt><dd>{{tokens .S.CacheCreationTokens}}</dd>
-      <dt>Cache hit rate</dt><dd>{{pct .S.CacheHitRate}}</dd>
-      <dt>Reasoning</dt><dd>{{tokens .S.ReasoningTokens}}</dd>
-    </dl>
-    <p class="cost">{{costLine .S.CostKnownCount .S.CostUnknownCount .S.CostTotal}}</p>
-  </div>
-  {{end}}
+{{define "dashboard-stats"}}
+<div class="hero-row">
+  {{range .Cards}}{{if .Hero}}
+  <button class="stat-card hero" hx-get="/fragments/period-detail?period={{.Period}}" hx-target="#period-detail" hx-include="#filter-bar" title="Show details">
+    <div class="stat-top">
+      <span class="stat-label">{{.Label}}</span>
+      <span class="badge badge-cache" title="Cache hit rate">cache hit {{pct .S.CacheHitRate}}</span>
+    </div>
+    <div class="stat-big">{{commas .S.TotalTokens}}</div>
+    <div class="stat-unit muted">tokens today</div>
+    <div class="stat-breakdown">
+      <span><b>{{commas .S.InputTokens}}</b> input</span>
+      <span><b>{{commas .S.OutputTokens}}</b> output</span>
+      <span><b>{{commas .S.CacheReadTokens}}</b> cached</span>
+    </div>
+    <div class="stat-foot muted">{{commas .S.Requests}} requests &middot; click for details</div>
+  </button>
+  {{end}}{{end}}
 </div>
+<div class="period-cards">
+  {{range .Cards}}{{if not .Hero}}
+  <button class="stat-card" hx-get="/fragments/period-detail?period={{.Period}}" hx-target="#period-detail" hx-include="#filter-bar" title="Show details">
+    <div class="stat-top"><span class="stat-label">{{.Label}}</span></div>
+    <div class="stat-mid">{{commas .S.TotalTokens}}</div>
+    <div class="stat-unit muted">tokens</div>
+    <div class="stat-foot">
+      <span class="badge badge-cache">hit {{pct .S.CacheHitRate}}</span>
+      <span class="muted">{{commas .S.Requests}} requests</span>
+    </div>
+  </button>
+  {{end}}{{end}}
+</div>
+{{end}}
+
+{{define "period-detail"}}
+<section class="period-detail">
+  <div class="detail-head">
+    <h2>{{.Detail.Label}} &mdash; details</h2>
+    <button class="close" hx-get="/fragments/period-detail" hx-target="#period-detail" aria-label="Close details">&times;</button>
+  </div>
+  <dl class="detail-grid">
+    <div><dt>Requests</dt><dd>{{commas .Detail.S.Requests}}</dd></div>
+    <div><dt>Total tokens</dt><dd>{{commas .Detail.S.TotalTokens}}</dd></div>
+    <div><dt>Input</dt><dd>{{tokens .Detail.S.InputTokens}}</dd></div>
+    <div><dt>Output</dt><dd>{{tokens .Detail.S.OutputTokens}}</dd></div>
+    <div><dt>Cache read</dt><dd>{{tokens .Detail.S.CacheReadTokens}}</dd></div>
+    <div><dt>Cache creation</dt><dd>{{tokens .Detail.S.CacheCreationTokens}}</dd></div>
+    <div><dt>Reasoning</dt><dd>{{tokens .Detail.S.ReasoningTokens}}</dd></div>
+    <div><dt>Cache hit rate</dt><dd>{{pct .Detail.S.CacheHitRate}}</dd></div>
+    <div><dt>Cost</dt><dd>{{costLine .Detail.S.CostKnownCount .Detail.S.CostUnknownCount .Detail.S.CostTotal}}</dd></div>
+  </dl>
+</section>
 {{end}}

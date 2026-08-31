@@ -1,9 +1,0 @@
-{{define "content"}}
-{{template "filterbar" .}}
-<div id="overview-cards" hx-get="/fragments/overview-cards" hx-trigger="change from:#filter-bar" hx-include="#filter-bar">
-{{template "overview-cards" .}}
-</div>
-<div id="timeseries" hx-get="/fragments/timeseries" hx-trigger="change from:#filter-bar" hx-include="#filter-bar, [name=bucket]">
-{{template "timeseries" .}}
-</div>
-{{end}}

@@ -59,7 +59,7 @@ func wantNotContains(t *testing.T, body string, subs ...string) {
 	}
 }
 
-func TestOverviewPageRenders(t *testing.T) {
+func TestDashboardPageRenders(t *testing.T) {
 	srv := newServer(t)
 	defer srv.Close()
 	status, body := get(t, srv.URL+"/?"+fullRangeQuery)
@@ -69,127 +69,72 @@ func TestOverviewPageRenders(t *testing.T) {
 	wantContains(t, body,
 		"OpenCode", "VS Code Copilot",
 		"Today", "This week", "This month", "All time",
-		"$2.8500 (8 known, 12 without cost data)",
-		"1,987",
-		"Usage over time",
+		"hit 20.6%",
+		"3,727",       // all-time total tokens
+		"20 requests", // all-time requests
+		"period=today", "period=week", "period=month", "period=all",
 		"All sources", "All providers", "All models",
 		`<option value="claude-haiku-4-5-20251001"`,
 	)
+	// Cost is not on the dashboard cards — only in the detail expansion.
+	wantNotContains(t, body, "$2.8500", "Usage over time")
 }
 
-func TestOverviewCardsCopilotCostUnknown(t *testing.T) {
+func TestPeriodDetailFragmentHasCost(t *testing.T) {
 	srv := newServer(t)
 	defer srv.Close()
-	status, body := get(t, srv.URL+"/fragments/overview-cards?"+fullRangeQuery+"&source=copilot")
+	status, body := get(t, srv.URL+"/fragments/period-detail?period=all&"+fullRangeQuery)
 	if status != http.StatusOK {
 		t.Fatalf("status %d", status)
 	}
-	wantContains(t, body, "12", "—")
+	wantContains(t, body, "All time &mdash; details", "$2.8500 (8 known, 12 without cost data)", "Cache hit rate", "20.6%")
+
+	// unknown cost must stay "—", never $0.00
+	_, body = get(t, srv.URL+"/fragments/period-detail?period=all&"+fullRangeQuery+"&source=copilot")
+	wantContains(t, body, "—")
 	wantNotContains(t, body, "$0.00", "$")
+
+	// close action: empty period renders an empty body
+	status, body = get(t, srv.URL+"/fragments/period-detail")
+	if status != http.StatusOK || body != "" {
+		t.Errorf("close action: status %d body %q", status, body)
+	}
+
+	status, _ = get(t, srv.URL+"/fragments/period-detail?period=nonsense")
+	if status != http.StatusBadRequest {
+		t.Errorf("invalid period: status %d, want 400", status)
+	}
 }
 
-func TestTimeseriesCostSeriesOnlyWhenKnown(t *testing.T) {
+func TestTrendsPageAndFragment(t *testing.T) {
 	srv := newServer(t)
 	defer srv.Close()
-	status, body := get(t, srv.URL+"/fragments/timeseries?"+fullRangeQuery)
+	status, body := get(t, srv.URL+"/trends?"+fullRangeQuery)
 	if status != http.StatusOK {
 		t.Fatalf("status %d", status)
 	}
-	wantContains(t, body, `"scale":"cost"`, "Cost (reported only)")
+	wantContains(t, body,
+		"Tokens over time", "Tokens by source", "Cache hit rate",
+		"renderChart('chart-tokens'", "renderChart('chart-sources'", "renderChart('chart-cache'",
+	)
 
-	_, body = get(t, srv.URL+"/fragments/timeseries?"+fullRangeQuery+"&source=copilot")
+	// fragment with month bucket; cost series is gone, pct series is present
+	_, body = get(t, srv.URL+"/fragments/trends?"+fullRangeQuery+"&bucket=month")
+	wantContains(t, body, `"name":"Cache hit rate","fmt":"pct"`, `value="month" selected`)
 	wantNotContains(t, body, "Cost (reported only)", `"scale":"cost"`)
-}
-
-func TestTimeseriesGranularityAndPresets(t *testing.T) {
-	srv := newServer(t)
-	defer srv.Close()
-	status, body := get(t, srv.URL+"/fragments/timeseries?"+fullRangeQuery+"&bucket=month")
-	if status != http.StatusOK {
-		t.Fatalf("status %d", status)
-	}
-	wantContains(t, body, `value="month" selected`, `renderTokenChart('chart'`)
 
 	// today is always past the fixed seed dates
-	_, body = get(t, srv.URL+"/fragments/timeseries?range=today")
+	_, body = get(t, srv.URL+"/fragments/trends?range=today")
 	wantContains(t, body, "No usage in this range.")
 
-	status, _ = get(t, srv.URL+"/fragments/timeseries?range=nonsense")
+	status, _ = get(t, srv.URL+"/trends?range=nonsense")
 	if status != http.StatusBadRequest {
 		t.Fatalf("invalid range: status %d, want 400", status)
 	}
-	status, _ = get(t, srv.URL+"/fragments/timeseries?"+fullRangeQuery+"&bucket=hour")
+	status, _ = get(t, srv.URL+"/trends?"+fullRangeQuery+"&bucket=hour")
 	if status != http.StatusBadRequest {
 		t.Fatalf("invalid bucket: status %d, want 400", status)
 	}
-}
-
-func TestRecentRowsFilterNarrowing(t *testing.T) {
-	srv := newServer(t)
-	defer srv.Close()
-	status, body := get(t, srv.URL+"/fragments/recent-rows?"+fullRangeQuery)
-	if status != http.StatusOK {
-		t.Fatalf("status %d", status)
-	}
-	wantContains(t, body, "gpt-4.1", "claude-haiku-4-5-20251001", "2026-03-01 00:19 UTC", "—")
-	wantNotContains(t, body, "Prev")
-
-	_, body = get(t, srv.URL+"/fragments/recent-rows?"+fullRangeQuery+"&source=opencode")
-	wantContains(t, body, "claude-haiku-4-5-20251001", "$0.6000")
-	wantNotContains(t, body, "gpt-4.1")
-
-	_, body = get(t, srv.URL+"/fragments/recent-rows?"+fullRangeQuery+"&source=copilot")
-	wantContains(t, body, "gpt-4.1", "—")
-	wantNotContains(t, body, "$")
-
-	// pager: 20 seeded rows, offset 15 leaves 5 and a Prev link
-	_, body = get(t, srv.URL+"/fragments/recent-rows?"+fullRangeQuery+"&offset=15")
-	wantContains(t, body, "/fragments/recent-rows?offset=0", "Prev")
-	wantNotContains(t, body, "Next")
-
-	status, _ = get(t, srv.URL+"/fragments/recent-rows?offset=-3")
-	if status != http.StatusBadRequest {
-		t.Fatalf("invalid offset: status %d, want 400", status)
-	}
-}
-
-func TestRecentConversationColumn(t *testing.T) {
-	srv := newServer(t)
-	defer srv.Close()
-	status, body := get(t, srv.URL+"/generations?"+fullRangeQuery)
-	if status != http.StatusOK {
-		t.Fatalf("status %d", status)
-	}
-	// conversation column with click-to-filter links (IDs truncated for display)
-	wantContains(t, body,
-		"<th>Conversation</th>",
-		`title="Filter recent by conversation" href="/generations?conversation=conv-copilot`,
-		"conv-copil",
-	)
-	wantNotContains(t, body, ">other<") // every seeded row has a conversation ID
-
-	// click-through narrows to that conversation
-	_, body = get(t, srv.URL+"/fragments/recent-rows?"+fullRangeQuery+"&conversation=conv-opencode")
-	wantContains(t, body, "claude-haiku-4-5-20251001")
-	wantNotContains(t, body, "gpt-4.1")
-
-	// "other" (no conversation ID, e.g. Copilot title generations): no seeded rows qualify
-	_, body = get(t, srv.URL+"/fragments/recent-rows?"+fullRangeQuery+"&conversation=none")
-	wantContains(t, body, "No requests in this range.")
-
-	// conversation filter echoes into the preset links and the clear chip
-	_, body = get(t, srv.URL+"/generations?"+fullRangeQuery+"&conversation=conv-opencode")
-	wantContains(t, body, "conversation=conv-opencode", "Clear conversation filter")
-}
-
-func TestRecentCacheHitRateCard(t *testing.T) {
-	srv := newServer(t)
-	defer srv.Close()
-	status, body := get(t, srv.URL+"/?"+fullRangeQuery)
-	if status != http.StatusOK {
-		t.Fatalf("status %d", status)
-	}
-	wantContains(t, body, "Cache hit rate", "20.6%")
 }
 
 func TestBreakdownsFragment(t *testing.T) {
@@ -204,13 +149,105 @@ func TestBreakdownsFragment(t *testing.T) {
 		"VS Code Copilot", "OpenCode",
 		"github", "openai",
 		"$2.8500",
-		"Cache hit",
+		"Cache hit", "Total tokens",
+		"<tr class=\"totals\">",
 	)
 
 	// copilot-only: model rows must show the cost-null contract
 	_, body = get(t, srv.URL+"/fragments/breakdowns?"+fullRangeQuery+"&source=copilot")
 	wantContains(t, body, "gpt-4.1", "openai", "—")
 	wantNotContains(t, body, "$0.00")
+}
+
+func TestSessionsPageConversations(t *testing.T) {
+	srv := newServer(t)
+	defer srv.Close()
+	status, body := get(t, srv.URL+"/sessions?"+fullRangeQuery)
+	if status != http.StatusOK {
+		t.Fatalf("status %d", status)
+	}
+	wantContains(t, body,
+		"conv-card",
+		`href="/sessions?conversation=conv-copilot"`,
+		`href="/sessions?conversation=conv-opencode"`,
+		"<b>12</b> requests",  // conv-copilot
+		"<b>3,395</b> tokens", // conv-copilot total tokens
+		"cache hit 21.6%",
+		"$2.8500", // opencode session reports cost
+		"2 sessions",
+		"sort=asc", "sort=desc", "Sort by date",
+	)
+	// no conversation rows without IDs in the seed → no Other cards
+	wantNotContains(t, body, "Other requests")
+}
+
+func TestSessionsSortOrder(t *testing.T) {
+	srv := newServer(t)
+	defer srv.Close()
+	// asc: oldest conversation (conv-copilot, first activity at 00:09) first
+	status, body := get(t, srv.URL+"/sessions?"+fullRangeQuery+"&sort=asc")
+	if status != http.StatusOK {
+		t.Fatalf("status %d", status)
+	}
+	if strings.Index(body, "conversation=conv-copilot") > strings.Index(body, "conversation=conv-opencode") {
+		t.Error("asc sort: conv-copilot must come before conv-opencode")
+	}
+	wantContains(t, body, `<input type="hidden" name="sort" value="asc">`)
+
+	// fragment keeps sort via the query string (the filter bar is not part of the fragment)
+	_, body = get(t, srv.URL+"/fragments/session-list?"+fullRangeQuery+"&sort=desc")
+	if strings.Index(body, "conversation=conv-opencode") > strings.Index(body, "conversation=conv-copilot") {
+		t.Error("desc sort: conv-opencode must come before conv-copilot")
+	}
+
+	status, _ = get(t, srv.URL+"/sessions?sort=sideways")
+	if status != http.StatusBadRequest {
+		t.Errorf("invalid sort: status %d, want 400", status)
+	}
+}
+
+func TestSessionRequestsView(t *testing.T) {
+	srv := newServer(t)
+	defer srv.Close()
+	status, body := get(t, srv.URL+"/sessions?"+fullRangeQuery+"&view=requests")
+	if status != http.StatusOK {
+		t.Fatalf("status %d", status)
+	}
+	wantContains(t, body,
+		"<th>Conversation</th>",
+		"gpt-4.1", "claude-haiku-4-5-20251001", "2026-03-01 00:19 UTC", "—",
+		`title="Show this conversation's requests" href="/sessions?conversation=conv-copilot`,
+		`<input type="hidden" name="view" value="requests">`,
+	)
+	wantNotContains(t, body, "Prev")
+
+	// conversation drill-down narrows to that conversation's requests
+	// (fragment: the page's filter dropdowns would also mention other models)
+	_, body = get(t, srv.URL+"/fragments/session-list?"+fullRangeQuery+"&conversation=conv-opencode")
+	wantContains(t, body, "claude-haiku-4-5-20251001", "$0.6000")
+	wantNotContains(t, body, "gpt-4.1", "<th>Conversation</th>")
+
+	// pager: 20 seeded rows, offset 15 leaves 5 and a Prev link
+	_, body = get(t, srv.URL+"/fragments/session-list?"+fullRangeQuery+"&view=requests&offset=15")
+	wantContains(t, body, "/fragments/session-list?offset=0", "Prev")
+	wantNotContains(t, body, "Next")
+
+	status, _ = get(t, srv.URL+"/fragments/session-list?offset=-3")
+	if status != http.StatusBadRequest {
+		t.Fatalf("invalid offset: status %d, want 400", status)
+	}
+}
+
+func TestSessionsOtherGroupNone(t *testing.T) {
+	srv := newServer(t)
+	defer srv.Close()
+	// no seeded rows lack a conversation ID: the none filter is empty
+	_, body := get(t, srv.URL+"/fragments/session-list?"+fullRangeQuery+"&conversation=none")
+	wantContains(t, body, "No requests in this range.")
+
+	// conversation filter echoes into the preset links and the clear chip
+	_, body = get(t, srv.URL+"/sessions?"+fullRangeQuery+"&conversation=conv-opencode")
+	wantContains(t, body, "conversation=conv-opencode", "Clear conversation filter")
 }
 
 func TestDetailPage(t *testing.T) {
@@ -223,6 +260,8 @@ func TestDetailPage(t *testing.T) {
 	wantContains(t, body,
 		"gpt-4.1", "trace-c1", "span-c1", "conv-copilot",
 		"Not reported by this source", "Click to copy",
+		`href="/sessions?conversation=conv-copilot"`,
+		"Back to sessions",
 	)
 
 	status, body = get(t, srv.URL+"/generations/o1")
@@ -237,14 +276,25 @@ func TestDetailPage(t *testing.T) {
 	}
 }
 
-func TestRecentPageLinksToDetail(t *testing.T) {
+func TestGenerationsRedirectsToSessions(t *testing.T) {
 	srv := newServer(t)
 	defer srv.Close()
-	status, body := get(t, srv.URL+"/generations")
-	if status != http.StatusOK {
-		t.Fatalf("status %d", status)
+	client := &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
 	}
-	wantContains(t, body, `href="/generations/c12"`, "Duration")
+	resp, err := client.Get(srv.URL + "/generations?" + fullRangeQuery)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusMovedPermanently {
+		t.Fatalf("status %d, want 301", resp.StatusCode)
+	}
+	if loc := resp.Header.Get("Location"); !strings.HasPrefix(loc, "/sessions?") || !strings.Contains(loc, "from=2024-01-01") {
+		t.Errorf("Location %q, want /sessions with preserved query", loc)
+	}
 }
 
 func TestStaticAssets(t *testing.T) {

@@ -2,56 +2,13 @@
 <section>
   <h2>By source</h2>
   <table>
-    <thead><tr><th>Source</th><th>Requests</th><th>Input</th><th>Output</th><th>Cache read</th><th>Cache creation</th><th>Cache hit</th><th>Reasoning</th><th>Cost</th></tr></thead>
+    <thead><tr><th>Source</th><th>Requests</th><th>Total tokens</th><th>Input</th><th>Output</th><th>Cache read</th><th>Cache creation</th><th>Cache hit</th><th>Reasoning</th><th>Cost</th></tr></thead>
     <tbody>
       {{range .Breaks.Source}}
       <tr>
         <td>{{friendlySource .Key}}</td>
         <td>{{commas .Requests}}</td>
-        <td>{{commas .InputTokens}}</td>
-        <td>{{commas .OutputTokens}}</td>
-        <td>{{commas .CacheReadTokens}}</td>
-        <td>{{commas .CacheCreationTokens}}</td>
-        <td>{{pct .CacheHitRate}}</td>
-        <td>{{commas .ReasoningTokens}}</td>
-        <td>{{costCell .CostKnownCount .CostTotal}}</td>
-      </tr>
-      {{else}}
-      <tr><td colspan="9" class="muted">No requests in this range.</td></tr>
-      {{end}}
-    </tbody>
-  </table>
-</section>
-<section>
-  <h2>By provider</h2>
-  <p class="muted">Raw provider as reported by the source. Use the model table below for the underlying-provider drill-down (e.g. Copilot's <code>github</code> rows).</p>
-  <table>
-    <thead><tr><th>Provider</th><th>Requests</th><th>Input</th><th>Output</th><th>Cost</th></tr></thead>
-    <tbody>
-      {{range .Breaks.Provider}}
-      <tr>
-        <td>{{.Key}}</td>
-        <td>{{commas .Requests}}</td>
-        <td>{{commas .InputTokens}}</td>
-        <td>{{commas .OutputTokens}}</td>
-        <td>{{costCell .CostKnownCount .CostTotal}}</td>
-      </tr>
-      {{else}}
-      <tr><td colspan="5" class="muted">No requests in this range.</td></tr>
-      {{end}}
-    </tbody>
-  </table>
-</section>
-<section>
-  <h2>By model</h2>
-  <table>
-    <thead><tr><th>Model</th><th>Underlying provider</th><th>Requests</th><th>Input</th><th>Output</th><th>Cache read</th><th>Cache creation</th><th>Cache hit</th><th>Reasoning</th><th>Cost</th></tr></thead>
-    <tbody>
-      {{range .Breaks.Model}}
-      <tr>
-        <td>{{.Key}}</td>
-        <td class="muted">{{underlying .Key}}</td>
-        <td>{{commas .Requests}}</td>
+        <td>{{commas .TotalTokens}}</td>
         <td>{{commas .InputTokens}}</td>
         <td>{{commas .OutputTokens}}</td>
         <td>{{commas .CacheReadTokens}}</td>
@@ -62,6 +19,99 @@
       </tr>
       {{else}}
       <tr><td colspan="10" class="muted">No requests in this range.</td></tr>
+      {{end}}
+      {{if .Breaks.Source}}
+      <tr class="totals">
+        <td>Total</td>
+        <td>{{commas .Breaks.SourceTotal.Requests}}</td>
+        <td>{{commas .Breaks.SourceTotal.TotalTokens}}</td>
+        <td>{{commas .Breaks.SourceTotal.InputTokens}}</td>
+        <td>{{commas .Breaks.SourceTotal.OutputTokens}}</td>
+        <td>{{commas .Breaks.SourceTotal.CacheReadTokens}}</td>
+        <td>{{commas .Breaks.SourceTotal.CacheCreationTokens}}</td>
+        <td>{{pct .Breaks.SourceTotal.CacheHitRate}}</td>
+        <td>{{commas .Breaks.SourceTotal.ReasoningTokens}}</td>
+        <td>{{costCell .Breaks.SourceTotal.CostKnownCount .Breaks.SourceTotal.CostTotal}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+</section>
+<section>
+  <h2>By provider</h2>
+  <p class="muted">Raw provider as reported by the source. Use the model table below for the underlying-provider drill-down (e.g. Copilot's <code>github</code> rows).</p>
+  <table>
+    <thead><tr><th>Provider</th><th>Requests</th><th>Total tokens</th><th>Input</th><th>Output</th><th>Cache read</th><th>Cache creation</th><th>Cache hit</th><th>Reasoning</th><th>Cost</th></tr></thead>
+    <tbody>
+      {{range .Breaks.Provider}}
+      <tr>
+        <td>{{.Key}}</td>
+        <td>{{commas .Requests}}</td>
+        <td>{{commas .TotalTokens}}</td>
+        <td>{{commas .InputTokens}}</td>
+        <td>{{commas .OutputTokens}}</td>
+        <td>{{commas .CacheReadTokens}}</td>
+        <td>{{commas .CacheCreationTokens}}</td>
+        <td>{{pct .CacheHitRate}}</td>
+        <td>{{commas .ReasoningTokens}}</td>
+        <td>{{costCell .CostKnownCount .CostTotal}}</td>
+      </tr>
+      {{else}}
+      <tr><td colspan="10" class="muted">No requests in this range.</td></tr>
+      {{end}}
+      {{if .Breaks.Provider}}
+      <tr class="totals">
+        <td>Total</td>
+        <td>{{commas .Breaks.ProviderTotal.Requests}}</td>
+        <td>{{commas .Breaks.ProviderTotal.TotalTokens}}</td>
+        <td>{{commas .Breaks.ProviderTotal.InputTokens}}</td>
+        <td>{{commas .Breaks.ProviderTotal.OutputTokens}}</td>
+        <td>{{commas .Breaks.ProviderTotal.CacheReadTokens}}</td>
+        <td>{{commas .Breaks.ProviderTotal.CacheCreationTokens}}</td>
+        <td>{{pct .Breaks.ProviderTotal.CacheHitRate}}</td>
+        <td>{{commas .Breaks.ProviderTotal.ReasoningTokens}}</td>
+        <td>{{costCell .Breaks.ProviderTotal.CostKnownCount .Breaks.ProviderTotal.CostTotal}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+</section>
+<section>
+  <h2>By model</h2>
+  <table>
+    <thead><tr><th>Model</th><th>Underlying provider</th><th>Requests</th><th>Total tokens</th><th>Input</th><th>Output</th><th>Cache read</th><th>Cache creation</th><th>Cache hit</th><th>Reasoning</th><th>Cost</th></tr></thead>
+    <tbody>
+      {{range .Breaks.Model}}
+      <tr>
+        <td>{{.Key}}</td>
+        <td class="muted">{{underlying .Key}}</td>
+        <td>{{commas .Requests}}</td>
+        <td>{{commas .TotalTokens}}</td>
+        <td>{{commas .InputTokens}}</td>
+        <td>{{commas .OutputTokens}}</td>
+        <td>{{commas .CacheReadTokens}}</td>
+        <td>{{commas .CacheCreationTokens}}</td>
+        <td>{{pct .CacheHitRate}}</td>
+        <td>{{commas .ReasoningTokens}}</td>
+        <td>{{costCell .CostKnownCount .CostTotal}}</td>
+      </tr>
+      {{else}}
+      <tr><td colspan="11" class="muted">No requests in this range.</td></tr>
+      {{end}}
+      {{if .Breaks.Model}}
+      <tr class="totals">
+        <td>Total</td>
+        <td></td>
+        <td>{{commas .Breaks.ModelTotal.Requests}}</td>
+        <td>{{commas .Breaks.ModelTotal.TotalTokens}}</td>
+        <td>{{commas .Breaks.ModelTotal.InputTokens}}</td>
+        <td>{{commas .Breaks.ModelTotal.OutputTokens}}</td>
+        <td>{{commas .Breaks.ModelTotal.CacheReadTokens}}</td>
+        <td>{{commas .Breaks.ModelTotal.CacheCreationTokens}}</td>
+        <td>{{pct .Breaks.ModelTotal.CacheHitRate}}</td>
+        <td>{{commas .Breaks.ModelTotal.ReasoningTokens}}</td>
+        <td>{{costCell .Breaks.ModelTotal.CostKnownCount .Breaks.ModelTotal.CostTotal}}</td>
+      </tr>
       {{end}}
     </tbody>
   </table>

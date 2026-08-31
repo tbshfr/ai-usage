@@ -28,7 +28,7 @@ func TestDashboardMiddlewarePublicPaths(t *testing.T) {
 
 func TestDashboardMiddlewareRedirectsHTML(t *testing.T) {
 	d := NewDashboard("admin", "pw", mustSessions(t))
-	for _, p := range []string{"/", "/generations", "/fragments/overview-cards"} {
+	for _, p := range []string{"/", "/sessions", "/fragments/dashboard-stats"} {
 		req := httptest.NewRequest("GET", p, nil)
 		rec := httptest.NewRecorder()
 		d.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

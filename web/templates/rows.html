@@ -1,12 +1,26 @@
-{{define "recent-rows"}}
+{{define "session-rows"}}
+<div class="list-head">
+  {{if .SessionsTab}}
+  <div class="tabs">
+    <a class="tab" href="{{.SessionsTab}}">Sessions</a>
+    <span class="tab active">All requests</span>
+  </div>
+  {{end}}
+  <span class="sort-toggle muted">Sort by date:
+    <a href="{{.SortDesc.Page}}" hx-get="{{.SortDesc.Frag}}" hx-target="#session-list" hx-push-url="{{.SortDesc.Page}}"{{if eq (printf "%v" .SortOrder) "desc"}} class="active"{{end}}>Newest first</a>
+    <a href="{{.SortAsc.Page}}" hx-get="{{.SortAsc.Frag}}" hx-target="#session-list" hx-push-url="{{.SortAsc.Page}}"{{if eq (printf "%v" .SortOrder) "asc"}} class="active"{{end}}>Oldest first</a>
+  </span>
+</div>
 <table class="rows">
-  <thead><tr><th>Time</th><th>Source</th><th>Conversation</th><th>Provider</th><th>Model</th><th>Input</th><th>Output</th><th>Cache read</th><th>Cache creation</th><th>Reasoning</th><th>Cost</th><th>Duration</th></tr></thead>
+  <thead><tr>
+    <th>Time</th><th>Source</th>{{if not .F.Selected.Conversation}}<th>Conversation</th>{{end}}<th>Provider</th><th>Model</th><th>Input</th><th>Output</th><th>Cache read</th><th>Cache creation</th><th>Reasoning</th><th>Cost</th><th>Duration</th>
+  </tr></thead>
   <tbody>
     {{range .Recent.Rows}}
     <tr>
       <td><a href="/generations/{{.ID}}">{{utc .Timestamp}}</a></td>
       <td>{{friendlySource .Source}}</td>
-      <td>{{conversationLink $.F.Selected .ConversationID}}</td>
+      {{if not $.F.Selected.Conversation}}<td>{{conversationLink $.F.Selected .ConversationID}}</td>{{end}}
       <td>{{or .Provider "—"}}</td>
       <td>{{or .Model "—"}}</td>
       <td>{{tokens .InputTokens}}</td>
@@ -23,7 +37,7 @@
   </tbody>
 </table>
 <div class="pager">
-  {{if .Recent.HasPrev}}<button hx-get="/fragments/recent-rows?offset={{.Recent.PrevOffset}}" hx-target="#recent-rows" hx-include="#filter-bar">&larr; Prev</button>{{end}}
-  {{if .Recent.HasNext}}<button hx-get="/fragments/recent-rows?offset={{.Recent.NextOffset}}" hx-target="#recent-rows" hx-include="#filter-bar">Next &rarr;</button>{{end}}
+  {{if .Recent.HasPrev}}<button hx-get="/fragments/session-list?offset={{.Recent.PrevOffset}}" hx-target="#session-list" hx-include="#filter-bar">&larr; Prev</button>{{end}}
+  {{if .Recent.HasNext}}<button hx-get="/fragments/session-list?offset={{.Recent.NextOffset}}" hx-target="#session-list" hx-include="#filter-bar">Next &rarr;</button>{{end}}
 </div>
 {{end}}

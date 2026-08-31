@@ -1,0 +1,9 @@
+{{define "content"}}
+{{template "filterbar" .}}
+<div id="dashboard-stats" hx-get="/fragments/dashboard-stats" hx-trigger="change from:#filter-bar" hx-include="#filter-bar">
+{{template "dashboard-stats" .}}
+</div>
+<div id="period-detail">
+{{if .Detail}}{{template "period-detail" .}}{{end}}
+</div>
+{{end}}

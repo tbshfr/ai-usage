@@ -114,7 +114,12 @@ func apiRoutes(db *sql.DB, stats StatsFunc) *http.ServeMux {
 		if !ok {
 			return
 		}
-		gens, err := storage.RecentGenerations(r.Context(), db, f, limit, offset)
+		order, err := storage.ParseOrder(r.URL.Query().Get("order"))
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		gens, err := storage.RecentGenerations(r.Context(), db, f, order, limit, offset)
 		if err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return

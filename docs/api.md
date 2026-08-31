@@ -115,10 +115,11 @@ Same row shape as `/api/sources`, grouped by raw provider value
 Same row shape, grouped by raw model value, ordered by total tokens
 descending.
 
-### `GET /api/generations?limit&offset`
+### `GET /api/generations?limit&offset&order`
 
-Full records, newest first. `limit` defaults to 50, clamped to a max of
-500; `offset` pages forward.
+Full records ordered by timestamp. `limit` defaults to 50, clamped to a
+max of 500; `offset` pages forward; `order` is `desc` (default, newest
+first) or `asc` (oldest first).
 
 `/api/generations?limit=1`
 

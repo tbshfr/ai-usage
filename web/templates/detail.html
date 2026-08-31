@@ -16,10 +16,10 @@
   <dt>Agent</dt><dd>{{or .D.AgentName "—"}}</dd>
   <dt>Git repo</dt><dd>{{or .D.GitRepo "—"}}</dd>
   <dt>Git branch</dt><dd>{{or .D.GitBranch "—"}}</dd>
-  <dt>Conversation ID</dt><dd>{{copyID .D.ConversationID}}{{if .D.ConversationID}} <a class="muted" href="/generations?conversation={{.D.ConversationID}}" title="Show this conversation in recent">filter</a>{{end}}</dd>
+  <dt>Conversation ID</dt><dd>{{copyID .D.ConversationID}}{{if .D.ConversationID}} <a class="muted" href="/sessions?conversation={{.D.ConversationID}}" title="Show this conversation's requests">filter</a>{{end}}</dd>
   <dt>Trace ID</dt><dd>{{copyID .D.TraceID}}</dd>
   <dt>Span ID</dt><dd>{{copyID .D.SpanID}}</dd>
   <dt>Record ID</dt><dd>{{copyID .D.ID}}</dd>
 </dl>
-<p><a href="/generations">&larr; Back to recent</a></p>
+<p><a href="/sessions">&larr; Back to sessions</a></p>
 {{end}}

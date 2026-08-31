@@ -11,9 +11,10 @@
 <header class="topbar">
   <a class="brand" href="/">AI Usage</a>
   <nav>
-    <a href="/"{{if eq .Active "overview"}} class="active"{{end}}>Overview</a>
+    <a href="/"{{if eq .Active "dashboard"}} class="active"{{end}}>Dashboard</a>
+    <a href="/trends"{{if eq .Active "trends"}} class="active"{{end}}>Trends</a>
     <a href="/breakdowns"{{if eq .Active "breakdowns"}} class="active"{{end}}>Breakdowns</a>
-    <a href="/generations"{{if eq .Active "recent"}} class="active"{{end}}>Recent</a>
+    <a href="/sessions"{{if eq .Active "sessions"}} class="active"{{end}}>Sessions</a>
     {{if .ShowLogout}}<a href="/logout" class="logout-link">Sign out</a>{{end}}
   </nav>
 </header>

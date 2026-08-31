@@ -1,6 +1,7 @@
 package web
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -227,15 +228,97 @@ func TestLoginRateLimited(t *testing.T) {
 }
 
 func TestLoginLimiterReset(t *testing.T) {
-	l := &loginLimiter{}
+	l := newLoginLimiter()
 	for i := 0; i < failedLoginMax; i++ {
-		l.recordFailure()
+		l.recordFailure("1.2.3.4")
 	}
-	if _, blocked := l.blocked(); !blocked {
+	if _, blocked := l.blocked("1.2.3.4"); !blocked {
 		t.Fatal("limiter did not block after max failures")
 	}
-	l.reset()
-	if _, blocked := l.blocked(); blocked {
+	l.reset("1.2.3.4")
+	if _, blocked := l.blocked("1.2.3.4"); blocked {
 		t.Error("limiter still blocked after reset")
 	}
+}
+
+func TestLoginLimiterIsPerIP(t *testing.T) {
+	l := newLoginLimiter()
+	for i := 0; i < failedLoginMax; i++ {
+		l.recordFailure("1.2.3.4")
+	}
+	if _, blocked := l.blocked("1.2.3.4"); !blocked {
+		t.Fatal("attacker IP not blocked after max failures")
+	}
+	if _, blocked := l.blocked("5.6.7.8"); blocked {
+		t.Error("unrelated IP blocked by attacker's failures")
+	}
+}
+
+func TestLoginLimiterGlobalCap(t *testing.T) {
+	l := newLoginLimiter()
+	for i := 0; i < failedLoginMaxGlobal; i++ {
+		ip := fmt.Sprintf("10.%d.%d.%d", i>>16, (i>>8)&0xff, i&0xff)
+		l.recordFailure(ip)
+	}
+	if _, blocked := l.blocked("203.0.113.1"); !blocked {
+		t.Error("global cap did not block after failures from many IPs")
+	}
+}
+
+func TestClientIPForwardedFor(t *testing.T) {
+	r := httptest.NewRequest("POST", "/login", nil)
+	r.RemoteAddr = "192.0.2.1:12345"
+	if got := clientIP(r); got != "192.0.2.1" {
+		t.Errorf("clientIP without header = %q, want 192.0.2.1", got)
+	}
+	// Caddy appends the connecting address to X-Forwarded-For, so the
+	// rightmost entry is the trusted one and earlier entries are
+	// attacker-chosen.
+	r.Header.Set("X-Forwarded-For", "203.0.113.7, 198.51.100.9")
+	if got := clientIP(r); got != "198.51.100.9" {
+		t.Errorf("clientIP with spoofed chain = %q, want 198.51.100.9", got)
+	}
+	r.Header.Set("X-Forwarded-For", "203.0.113.7")
+	if got := clientIP(r); got != "203.0.113.7" {
+		t.Errorf("clientIP with single entry = %q, want 203.0.113.7", got)
+	}
+}
+
+func TestLoginSpoofedForwardedForDoesNotLockOthers(t *testing.T) {
+	srv, _ := newAuthedServer(t)
+	for i := 0; i < failedLoginMax; i++ {
+		status, _ := loginWithHeader(t, srv, "admin", "wrong", map[string]string{
+			"X-Forwarded-For": "203.0.113.7",
+		})
+		if status != http.StatusUnauthorized {
+			t.Fatalf("attempt %d: status = %d, want 401", i+1, status)
+		}
+	}
+	// The spoofed failures were attributed to the claimed IP, so a client
+	// that does not send the header (as Caddy would forward it) is not
+	// locked out.
+	status, _ := login(t, srv, "admin", "wrong")
+	if status != http.StatusUnauthorized {
+		t.Errorf("status after spoofed failures = %d, want 401", status)
+	}
+}
+
+func loginWithHeader(t *testing.T, srv *httptest.Server, user, pass string, hdr map[string]string) (int, *http.Response) {
+	t.Helper()
+	form := url.Values{"username": {user}, "password": {pass}}
+	req, err := http.NewRequest("POST", srv.URL+"/login", strings.NewReader(form.Encode()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	for k, v := range hdr {
+		req.Header.Set(k, v)
+	}
+	resp, err := noRedirect.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	readAll(t, resp)
+	return resp.StatusCode, resp
 }

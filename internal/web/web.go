@@ -45,7 +45,7 @@ func NewAuthed(db *sql.DB, dash *auth.Dashboard) http.Handler {
 }
 
 func newMux(db *sql.DB, dash *auth.Dashboard) http.Handler {
-	s := &server{db: db, dash: dash, limiter: &loginLimiter{}}
+	s := &server{db: db, dash: dash, limiter: newLoginLimiter()}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", s.dashboard)
 	mux.HandleFunc("GET /trends", s.trends)

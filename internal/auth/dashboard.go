@@ -52,7 +52,7 @@ func (d *Dashboard) Middleware(next http.Handler) http.Handler {
 
 func publicPath(p string) bool {
 	switch p {
-	case "/login", "/logout", "/health", "/ready":
+	case "/login", "/logout", "/health", "/ready", "/robots.txt":
 		return true
 	}
 	return strings.HasPrefix(p, "/static/")

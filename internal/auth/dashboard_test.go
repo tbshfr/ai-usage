@@ -15,7 +15,7 @@ import (
 
 func TestDashboardMiddlewarePublicPaths(t *testing.T) {
 	d := NewDashboard("admin", "pw", mustSessions(t))
-	for _, p := range []string{"/login", "/logout", "/health", "/ready", "/static/app.css", "/static/vendor/htmx.min.js"} {
+	for _, p := range []string{"/login", "/logout", "/health", "/ready", "/robots.txt", "/static/app.css", "/static/vendor/htmx.min.js"} {
 		req := httptest.NewRequest("GET", p, nil)
 		rec := httptest.NewRecorder()
 		called := false

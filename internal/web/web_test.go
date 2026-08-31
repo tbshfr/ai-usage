@@ -312,6 +312,7 @@ func TestStaticAssets(t *testing.T) {
 		{"/static/vendor/htmx.min.js", "text/javascript"},
 		{"/static/vendor/uplot.min.js", "text/javascript"},
 		{"/static/vendor/uplot.min.css", "text/css"},
+		{"/robots.txt", "text/plain"},
 	} {
 		resp, err := http.Get(srv.URL + tc.path)
 		if err != nil {

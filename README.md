@@ -20,10 +20,10 @@ OpenCode / VS Code Copilot ──OTLP──▶ ai-usage ──▶ SQLite ──�
 1. Download the binary for your OS/arch from
    [releases](https://github.com/tbshfr/ai-usage/releases) (or
    [build from source](#build-from-source)).
-2. Run it:
+2. Run it with the OTLP listener enabled:
 
    ```bash
-   ./ai-usage
+   ./ai-usage --otlp-http :4318
    ```
 
    You should see:
@@ -33,9 +33,12 @@ OpenCode / VS Code Copilot ──OTLP──▶ ai-usage ──▶ SQLite ──�
 
    Dashboard: http://localhost:8080
    OTLP HTTP: http://localhost:4318
-   OTLP gRPC: localhost:4317
+   OTLP gRPC: (disabled)
    Database:  ~/.local/share/ai-usage/usage.db
    ```
+
+   Only the dashboard starts by default; each OTLP listener starts only
+   when its flag (or env var) is set.
 
 3. Point OpenCode and/or VS Code Copilot at it — copy-paste configs are in
    [`docs/source-setup.md`](docs/source-setup.md).
@@ -60,9 +63,9 @@ Flags override environment variables, which override defaults.
 
 | Flag           | Env var                   | Default                 | Meaning                                    |
 |----------------|---------------------------|-------------------------|--------------------------------------------|
-| `--http`       | `AI_USAGE_HTTP_ADDR`      | `:8080`                 | Dashboard + JSON API listen address        |
-| `--otlp-http`  | `AI_USAGE_OTLP_HTTP_ADDR` | `:4318`                 | OTLP/HTTP listen address                   |
-| `--otlp-grpc`  | `AI_USAGE_OTLP_GRPC_ADDR` | `:4317`                 | OTLP gRPC listen address (empty disables)  |
+| `--http`       | `AI_USAGE_HTTP_ADDR`      | `:8080`                 | Dashboard + JSON API listen address (empty disables) |
+| `--otlp-http`  | `AI_USAGE_OTLP_HTTP_ADDR` | *(disabled)*            | OTLP/HTTP listen address (starts only when set) |
+| `--otlp-grpc`  | `AI_USAGE_OTLP_GRPC_ADDR` | *(disabled)*            | OTLP gRPC listen address (starts only when set) |
 | `--data-dir`   | `AI_USAGE_DATA_DIR`       | OS user-data dir + `ai-usage` | Data directory                       |
 | `--database`   | `AI_USAGE_DATABASE`       | `<data-dir>/usage.db`   | SQLite database path                       |
 | `--log-level`  | `AI_USAGE_LOG_LEVEL`      | `info`                  | `debug`, `info`, `warn`, or `error`        |
@@ -75,12 +78,14 @@ Default data directory per OS:
 
 The listen addresses default to all interfaces on your machine; use
 `--http 127.0.0.1:8080` (and likewise for the OTLP ports) to restrict
-access to localhost only.
+access to localhost only. Passing an empty value to any listener flag
+(e.g. `--otlp-http ""`) disables that listener entirely.
 
 ## Data location & privacy
 
 Everything stays on your machine. The binary makes no outbound network
-connections; it only listens locally for OTLP and dashboard requests.
+connections; it only listens for OTLP and dashboard requests on the
+addresses configured above.
 
 What is collected: **metadata and token counts only** — timestamps,
 source (opencode/copilot), provider, model, input/output/reasoning/cache

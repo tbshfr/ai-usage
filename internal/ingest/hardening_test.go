@@ -264,6 +264,60 @@ func TestContentTypeEdgeCases(t *testing.T) {
 	}
 }
 
+// Oversized request bodies must be rejected with 413, both raw and via the
+// gzip decompression path (decompression bomb).
+func TestRequestBodySizeLimit(t *testing.T) {
+	db, _, srv := startIngestStack(t)
+	defer db.Close()
+	defer srv.Close()
+
+	huge := bytes.Repeat([]byte("a"), maxBodyBytes+1)
+	req, err := http.NewRequest(http.MethodPost, srv.URL+"/v1/traces", bytes.NewReader(huge))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusRequestEntityTooLarge {
+		t.Errorf("oversized body: status = %d, want 413", resp.StatusCode)
+	}
+
+	var gz bytes.Buffer
+	zw := gzip.NewWriter(&gz)
+	if _, err := zw.Write(bytes.Repeat([]byte("a"), maxBodyBytes+1)); err != nil {
+		t.Fatal(err)
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	req, err = http.NewRequest(http.MethodPost, srv.URL+"/v1/traces", bytes.NewReader(gz.Bytes()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Encoding", "gzip")
+	resp, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusRequestEntityTooLarge {
+		t.Errorf("decompression bomb: status = %d, want 413", resp.StatusCode)
+	}
+
+	var rows int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM generations`).Scan(&rows); err != nil {
+		t.Fatal(err)
+	}
+	if rows != 0 {
+		t.Errorf("generations rows = %d, want 0 (rejected batches must store nothing)", rows)
+	}
+}
+
 // Item 3: an agent turn (invoke_agent + N chat spans) yields exactly N
 // generation rows, never N+1.
 func TestAgentTurnYieldsExactlyChatSpans(t *testing.T) {

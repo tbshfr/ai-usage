@@ -4,9 +4,16 @@ This dashboard consumes standard OTLP. Both sources below are configured
 once and then report usage automatically. After configuring, verify with
 the checks at the end of each section.
 
-Both sources use OTLP/HTTP on `http://localhost:4318` by default — the
-dashboard's own default — so most setups need no endpoint configuration at
-all.
+Both sources use OTLP/HTTP on `http://localhost:4318` by default. The
+dashboard only listens on the OTLP ports you explicitly enable, so start
+it with:
+
+```bash
+ai-usage --otlp-http :4318
+```
+
+(or set `AI_USAGE_OTLP_HTTP_ADDR=:4318`). With that flag, most setups need
+no endpoint configuration in the sources at all.
 
 ## OpenCode
 
@@ -42,7 +49,8 @@ export OPENCODE_OTLP_ENDPOINT=http://localhost:4318
 export OPENCODE_OTLP_PROTOCOL=http/protobuf
 ```
 
-gRPC also works: set `OPENCODE_OTLP_ENDPOINT=http://localhost:4317` and
+gRPC also works: start the dashboard with `--otlp-grpc :4317` instead, and
+set `OPENCODE_OTLP_ENDPOINT=http://localhost:4317` and
 `OPENCODE_OTLP_PROTOCOL=grpc`.
 
 ### Verification
@@ -72,8 +80,9 @@ Copilot Chat has built-in OTel support. Add to VS Code `settings.json`
 { "github.copilot.chat.otel.enabled": true }
 ```
 
-The default endpoint is already `http://localhost:4318` — zero extra
-config needed.
+The default endpoint is already `http://localhost:4318` — with the
+dashboard started as `ai-usage --otlp-http :4318`, no extra config is
+needed on either side.
 
 Notes:
 
@@ -95,7 +104,8 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 code
 ```
 
 `COPILOT_OTEL_PROTOCOL` selects the exporter protocol (`otlp-http` is the
-default; `otlp-grpc` targets `:4317`). The exporter types `otlp-grpc`,
+default; `otlp-grpc` targets `:4317`, which the dashboard must enable with
+`--otlp-grpc :4317`). The exporter types `otlp-grpc`,
 `file`, and `console` are supported by Copilot's OTel integration; use
 `otlp-http`/`otlp-grpc` with this dashboard — `file` and `console` write
 somewhere other than the receiver.

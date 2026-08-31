@@ -26,11 +26,11 @@ func TestDefaults(t *testing.T) {
 	if c.HTTPAddr != ":8080" {
 		t.Errorf("HTTPAddr = %q, want :8080", c.HTTPAddr)
 	}
-	if c.OTLPHTTPAddr != ":4318" {
-		t.Errorf("OTLPHTTPAddr = %q, want :4318", c.OTLPHTTPAddr)
+	if c.OTLPHTTPAddr != "" {
+		t.Errorf("OTLPHTTPAddr = %q, want empty (disabled unless configured)", c.OTLPHTTPAddr)
 	}
-	if c.OTLPGRPCAddr != ":4317" {
-		t.Errorf("OTLPGRPCAddr = %q, want :4317", c.OTLPGRPCAddr)
+	if c.OTLPGRPCAddr != "" {
+		t.Errorf("OTLPGRPCAddr = %q, want empty (disabled unless configured)", c.OTLPGRPCAddr)
 	}
 	if c.DataDir != data {
 		t.Errorf("DataDir = %q, want %q", c.DataDir, data)
@@ -109,6 +109,29 @@ func TestDisabledListener(t *testing.T) {
 	}
 	if c.OTLPHTTPAddr != ":4318" {
 		t.Errorf("OTLPHTTPAddr = %q, want :4318 from env", c.OTLPHTTPAddr)
+	}
+}
+
+func TestListenerEnabledOnlyWhenConfigured(t *testing.T) {
+	home := t.TempDir()
+
+	c, err := Load([]string{}, noEnv, "linux", home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.OTLPHTTPAddr != "" || c.OTLPGRPCAddr != "" {
+		t.Errorf("OTLP listeners = %q/%q, want empty (absent flag/env must not start them)", c.OTLPHTTPAddr, c.OTLPGRPCAddr)
+	}
+
+	c, err = Load([]string{"--otlp-http", ":4318"}, noEnv, "linux", home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.OTLPHTTPAddr != ":4318" {
+		t.Errorf("OTLPHTTPAddr = %q, want :4318 (flag enables listener)", c.OTLPHTTPAddr)
+	}
+	if c.OTLPGRPCAddr != "" {
+		t.Errorf("OTLPGRPCAddr = %q, want empty (flag absent)", c.OTLPGRPCAddr)
 	}
 }
 

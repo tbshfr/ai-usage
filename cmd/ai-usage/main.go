@@ -72,27 +72,38 @@ func run(cfg *config.Config, logger *slog.Logger) error {
 	}
 
 	pipeline := ingest.NewPipeline(db, logger)
-	dashboardSrv := &http.Server{
-		Addr:              cfg.HTTPAddr,
-		Handler:           api.New(db, logger, pipeline.Stats, version),
-		ReadHeaderTimeout: 10 * time.Second,
+	// Empty addresses disable the corresponding listener (config supports
+	// this; see internal/config).
+	var servers []*http.Server
+	if cfg.HTTPAddr != "" {
+		servers = append(servers, &http.Server{
+			Addr:              cfg.HTTPAddr,
+			Handler:           api.New(db, logger, pipeline.Stats, version),
+			ReadHeaderTimeout: 10 * time.Second,
+			ReadTimeout:       30 * time.Second,
+			WriteTimeout:      60 * time.Second,
+			IdleTimeout:       120 * time.Second,
+		})
 	}
-	otlpSrv := &http.Server{
-		Addr:              cfg.OTLPHTTPAddr,
-		Handler:           ingest.NewReceiver(pipeline, logger).Handler(),
-		ReadHeaderTimeout: 10 * time.Second,
+	if cfg.OTLPHTTPAddr != "" {
+		servers = append(servers, &http.Server{
+			Addr:              cfg.OTLPHTTPAddr,
+			Handler:           ingest.NewReceiver(pipeline, logger).Handler(),
+			ReadHeaderTimeout: 10 * time.Second,
+			ReadTimeout:       30 * time.Second,
+			WriteTimeout:      60 * time.Second,
+			IdleTimeout:       120 * time.Second,
+		})
 	}
 
 	errCh := make(chan error, 3)
-	servers := []*http.Server{dashboardSrv, otlpSrv}
-	addrs := []string{cfg.HTTPAddr, cfg.OTLPHTTPAddr}
-	for i, srv := range servers {
-		go func(srv *http.Server, addr string) {
-			logger.Info("http listener started", "addr", addr)
+	for _, srv := range servers {
+		go func(srv *http.Server) {
+			logger.Info("http listener started", "addr", srv.Addr)
 			if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
-				errCh <- fmt.Errorf("listen %s: %w", addr, err)
+				errCh <- fmt.Errorf("listen %s: %w", srv.Addr, err)
 			}
-		}(srv, addrs[i])
+		}(srv)
 	}
 
 	var grpcServer *grpc.Server

@@ -22,8 +22,8 @@ type envFunc func(string) (string, bool)
 func Load(args []string, lookup envFunc, goos, homeDir string) (*Config, error) {
 	fs := flag.NewFlagSet("ai-usage", flag.ContinueOnError)
 	httpAddr := fs.String("http", "", "dashboard + API listen address")
-	otlpHTTP := fs.String("otlp-http", "", "OTLP/HTTP listen address")
-	otlpGRPC := fs.String("otlp-grpc", "", "OTLP gRPC listen address (empty disables)")
+	otlpHTTP := fs.String("otlp-http", "", "OTLP/HTTP listen address (disabled unless set)")
+	otlpGRPC := fs.String("otlp-grpc", "", "OTLP gRPC listen address (disabled unless set)")
 	dataDir := fs.String("data-dir", "", "data directory")
 	database := fs.String("database", "", "SQLite database path")
 	logLevel := fs.String("log-level", "", "log level (debug|info|warn|error)")
@@ -42,11 +42,11 @@ func Load(args []string, lookup envFunc, goos, homeDir string) (*Config, error) 
 	if err != nil {
 		return nil, err
 	}
-	c.OTLPHTTPAddr, err = resolve("otlp-http", *otlpHTTP, set, lookup, ":4318")
+	c.OTLPHTTPAddr, err = resolve("otlp-http", *otlpHTTP, set, lookup, "")
 	if err != nil {
 		return nil, err
 	}
-	c.OTLPGRPCAddr, err = resolve("otlp-grpc", *otlpGRPC, set, lookup, ":4317")
+	c.OTLPGRPCAddr, err = resolve("otlp-grpc", *otlpGRPC, set, lookup, "")
 	if err != nil {
 		return nil, err
 	}

@@ -3,11 +3,13 @@ package ingest
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 
 	"go.opentelemetry.io/collector/pdata/plog"
@@ -77,6 +79,66 @@ func TestReceiverRejectsUnknownContentType(t *testing.T) {
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusUnsupportedMediaType {
 		t.Errorf("status = %d, want 415", resp.StatusCode)
+	}
+}
+
+// Every non-200 OTLP/HTTP response must be logged with its status code —
+// clients (opencode, VS Code) do not surface OTLP status codes themselves.
+func TestReceiverLogsRejections(t *testing.T) {
+	var logs bytes.Buffer
+	r := NewReceiver(&stubConsumer{}, slog.New(slog.NewJSONHandler(&logs, nil)))
+	srv := httptest.NewServer(r.Handler())
+	defer srv.Close()
+
+	cases := []struct {
+		name       string
+		path       string
+		ctype      string
+		encoding   string
+		body       string
+		wantStatus int
+	}{
+		{"missing content type", "/v1/traces", "", "", `{"sensitive":"PROMPT-CONTENT-MARKER"}`, http.StatusBadRequest},
+		{"unsupported content type", "/v1/traces", "text/plain", "", `{"sensitive":"PROMPT-CONTENT-MARKER"}`, http.StatusUnsupportedMediaType},
+		{"unsupported content encoding", "/v1/traces", "application/json", "zstd", `{"sensitive":"PROMPT-CONTENT-MARKER"}`, http.StatusUnsupportedMediaType},
+		{"malformed payload", "/v1/traces", "application/json", "", `{"sensitive":"PROMPT-CONTENT-MARKER"`, http.StatusBadRequest},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			logs.Reset()
+			req, err := http.NewRequest(http.MethodPost, srv.URL+tc.path, strings.NewReader(tc.body))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tc.ctype != "" {
+				req.Header.Set("Content-Type", tc.ctype)
+			}
+			if tc.encoding != "" {
+				req.Header.Set("Content-Encoding", tc.encoding)
+			}
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			resp.Body.Close()
+			if resp.StatusCode != tc.wantStatus {
+				t.Errorf("status = %d, want %d", resp.StatusCode, tc.wantStatus)
+			}
+			var rec struct {
+				Msg    string `json:"msg"`
+				Signal string `json:"signal"`
+				Status int    `json:"status"`
+			}
+			if err := json.Unmarshal([]byte(strings.TrimSpace(logs.String())), &rec); err != nil {
+				t.Fatalf("rejection not logged as JSON: %v\nlogs:\n%s", err, logs.String())
+			}
+			if rec.Msg != "otlp request rejected" || rec.Signal != "traces" || rec.Status != tc.wantStatus {
+				t.Errorf("log = %+v, want msg=otlp request rejected signal=traces status=%d", rec, tc.wantStatus)
+			}
+			if strings.Contains(logs.String(), "PROMPT-CONTENT-MARKER") {
+				t.Error("log must not contain request payload content")
+			}
+		})
 	}
 }
 

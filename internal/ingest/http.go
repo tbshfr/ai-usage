@@ -82,20 +82,36 @@ type consumeError struct{ err error }
 
 func (c consumeError) Error() string { return c.err.Error() }
 
+// maxBodyBytes bounds the request body (compressed) and the decompressed
+// gzip payload, so a large or malicious export cannot exhaust memory.
+const maxBodyBytes = 32 << 20
+
 func (r *Receiver) handle(signal string, process func(body []byte, encoding string) (int, error)) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
+		reject := func(status int, msg, reason string) {
+			// Clients (opencode, VS Code) do not surface OTLP status codes,
+			// so every non-200 response is logged to make rejections visible.
+			r.logger.Warn("otlp request rejected", "signal", signal, "status", status, "reason", reason)
+			http.Error(w, msg, status)
+		}
 		if req.Header.Get("Content-Type") == "" {
-			http.Error(w, "missing content type", http.StatusBadRequest)
+			reject(http.StatusBadRequest, "missing content type", "missing content-type header")
 			return
 		}
 		encoding, ok := encodingOf(req.Header.Get("Content-Type"))
 		if !ok {
-			http.Error(w, "unsupported content type", http.StatusUnsupportedMediaType)
+			reject(http.StatusUnsupportedMediaType, "unsupported content type", "unsupported content-type: "+req.Header.Get("Content-Type"))
 			return
 		}
+		req.Body = http.MaxBytesReader(w, req.Body, maxBodyBytes)
 		body, err := io.ReadAll(req.Body)
 		if err != nil {
-			http.Error(w, "read body", http.StatusBadRequest)
+			var mbe *http.MaxBytesError
+			if errors.As(err, &mbe) {
+				reject(http.StatusRequestEntityTooLarge, "request body too large", "body exceeds limit")
+				return
+			}
+			reject(http.StatusBadRequest, "read body", "body read error")
 			return
 		}
 		switch ce := req.Header.Get("Content-Encoding"); ce {
@@ -103,17 +119,21 @@ func (r *Receiver) handle(signal string, process func(body []byte, encoding stri
 		case "gzip":
 			gz, err := gzip.NewReader(bytes.NewReader(body))
 			if err != nil {
-				http.Error(w, "bad gzip body", http.StatusBadRequest)
+				reject(http.StatusBadRequest, "bad gzip body", "malformed gzip stream")
 				return
 			}
-			body, err = io.ReadAll(gz)
+			body, err = io.ReadAll(io.LimitReader(gz, maxBodyBytes+1))
 			gz.Close()
 			if err != nil {
-				http.Error(w, "bad gzip body", http.StatusBadRequest)
+				reject(http.StatusBadRequest, "bad gzip body", "malformed gzip stream")
+				return
+			}
+			if len(body) > maxBodyBytes {
+				reject(http.StatusRequestEntityTooLarge, "request body too large", "decompressed body exceeds limit")
 				return
 			}
 		default:
-			http.Error(w, "unsupported content encoding", http.StatusUnsupportedMediaType)
+			reject(http.StatusUnsupportedMediaType, "unsupported content encoding", "unsupported content-encoding: "+ce)
 			return
 		}
 		n, err := process(body, encoding)
@@ -124,8 +144,9 @@ func (r *Receiver) handle(signal string, process func(body []byte, encoding stri
 				http.Error(w, "ingestion unavailable", http.StatusServiceUnavailable)
 				return
 			}
-			r.logger.Warn("otlp decode failed", "signal", signal, "error", err.Error())
-			http.Error(w, "decode failed", http.StatusBadRequest)
+			// No error detail in the log: decode errors can echo payload
+			// fragments, and prompt/completion content must never be logged.
+			reject(http.StatusBadRequest, "decode failed", "malformed payload")
 			return
 		}
 		r.logger.Debug("otlp batch received",

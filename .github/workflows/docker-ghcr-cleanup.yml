@@ -1,0 +1,27 @@
+name: Cleanup Old GHCR Versions
+
+on:
+  schedule:
+    - cron: "0 3 * * 0" # weekly on sunday at 3 am
+  workflow_dispatch:
+
+jobs:
+  cleanup-old-packages:
+    name: Cleanup Old GHCR Versions
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+
+    steps:
+      - name: Set package name
+        run: |
+          REPO=${GITHUB_REPOSITORY#*/}
+          echo "PACKAGE_NAME=${REPO,,}" >> $GITHUB_ENV
+
+      - name: Delete old versions
+        uses: actions/delete-package-versions@e5bc658cc4c965c472efe991f8beea3981499c55 # v5.0.0
+        with:
+          package-name: ${{ env.PACKAGE_NAME }}
+          package-type: container
+          min-versions-to-keep: 3
+          token: ${{ secrets.GITHUB_TOKEN }}

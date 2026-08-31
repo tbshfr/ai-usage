@@ -1,0 +1,38 @@
+services:
+  ai-usage:
+    build: .
+    container_name: ai-usage
+    restart: unless-stopped
+
+    environment:
+      # Non-loopback binds require credentials (see README "Authentication").
+      # The :? syntax makes `docker compose up` fail fast if .env is missing.
+      AI_USAGE_HTTP_ADDR: ":8080"
+      AI_USAGE_OTLP_HTTP_ADDR: ":4318"
+      AI_USAGE_DASHBOARD_USER: ${AI_USAGE_DASHBOARD_USER:?set in .env}
+      AI_USAGE_DASHBOARD_PASSWORD: ${AI_USAGE_DASHBOARD_PASSWORD:?set in .env}
+      AI_USAGE_OTLP_TOKEN: ${AI_USAGE_OTLP_TOKEN:?set in .env}
+      AI_USAGE_LOG_LEVEL: info
+
+    ports:
+      - "8080:8080" # dashboard + JSON API
+      - "4318:4318" # OTLP/HTTP
+      # - "4317:4317" # OTLP/gRPC (enable together with AI_USAGE_OTLP_GRPC_ADDR)
+
+    volumes:
+      - ./data:/data
+
+    # --- resource limits ---
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 256M
+        reservations:
+          memory: 64M
+    pids_limit: 128
+
+    # Hardening: the binary only writes to /data.
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m

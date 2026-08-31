@@ -1,0 +1,25 @@
+# VCS / CI
+.git
+.github
+
+# Local data — never bake usage history into image layers
+*.db
+*.db-shm
+*.db-wal
+.env
+
+# Build artifacts
+dist/
+temp/
+
+# Docker / compose files themselves
+Dockerfile
+.dockerignore
+compose.yaml
+compose.yml
+docker-compose.yml
+
+# Editor / OS noise
+.vscode/
+.idea/
+.DS_Store

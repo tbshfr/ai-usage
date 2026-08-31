@@ -8,3 +8,4 @@ dist/
 *.db-wal
 *.db-shm
 ai-usage-capture/
+.env

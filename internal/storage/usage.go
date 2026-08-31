@@ -5,10 +5,60 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/tbshfr/ai-usage/internal/normalize"
 )
+
+// Filter is the single filter type used by every query method. Zero From
+// means no lower bound; zero To means now. Source/Provider/Model match raw
+// stored values exactly ("" = all).
+type Filter struct {
+	From     time.Time
+	To       time.Time
+	Source   string
+	Provider string
+	Model    string
+}
+
+func (f Filter) normalize(now time.Time) (Filter, error) {
+	out := f
+	out.Source = strings.TrimSpace(out.Source)
+	out.Provider = strings.TrimSpace(out.Provider)
+	out.Model = strings.TrimSpace(out.Model)
+	if out.To.IsZero() {
+		out.To = now
+	}
+	if !out.From.IsZero() && out.To.Before(out.From) {
+		return out, fmt.Errorf("invalid filter: to (%s) before from (%s)", out.To, out.From)
+	}
+	return out, nil
+}
+
+// whereSQL builds the WHERE clause for the filter over unix-millisecond
+// timestamps.
+func (f Filter) whereSQL() (string, []any) {
+	conds := []string{}
+	args := []any{}
+	if !f.From.IsZero() {
+		conds = append(conds, "timestamp >= ?")
+		args = append(args, f.From.UnixMilli())
+	}
+	conds = append(conds, "timestamp < ?")
+	args = append(args, f.To.UnixMilli())
+	for _, col := range []struct{ name, val string }{
+		{"source", f.Source},
+		{"provider", f.Provider},
+		{"model", f.Model},
+	} {
+		if col.val != "" {
+			conds = append(conds, col.name+" = ?")
+			args = append(args, col.val)
+		}
+	}
+	return strings.Join(conds, " AND "), args
+}
 
 // InsertGeneration stores one record, returning true when a new row was
 // inserted. On ID conflict it merges: NULL columns are filled from the new

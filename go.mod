@@ -6,6 +6,7 @@ require (
 	go.opentelemetry.io/collector/pdata v1.65.0
 	go.opentelemetry.io/proto/otlp v1.11.0
 	google.golang.org/grpc v1.83.2
+	google.golang.org/protobuf v1.36.12
 	modernc.org/sqlite v1.57.0
 )
 
@@ -27,7 +28,6 @@ require (
 	golang.org/x/text v0.41.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260720211330-0afa2a65878a // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260720211330-0afa2a65878a // indirect
-	google.golang.org/protobuf v1.36.12 // indirect
 	modernc.org/libc v1.74.4 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect

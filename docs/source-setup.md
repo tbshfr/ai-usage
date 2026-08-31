@@ -76,13 +76,17 @@ unchanged.
 Add the community OTel plugin to `~/.config/opencode/opencode.json`:
 
 ```jsonc
-{
-  "plugin": [["@devtheops/opencode-plugin-otel", {
-    "enabled": true,
-    "endpoint": "http://localhost:4318",
-    "protocol": "http/protobuf"
-  }]]
-}
+  "plugin": [
+    ["@devtheops/opencode-plugin-otel", {
+      "enabled": true,
+      "endpoint": "https://ai.example.com/",
+      "protocol": "http/protobuf",
+      "metricPrefix": "opencode.",
+      "otlpHeaders": "Authorization=Bearer <token>>",
+      "resourceAttributes": "deployment.environment=production",
+      "disabledTraces": ["tool"]
+    }]
+  ],
 ```
 
 Notes:

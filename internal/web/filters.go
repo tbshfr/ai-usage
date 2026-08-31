@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/tbshfr/ai-usage/internal/storage"
@@ -111,8 +112,8 @@ func offsetParam(r *http.Request) (int, error) {
 	if v == "" {
 		return 0, nil
 	}
-	var n int
-	if _, err := fmt.Sscanf(v, "%d", &n); err != nil || n < 0 {
+	n, err := strconv.Atoi(v)
+	if err != nil || n < 0 {
 		return 0, fmt.Errorf("invalid offset %q (want a non-negative integer)", v)
 	}
 	return n, nil

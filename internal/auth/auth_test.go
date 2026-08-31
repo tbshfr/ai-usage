@@ -134,7 +134,10 @@ func TestSessionTampered(t *testing.T) {
 	cases := []struct {
 		name, value string
 	}{
-		{"flipped mac byte", flipLastByte(cookie.Value)},
+		// The flip targets the 2nd-to-last base64 char: the final char's
+		// low 2 bits are dropped when decoding 32 bytes, so flipping it can
+		// leave the MAC unchanged (flaky, not actually a tamper).
+		{"flipped mac byte", flipByte(cookie.Value, len(cookie.Value)-2)},
 		{"flipped expiry byte", flipByte(cookie.Value, 0)},
 		{"no dot", strings.ReplaceAll(cookie.Value, ".", "")},
 		{"garbage", "garbage.value"},
@@ -149,17 +152,6 @@ func TestSessionTampered(t *testing.T) {
 			}
 		})
 	}
-}
-
-func flipLastByte(v string) string {
-	b := []byte(v)
-	last := b[len(b)-1]
-	if last == 'A' {
-		b[len(b)-1] = 'B'
-	} else {
-		b[len(b)-1] = 'A'
-	}
-	return string(b)
 }
 
 func flipByte(v string, i int) string {

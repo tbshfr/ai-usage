@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"io/fs"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"sort"
@@ -44,7 +45,7 @@ func NewAuthed(db *sql.DB, dash *auth.Dashboard) http.Handler {
 }
 
 func newMux(db *sql.DB, dash *auth.Dashboard) http.Handler {
-	s := &server{db: db, dash: dash}
+	s := &server{db: db, dash: dash, limiter: &loginLimiter{}}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", s.dashboard)
 	mux.HandleFunc("GET /trends", s.trends)
@@ -80,8 +81,9 @@ func (s *server) robotsTxt(w http.ResponseWriter, r *http.Request) {
 }
 
 type server struct {
-	db   *sql.DB
-	dash *auth.Dashboard
+	db      *sql.DB
+	dash    *auth.Dashboard
+	limiter *loginLimiter
 }
 
 // pageData is the single view model passed to every template set; each
@@ -208,12 +210,12 @@ func (s *server) dashboard(w http.ResponseWriter, r *http.Request) {
 	}
 	d, err := s.base(r.Context(), "Dashboard", "dashboard", "/", u)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeErr(w, err)
 		return
 	}
 	d.F.Presets = nil
 	if d.Cards, err = s.cards(r.Context(), u); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeErr(w, err)
 		return
 	}
 	s.render(w, "dashboard", d)
@@ -370,19 +372,19 @@ func (s *server) breakdowns(w http.ResponseWriter, r *http.Request) {
 	}
 	d, err := s.base(r.Context(), "Breakdowns", "breakdowns", "/breakdowns", u)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeErr(w, err)
 		return
 	}
 	if d.Breaks.Source, err = storage.BySource(r.Context(), s.db, f); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeErr(w, err)
 		return
 	}
 	if d.Breaks.Provider, err = storage.ByProvider(r.Context(), s.db, f); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeErr(w, err)
 		return
 	}
 	if d.Breaks.Model, err = storage.ByModel(r.Context(), s.db, f); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeErr(w, err)
 		return
 	}
 	d.Breaks.SourceTotal = totalBreakdown(d.Breaks.Source)
@@ -565,7 +567,7 @@ func (s *server) redirectSessions(w http.ResponseWriter, r *http.Request) {
 func (s *server) detail(w http.ResponseWriter, r *http.Request) {
 	g, found, err := storage.GenerationByID(r.Context(), s.db, r.PathValue("id"))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeErr(w, err)
 		return
 	}
 	if !found {
@@ -702,12 +704,14 @@ type badRequest struct{ err error }
 
 func (b badRequest) Error() string { return b.err.Error() }
 
-// writeErr answers request-input problems with 400 and query/DB failures
-// with 500.
+// writeErr answers request-input problems with 400 (detail echoed back)
+// and query/DB failures with 500: the real error is logged server-side and
+// the response body is generic so internals never reach the client.
 func writeErr(w http.ResponseWriter, err error) {
 	if _, ok := err.(badRequest); ok {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	http.Error(w, err.Error(), http.StatusInternalServerError)
+	slog.Error("page request failed", "error", err.Error())
+	http.Error(w, "internal error", http.StatusInternalServerError)
 }

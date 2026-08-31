@@ -37,7 +37,7 @@ func NewWithAuth(db *sql.DB, logger *slog.Logger, stats StatsFunc, version strin
 		}
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ready"})
 	})
-	mux.Handle("/api/", apiRoutes(db, stats))
+	mux.Handle("/api/", apiRoutes(db, stats, logger))
 	if dash != nil {
 		mux.Handle("/", web.NewAuthed(db, dash))
 	} else {

@@ -184,3 +184,58 @@ func TestNoAuthServerHasNoLoginRoutes(t *testing.T) {
 		t.Errorf("/login without auth: status = %d, want 404", status)
 	}
 }
+
+func TestSessionCookieIsSecure(t *testing.T) {
+	srv, _ := newAuthedServer(t)
+	_, resp := login(t, srv, "admin", "s3cret")
+	for _, c := range resp.Cookies() {
+		if c.Name != auth.SessionCookie {
+			continue
+		}
+		if !c.Secure {
+			t.Error("session cookie not Secure")
+		}
+		if !c.HttpOnly {
+			t.Error("session cookie not HttpOnly")
+		}
+		return
+	}
+	t.Fatal("no session cookie in response")
+}
+
+func TestLoginRateLimited(t *testing.T) {
+	srv, _ := newAuthedServer(t)
+	for i := 0; i < failedLoginMax; i++ {
+		status, _ := login(t, srv, "admin", "wrong")
+		if status != http.StatusUnauthorized {
+			t.Fatalf("attempt %d: status = %d, want 401", i+1, status)
+		}
+	}
+	status, resp := login(t, srv, "admin", "wrong")
+	if status != http.StatusTooManyRequests {
+		t.Errorf("status after %d failures = %d, want 429", failedLoginMax, status)
+	}
+	if resp.Header.Get("Retry-After") == "" {
+		t.Error("429 response missing Retry-After header")
+	}
+	// Correct credentials do not bypass the limiter: the account is locked
+	// out until the window drains.
+	status, _ = login(t, srv, "admin", "s3cret")
+	if status != http.StatusTooManyRequests {
+		t.Errorf("correct credentials during lockout: status = %d, want 429", status)
+	}
+}
+
+func TestLoginLimiterReset(t *testing.T) {
+	l := &loginLimiter{}
+	for i := 0; i < failedLoginMax; i++ {
+		l.recordFailure()
+	}
+	if _, blocked := l.blocked(); !blocked {
+		t.Fatal("limiter did not block after max failures")
+	}
+	l.reset()
+	if _, blocked := l.blocked(); blocked {
+		t.Error("limiter still blocked after reset")
+	}
+}

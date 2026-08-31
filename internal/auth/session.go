@@ -37,7 +37,10 @@ func NewSessions() (*Sessions, error) {
 	return &Sessions{secret: secret, ttl: DefaultSessionTTL}, nil
 }
 
-// Issue sets a signed session cookie valid until now + ttl.
+// Issue sets a signed session cookie valid until now + ttl. The cookie is
+// always marked Secure: production deployments serve the dashboard over
+// HTTPS (docs/source-setup.md), and browsers exempt http://localhost, so
+// loopback development logins still work.
 func (s *Sessions) Issue(w http.ResponseWriter) {
 	expiry := time.Now().Add(s.ttl).Unix()
 	var buf [4]byte
@@ -50,6 +53,7 @@ func (s *Sessions) Issue(w http.ResponseWriter) {
 		Value:    v,
 		Path:     "/",
 		HttpOnly: true,
+		Secure:   true,
 		SameSite: http.SameSiteLaxMode,
 	})
 }
@@ -95,6 +99,7 @@ func (s *Sessions) Clear(w http.ResponseWriter) {
 		Path:     "/",
 		MaxAge:   -1,
 		HttpOnly: true,
+		Secure:   true,
 		SameSite: http.SameSiteLaxMode,
 	})
 }

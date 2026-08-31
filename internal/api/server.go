@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
@@ -22,7 +23,16 @@ const (
 // GET /api/stats. It comes from the ingest pipeline in main.
 type StatsFunc func() ingest.Stats
 
-func apiRoutes(db *sql.DB, stats StatsFunc) *http.ServeMux {
+func apiRoutes(db *sql.DB, stats StatsFunc, logger *slog.Logger) *http.ServeMux {
+	if logger == nil {
+		logger = slog.Default()
+	}
+	// internalErr logs the real failure server-side and answers with a
+	// generic body: 500 details (SQL errors, paths) must not reach clients.
+	internalErr := func(w http.ResponseWriter, err error) {
+		logger.Error("api request failed", "error", err.Error())
+		writeErr(w, http.StatusInternalServerError, "internal error")
+	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/summary", func(w http.ResponseWriter, r *http.Request) {
 		f, ok := filterParam(w, r)
@@ -31,7 +41,7 @@ func apiRoutes(db *sql.DB, stats StatsFunc) *http.ServeMux {
 		}
 		s, err := storage.Summary(r.Context(), db, f)
 		if err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
+			internalErr(w, err)
 			return
 		}
 		writeJSON(w, http.StatusOK, summaryResponse{
@@ -65,7 +75,7 @@ func apiRoutes(db *sql.DB, stats StatsFunc) *http.ServeMux {
 		}
 		pts, err := storage.Timeseries(r.Context(), db, f, bucket)
 		if err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
+			internalErr(w, err)
 			return
 		}
 		out := make([]timeseriesPoint, 0, len(pts))
@@ -99,7 +109,7 @@ func apiRoutes(db *sql.DB, stats StatsFunc) *http.ServeMux {
 			}
 			rows, err := breakdownOf(r.Context(), db, f, route.column)
 			if err != nil {
-				writeErr(w, http.StatusInternalServerError, err.Error())
+				internalErr(w, err)
 				return
 			}
 			writeJSON(w, http.StatusOK, rows)
@@ -121,7 +131,7 @@ func apiRoutes(db *sql.DB, stats StatsFunc) *http.ServeMux {
 		}
 		gens, err := storage.RecentGenerations(r.Context(), db, f, order, limit, offset)
 		if err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
+			internalErr(w, err)
 			return
 		}
 		out := make([]generation, 0, len(gens))
@@ -133,7 +143,7 @@ func apiRoutes(db *sql.DB, stats StatsFunc) *http.ServeMux {
 	mux.HandleFunc("GET /api/generations/{id}", func(w http.ResponseWriter, r *http.Request) {
 		g, found, err := storage.GenerationByID(r.Context(), db, r.PathValue("id"))
 		if err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
+			internalErr(w, err)
 			return
 		}
 		if !found {

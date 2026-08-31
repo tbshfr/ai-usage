@@ -16,6 +16,9 @@ func FromOpenCodeSpan(resource pcommon.Map, span ptrace.Span) (Generation, bool,
 	if kind != "LLM" && span.Name() != "opencode.llm" {
 		return Generation{}, false, nil
 	}
+	if err := requireStrings(attrs, "gen_ai.provider.name", "llm.system", "llm.model_name"); err != nil {
+		return Generation{}, true, fmt.Errorf("opencode span %q: %w", span.Name(), err)
+	}
 
 	id, err := DedupID(SourceOpenCode, span.TraceID().String(), span.SpanID().String())
 	if err != nil {

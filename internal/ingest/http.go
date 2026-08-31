@@ -1,6 +1,8 @@
 package ingest
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"errors"
 	"io"
@@ -82,6 +84,10 @@ func (c consumeError) Error() string { return c.err.Error() }
 
 func (r *Receiver) handle(signal string, process func(body []byte, encoding string) (int, error)) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
+		if req.Header.Get("Content-Type") == "" {
+			http.Error(w, "missing content type", http.StatusBadRequest)
+			return
+		}
 		encoding, ok := encodingOf(req.Header.Get("Content-Type"))
 		if !ok {
 			http.Error(w, "unsupported content type", http.StatusUnsupportedMediaType)
@@ -90,6 +96,24 @@ func (r *Receiver) handle(signal string, process func(body []byte, encoding stri
 		body, err := io.ReadAll(req.Body)
 		if err != nil {
 			http.Error(w, "read body", http.StatusBadRequest)
+			return
+		}
+		switch ce := req.Header.Get("Content-Encoding"); ce {
+		case "", "identity":
+		case "gzip":
+			gz, err := gzip.NewReader(bytes.NewReader(body))
+			if err != nil {
+				http.Error(w, "bad gzip body", http.StatusBadRequest)
+				return
+			}
+			body, err = io.ReadAll(gz)
+			gz.Close()
+			if err != nil {
+				http.Error(w, "bad gzip body", http.StatusBadRequest)
+				return
+			}
+		default:
+			http.Error(w, "unsupported content encoding", http.StatusUnsupportedMediaType)
 			return
 		}
 		n, err := process(body, encoding)

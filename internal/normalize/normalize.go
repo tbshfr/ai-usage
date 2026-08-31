@@ -3,6 +3,7 @@ package normalize
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"go.opentelemetry.io/collector/pdata/pcommon"
@@ -94,6 +95,23 @@ func attrString(m pcommon.Map, key string) (string, bool) {
 		return "", false
 	}
 	return v.Str(), true
+}
+
+// requireStrings errors when any key is present with a non-string value.
+// attrString treats such values as missing, which would silently store
+// generation records with dropped fields; wrong-typed attributes are corrupt
+// input and must surface as normalization errors instead.
+func requireStrings(m pcommon.Map, keys ...string) error {
+	var bad []string
+	for _, k := range keys {
+		if v, ok := m.Get(k); ok && v.Type() != pcommon.ValueTypeStr {
+			bad = append(bad, fmt.Sprintf("%s (%s)", k, v.Type()))
+		}
+	}
+	if len(bad) > 0 {
+		return fmt.Errorf("non-string values for %s", strings.Join(bad, ", "))
+	}
+	return nil
 }
 
 func firstString(m pcommon.Map, keys ...string) string {

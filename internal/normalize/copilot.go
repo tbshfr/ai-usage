@@ -18,6 +18,9 @@ func FromCopilotSpan(resource pcommon.Map, span ptrace.Span) (Generation, bool, 
 	if op, _ := attrString(attrs, "gen_ai.operation.name"); op != "chat" {
 		return Generation{}, false, nil
 	}
+	if err := requireStrings(attrs, "gen_ai.provider.name", "gen_ai.request.model", "gen_ai.response.model"); err != nil {
+		return Generation{}, true, fmt.Errorf("copilot span %q: %w", span.Name(), err)
+	}
 
 	id, err := DedupID(SourceCopilot, span.TraceID().String(), span.SpanID().String())
 	if err != nil {

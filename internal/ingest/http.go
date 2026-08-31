@@ -1,6 +1,8 @@
 package ingest
 
 import (
+	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -10,31 +12,46 @@ import (
 	"go.opentelemetry.io/collector/pdata/ptrace"
 )
 
-type Receiver struct {
-	logger *slog.Logger
+// Consumer is the interface both receivers feed. Implementations must be
+// safe for concurrent use.
+type Consumer interface {
+	ConsumeTraces(ctx context.Context, td ptrace.Traces) error
+	ConsumeMetrics(ctx context.Context, md pmetric.Metrics) error
+	ConsumeLogs(ctx context.Context, ld plog.Logs) error
 }
 
-func NewReceiver(logger *slog.Logger) *Receiver {
+type Receiver struct {
+	consumer Consumer
+	logger   *slog.Logger
+}
+
+func NewReceiver(consumer Consumer, logger *slog.Logger) *Receiver {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &Receiver{logger: logger}
+	return &Receiver{consumer: consumer, logger: logger}
 }
 
 // Handler returns the OTLP/HTTP endpoints: POST /v1/traces, /v1/metrics, /v1/logs.
 func (r *Receiver) Handler() http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST /v1/traces", r.handle(func(b []byte, encoding string) (int, error) {
+	mux.HandleFunc("POST /v1/traces", r.handle("traces", func(b []byte, encoding string) (int, error) {
 		td, err := unmarshalTraces(b, encoding)
 		if err != nil {
 			return 0, err
 		}
+		if err := r.consumer.ConsumeTraces(context.Background(), td); err != nil {
+			return 0, consumeError{err}
+		}
 		return td.SpanCount(), nil
 	}))
-	mux.HandleFunc("POST /v1/metrics", r.handle(func(b []byte, encoding string) (int, error) {
+	mux.HandleFunc("POST /v1/metrics", r.handle("metrics", func(b []byte, encoding string) (int, error) {
 		md, err := unmarshalMetrics(b, encoding)
 		if err != nil {
 			return 0, err
+		}
+		if err := r.consumer.ConsumeMetrics(context.Background(), md); err != nil {
+			return 0, consumeError{err}
 		}
 		var n int
 		for _, rm := range md.ResourceMetrics().All() {
@@ -44,17 +61,26 @@ func (r *Receiver) Handler() http.Handler {
 		}
 		return n, nil
 	}))
-	mux.HandleFunc("POST /v1/logs", r.handle(func(b []byte, encoding string) (int, error) {
+	mux.HandleFunc("POST /v1/logs", r.handle("logs", func(b []byte, encoding string) (int, error) {
 		ld, err := unmarshalLogs(b, encoding)
 		if err != nil {
 			return 0, err
+		}
+		if err := r.consumer.ConsumeLogs(context.Background(), ld); err != nil {
+			return 0, consumeError{err}
 		}
 		return ld.LogRecordCount(), nil
 	}))
 	return mux
 }
 
-func (r *Receiver) handle(count func(body []byte, encoding string) (int, error)) http.HandlerFunc {
+// consumeError distinguishes pipeline failures (retryable, 503) from
+// malformed payloads (client error, 400).
+type consumeError struct{ err error }
+
+func (c consumeError) Error() string { return c.err.Error() }
+
+func (r *Receiver) handle(signal string, process func(body []byte, encoding string) (int, error)) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		encoding, ok := encodingOf(req.Header.Get("Content-Type"))
 		if !ok {
@@ -66,14 +92,20 @@ func (r *Receiver) handle(count func(body []byte, encoding string) (int, error))
 			http.Error(w, "read body", http.StatusBadRequest)
 			return
 		}
-		n, err := count(body, encoding)
+		n, err := process(body, encoding)
 		if err != nil {
-			r.logger.Warn("otlp decode failed", "error", err.Error())
+			var ce consumeError
+			if errors.As(err, &ce) {
+				r.logger.Error("pipeline failed", "signal", signal, "error", ce.err.Error())
+				http.Error(w, "ingestion unavailable", http.StatusServiceUnavailable)
+				return
+			}
+			r.logger.Warn("otlp decode failed", "signal", signal, "error", err.Error())
 			http.Error(w, "decode failed", http.StatusBadRequest)
 			return
 		}
 		r.logger.Debug("otlp batch received",
-			"signal", req.URL.Path,
+			"signal", signal,
 			"encoding", encoding,
 			"records", n,
 		)

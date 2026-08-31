@@ -2,15 +2,21 @@ package ingest
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
+
+	"go.opentelemetry.io/collector/pdata/plog"
+	"go.opentelemetry.io/collector/pdata/pmetric"
+	"go.opentelemetry.io/collector/pdata/ptrace"
 )
 
 func TestReceiverAcceptsFixtures(t *testing.T) {
-	r := NewReceiver(slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})))
+	r := NewReceiver(&stubConsumer{}, slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})))
 	srv := httptest.NewServer(r.Handler())
 	defer srv.Close()
 
@@ -45,7 +51,7 @@ func TestReceiverAcceptsFixtures(t *testing.T) {
 }
 
 func TestReceiverRejectsBadPayload(t *testing.T) {
-	r := NewReceiver(nil)
+	r := NewReceiver(&stubConsumer{}, nil)
 	srv := httptest.NewServer(r.Handler())
 	defer srv.Close()
 
@@ -60,7 +66,7 @@ func TestReceiverRejectsBadPayload(t *testing.T) {
 }
 
 func TestReceiverRejectsUnknownContentType(t *testing.T) {
-	r := NewReceiver(nil)
+	r := NewReceiver(&stubConsumer{}, nil)
 	srv := httptest.NewServer(r.Handler())
 	defer srv.Close()
 
@@ -73,3 +79,36 @@ func TestReceiverRejectsUnknownContentType(t *testing.T) {
 		t.Errorf("status = %d, want 415", resp.StatusCode)
 	}
 }
+
+func TestReceiverReturns503WhenPipelineFails(t *testing.T) {
+	r := NewReceiver(&failingConsumer{}, nil)
+	srv := httptest.NewServer(r.Handler())
+	defer srv.Close()
+
+	fixture, err := os.ReadFile("../../testdata/copilot/traces-chat-simple.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err := http.Post(srv.URL+"/v1/traces", "application/json", bytes.NewReader(fixture))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusServiceUnavailable {
+		t.Errorf("status = %d, want 503", resp.StatusCode)
+	}
+}
+
+type stubConsumer struct{}
+
+func (stubConsumer) ConsumeTraces(context.Context, ptrace.Traces) error    { return nil }
+func (stubConsumer) ConsumeMetrics(context.Context, pmetric.Metrics) error { return nil }
+func (stubConsumer) ConsumeLogs(context.Context, plog.Logs) error          { return nil }
+
+type failingConsumer struct{}
+
+func (failingConsumer) ConsumeTraces(context.Context, ptrace.Traces) error {
+	return errors.New("db down")
+}
+func (failingConsumer) ConsumeMetrics(context.Context, pmetric.Metrics) error { return nil }
+func (failingConsumer) ConsumeLogs(context.Context, plog.Logs) error          { return nil }

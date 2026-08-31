@@ -15,6 +15,62 @@ ai-usage --otlp-http :4318
 (or set `AI_USAGE_OTLP_HTTP_ADDR=:4318`). With that flag, most setups need
 no endpoint configuration in the sources at all.
 
+## Authentication
+
+On localhost you don't need any of this. When the dashboard runs on a
+VPS (or any non-loopback bind), the server **requires** credentials: it
+refuses to start a non-loopback OTLP listener without
+`AI_USAGE_OTLP_TOKEN`, and the dashboard without
+`AI_USAGE_DASHBOARD_USER`/`AI_USAGE_DASHBOARD_PASSWORD`. Pick one long
+random token, e.g. `openssl rand -hex 32`.
+
+Both sources below send `Authorization: Bearer <token>` — the only
+header mechanism each of them supports.
+
+### OpenCode
+
+Either set the header env var before starting OpenCode:
+
+```bash
+export OPENCODE_OTLP_HEADERS="Authorization=Bearer <token>"
+```
+
+or pass it inline in `opencode.json` using env substitution (the token
+itself stays in the environment, out of version control):
+
+```jsonc
+{
+  "plugin": [["@devtheops/opencode-plugin-otel", {
+    "enabled": true,
+    "endpoint": "https://ai-usage.example.com:4318",
+    "protocol": "http/protobuf",
+    "otlpHeaders": "{env:OTEL_HEADERS}"
+  }]]
+}
+```
+
+with `OTEL_HEADERS="Authorization=Bearer <token>"` exported alongside
+the endpoint vars.
+
+### VS Code GitHub Copilot
+
+Copilot's OTel integration reads auth headers **only** from the
+standard env var (there is no settings.json key for headers). Start VS
+Code with:
+
+```bash
+OTEL_EXPORTER_OTLP_ENDPOINT=https://ai-usage.example.com:4318 \
+OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer <token>" \
+code
+```
+
+### Verify
+
+Without the token, both clients get `401` responses (visible as
+`request rejected` lines in the server log) and nothing is stored. With
+it, the verification checks at the end of each section below work
+unchanged.
+
 ## OpenCode
 
 Add the community OTel plugin to `~/.config/opencode/opencode.json`:

@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/tbshfr/ai-usage/internal/api"
+	"github.com/tbshfr/ai-usage/internal/auth"
 	"github.com/tbshfr/ai-usage/internal/config"
 	"github.com/tbshfr/ai-usage/internal/ingest"
 	"github.com/tbshfr/ai-usage/internal/storage"
@@ -59,6 +60,8 @@ func run(cfg *config.Config, logger *slog.Logger) error {
 		"otlp_http", cfg.OTLPHTTPAddr,
 		"otlp_grpc", cfg.OTLPGRPCAddr,
 		"database", cfg.DatabasePath,
+		"dashboard_auth", cfg.DashboardAuthEnabled(),
+		"otlp_auth", cfg.OTLPToken != "",
 	)
 
 	db, err := storage.Open(context.Background(), cfg.DatabasePath)
@@ -73,12 +76,22 @@ func run(cfg *config.Config, logger *slog.Logger) error {
 
 	pipeline := ingest.NewPipeline(db, logger)
 	// Empty addresses disable the corresponding listener (config supports
-	// this; see internal/config).
+	// this; see internal/config). Non-loopback binds without credentials
+	// are rejected by config validation before we get here.
+	var sessions *auth.Sessions
+	var dash *auth.Dashboard
+	if cfg.DashboardAuthEnabled() {
+		sessions, err = auth.NewSessions()
+		if err != nil {
+			return fmt.Errorf("create session secret: %w", err)
+		}
+		dash = auth.NewDashboard(cfg.DashboardUser, cfg.DashboardPassword, sessions)
+	}
 	var servers []*http.Server
 	if cfg.HTTPAddr != "" {
 		servers = append(servers, &http.Server{
 			Addr:              cfg.HTTPAddr,
-			Handler:           api.New(db, logger, pipeline.Stats, version),
+			Handler:           api.NewWithAuth(db, logger, pipeline.Stats, version, dash),
 			ReadHeaderTimeout: 10 * time.Second,
 			ReadTimeout:       30 * time.Second,
 			WriteTimeout:      60 * time.Second,
@@ -86,9 +99,13 @@ func run(cfg *config.Config, logger *slog.Logger) error {
 		})
 	}
 	if cfg.OTLPHTTPAddr != "" {
+		var h http.Handler = ingest.NewReceiver(pipeline, logger).Handler()
+		if cfg.OTLPToken != "" {
+			h = auth.Bearer(logger, cfg.OTLPToken, h)
+		}
 		servers = append(servers, &http.Server{
 			Addr:              cfg.OTLPHTTPAddr,
-			Handler:           ingest.NewReceiver(pipeline, logger).Handler(),
+			Handler:           h,
 			ReadHeaderTimeout: 10 * time.Second,
 			ReadTimeout:       30 * time.Second,
 			WriteTimeout:      60 * time.Second,
@@ -108,7 +125,7 @@ func run(cfg *config.Config, logger *slog.Logger) error {
 
 	var grpcServer *grpc.Server
 	if cfg.OTLPGRPCAddr != "" {
-		grpcServer = ingest.NewGRPCServer(pipeline, logger)
+		grpcServer = ingest.NewGRPCServer(pipeline, logger, cfg.OTLPToken)
 		ln, err := ingest.ServeGRPC(grpcServer, cfg.OTLPGRPCAddr)
 		if err != nil {
 			return err
@@ -160,15 +177,25 @@ func printBanner(cfg *config.Config) {
 	if grpc == "" {
 		grpc = "(disabled)"
 	}
+	authState := "off"
+	switch {
+	case cfg.DashboardAuthEnabled() && cfg.OTLPToken != "":
+		authState = "dashboard + otlp"
+	case cfg.DashboardAuthEnabled():
+		authState = "dashboard"
+	case cfg.OTLPToken != "":
+		authState = "otlp"
+	}
 	fmt.Printf(`
 AI Usage Dashboard (%s)
 
 Dashboard: %s
 OTLP HTTP: %s
 OTLP gRPC: %s
+Auth:      %s
 Database:  %s
 
-`, version, httpURL(cfg.HTTPAddr), httpURL(cfg.OTLPHTTPAddr), grpc, dbPath)
+`, version, httpURL(cfg.HTTPAddr), httpURL(cfg.OTLPHTTPAddr), grpc, authState, dbPath)
 }
 
 func httpURL(addr string) string {

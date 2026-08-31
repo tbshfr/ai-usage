@@ -201,6 +201,7 @@ gofmt -l .
 | 6 | `phase-6-ui.md` | Phase 5 | done |
 | 7 | `phase-7-hardening.md` | Phases 1–6 | done |
 | 8 | `phase-8-distribution.md` | Phase 7 | done |
+| 9 | `phase-9-auth.md` | Phases 1–8 | done |
 
 Each phase plan is self-contained: an agent that has read this README plus its
 phase file can execute it. Do not start a phase before its prerequisites are

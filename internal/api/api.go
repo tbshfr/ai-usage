@@ -7,12 +7,19 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/tbshfr/ai-usage/internal/auth"
 	"github.com/tbshfr/ai-usage/internal/web"
 )
 
 // New returns the dashboard-port HTTP handler: liveness/readiness probes plus
 // the JSON API routes from server.go, with debug-level access logging.
 func New(db *sql.DB, logger *slog.Logger, stats StatsFunc, version string) http.Handler {
+	return NewWithAuth(db, logger, stats, version, nil)
+}
+
+// NewWithAuth wraps the dashboard with the login-session guard when dash
+// is non-nil; /health, /ready, /static and /login stay public.
+func NewWithAuth(db *sql.DB, logger *slog.Logger, stats StatsFunc, version string, dash *auth.Dashboard) http.Handler {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -31,8 +38,16 @@ func New(db *sql.DB, logger *slog.Logger, stats StatsFunc, version string) http.
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ready"})
 	})
 	mux.Handle("/api/", apiRoutes(db, stats))
-	mux.Handle("/", web.New(db))
-	return accessLog(logger, mux)
+	if dash != nil {
+		mux.Handle("/", web.NewAuthed(db, dash))
+	} else {
+		mux.Handle("/", web.New(db))
+	}
+	h := accessLog(logger, mux)
+	if dash != nil {
+		h = dash.Middleware(h)
+	}
+	return h
 }
 
 func accessLog(logger *slog.Logger, next http.Handler) http.Handler {

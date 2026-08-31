@@ -1,8 +1,11 @@
 # JSON API
 
-Served on the dashboard port (default `:8080`, localhost-bound). Same-origin
-only — no CORS, no auth in v1. Exposing it to a network is your
-responsibility and requires a reverse proxy with auth.
+Served on the dashboard port (default `127.0.0.1:8080`). Same-origin
+only — no CORS. When dashboard credentials are configured
+(`AI_USAGE_DASHBOARD_USER`/`AI_USAGE_DASHBOARD_PASSWORD`), every
+`/api/*` request requires a valid login session: unauthenticated calls
+get `401` with `{"error":"unauthorized","status":401}` instead of data.
+`GET /health` and `GET /ready` stay unauthenticated for probes.
 
 All responses are `application/json`, UTF-8, lowerCamelCase. Nullable
 numerics serialize as JSON `null` when unknown — never `0`. Cost is

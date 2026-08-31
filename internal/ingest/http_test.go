@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tbshfr/ai-usage/internal/auth"
 	"go.opentelemetry.io/collector/pdata/plog"
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.opentelemetry.io/collector/pdata/ptrace"
@@ -49,6 +50,43 @@ func TestReceiverAcceptsFixtures(t *testing.T) {
 				t.Errorf("status = %d, want 200", resp.StatusCode)
 			}
 		})
+	}
+}
+
+func TestReceiverBearerToken(t *testing.T) {
+	r := NewReceiver(&stubConsumer{}, nil)
+	h := auth.Bearer(nil, "s3cret", r.Handler())
+	srv := httptest.NewServer(h)
+	defer srv.Close()
+
+	body, err := os.ReadFile("../../testdata/opencode/traces-llm.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	post := func(token string) int {
+		req, err := http.NewRequest("POST", srv.URL+"/v1/traces", bytes.NewReader(body))
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		if token != "" {
+			req.Header.Set("Authorization", token)
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		return resp.StatusCode
+	}
+	if got := post(""); got != http.StatusUnauthorized {
+		t.Errorf("no token: status = %d, want 401", got)
+	}
+	if got := post("Bearer wrong"); got != http.StatusUnauthorized {
+		t.Errorf("wrong token: status = %d, want 401", got)
+	}
+	if got := post("Bearer s3cret"); got != http.StatusOK {
+		t.Errorf("valid token: status = %d, want 200", got)
 	}
 }
 

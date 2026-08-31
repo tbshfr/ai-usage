@@ -14,6 +14,7 @@
     <a href="/"{{if eq .Active "overview"}} class="active"{{end}}>Overview</a>
     <a href="/breakdowns"{{if eq .Active "breakdowns"}} class="active"{{end}}>Breakdowns</a>
     <a href="/generations"{{if eq .Active "recent"}} class="active"{{end}}>Recent</a>
+    {{if .ShowLogout}}<a href="/logout" class="logout-link">Sign out</a>{{end}}
   </nav>
 </header>
 <main>{{template "content" .}}</main>

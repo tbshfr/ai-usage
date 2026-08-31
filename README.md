@@ -34,6 +34,7 @@ OpenCode / VS Code Copilot ──OTLP──▶ ai-usage ──▶ SQLite ──�
    Dashboard: http://localhost:8080
    OTLP HTTP: http://localhost:4318
    OTLP gRPC: (disabled)
+   Auth:      off
    Database:  ~/.local/share/ai-usage/usage.db
    ```
 
@@ -61,14 +62,17 @@ SHA-256 checksums).
 
 Flags override environment variables, which override defaults.
 
-| Flag           | Env var                   | Default                 | Meaning                                    |
-|----------------|---------------------------|-------------------------|--------------------------------------------|
-| `--http`       | `AI_USAGE_HTTP_ADDR`      | `:8080`                 | Dashboard + JSON API listen address (empty disables) |
-| `--otlp-http`  | `AI_USAGE_OTLP_HTTP_ADDR` | *(disabled)*            | OTLP/HTTP listen address (starts only when set) |
-| `--otlp-grpc`  | `AI_USAGE_OTLP_GRPC_ADDR` | *(disabled)*            | OTLP gRPC listen address (starts only when set) |
-| `--data-dir`   | `AI_USAGE_DATA_DIR`       | OS user-data dir + `ai-usage` | Data directory                       |
-| `--database`   | `AI_USAGE_DATABASE`       | `<data-dir>/usage.db`   | SQLite database path                       |
-| `--log-level`  | `AI_USAGE_LOG_LEVEL`      | `info`                  | `debug`, `info`, `warn`, or `error`        |
+| Flag                | Env var                       | Default                 | Meaning                                    |
+|---------------------|-------------------------------|-------------------------|--------------------------------------------|
+| `--http`            | `AI_USAGE_HTTP_ADDR`          | `127.0.0.1:8080`        | Dashboard + JSON API listen address (empty disables) |
+| `--otlp-http`       | `AI_USAGE_OTLP_HTTP_ADDR`     | *(disabled)*            | OTLP/HTTP listen address (starts only when set) |
+| `--otlp-grpc`       | `AI_USAGE_OTLP_GRPC_ADDR`     | *(disabled)*            | OTLP gRPC listen address (starts only when set) |
+| `--data-dir`        | `AI_USAGE_DATA_DIR`           | OS user-data dir + `ai-usage` | Data directory                       |
+| `--database`        | `AI_USAGE_DATABASE`           | `<data-dir>/usage.db`   | SQLite database path                       |
+| `--log-level`       | `AI_USAGE_LOG_LEVEL`          | `info`                  | `debug`, `info`, `warn`, or `error`        |
+| `--dashboard-user`  | `AI_USAGE_DASHBOARD_USER`     | *(auth off)*            | Dashboard login username                   |
+| `--dashboard-password` | `AI_USAGE_DASHBOARD_PASSWORD` | *(auth off)*         | Dashboard login password                   |
+| `--otlp-token`      | `AI_USAGE_OTLP_TOKEN`         | *(auth off)*            | Bearer token OTLP clients must send        |
 
 Default data directory per OS:
 
@@ -76,10 +80,47 @@ Default data directory per OS:
 - macOS: `~/Library/Application Support/ai-usage`
 - Windows: `%LOCALAPPDATA%\ai-usage`
 
-The listen addresses default to all interfaces on your machine; use
-`--http 127.0.0.1:8080` (and likewise for the OTLP ports) to restrict
-access to localhost only. Passing an empty value to any listener flag
-(e.g. `--otlp-http ""`) disables that listener entirely.
+The dashboard defaults to loopback so nothing is exposed beyond your
+machine; use `--http 127.0.0.1:8080` (and likewise for the OTLP ports)
+to restrict access to localhost only. Passing an empty value to any
+listener flag (e.g. `--otlp-http ""`) disables that listener entirely.
+
+## Authentication
+
+Unauthenticated (no credential flags/env vars set), the dashboard and
+any enabled OTLP listener are only allowed to bind to loopback
+addresses. Binding to a non-loopback interface — `:8080`, `0.0.0.0`,
+a public IP or hostname — **refuses to start** until you provide the
+matching credentials. That makes the VPS setup safe by construction.
+
+- **Dashboard**: a server-rendered login page. Set
+  `AI_USAGE_DASHBOARD_USER` and `AI_USAGE_DASHBOARD_PASSWORD` (both
+  required together). Sessions are HMAC-signed `HttpOnly` cookies valid
+  for 7 days; restarting the process logs everyone out.
+- **OTLP**: clients must send `Authorization: Bearer <token>` where the
+  token comes from `AI_USAGE_OTLP_TOKEN`. Applies to both OTLP/HTTP and
+  OTLP/gRPC. Client-side configuration is in
+  [`docs/source-setup.md`](docs/source-setup.md).
+
+Minimal VPS configuration (put the values in a systemd unit's
+`Environment=` lines or an env file — do not commit them):
+
+```bash
+export AI_USAGE_HTTP_ADDR=":8080"
+export AI_USAGE_OTLP_HTTP_ADDR=":4318"
+export AI_USAGE_DASHBOARD_USER=admin
+export AI_USAGE_DASHBOARD_PASSWORD='...long random password...'
+export AI_USAGE_OTLP_TOKEN='...long random token...'
+./ai-usage
+```
+
+`/health` and `/ready` stay unauthenticated so load balancers and
+process supervisors can probe them. The comparison of credentials is
+constant-time, and credentials never appear in logs.
+
+Run the dashboard behind a TLS-terminating reverse proxy (nginx, Caddy)
+when exposing it beyond a trusted network; the binary itself serves
+plain HTTP.
 
 ## Data location & privacy
 

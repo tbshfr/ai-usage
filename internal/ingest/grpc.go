@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net"
 
+	"github.com/tbshfr/ai-usage/internal/auth"
 	collogpb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
 	colmetricpb "go.opentelemetry.io/proto/otlp/collector/metrics/v1"
 	coltracepb "go.opentelemetry.io/proto/otlp/collector/trace/v1"
@@ -23,12 +24,17 @@ import (
 )
 
 // NewGRPCServer builds the OTLP/gRPC server feeding the same pipeline as
-// the HTTP receiver.
-func NewGRPCServer(consumer Consumer, logger *slog.Logger) *grpc.Server {
+// the HTTP receiver. A non-empty token requires clients to send
+// "authorization: Bearer <token>" metadata.
+func NewGRPCServer(consumer Consumer, logger *slog.Logger, token string) *grpc.Server {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	s := grpc.NewServer()
+	opts := []grpc.ServerOption{}
+	if token != "" {
+		opts = append(opts, grpc.ChainUnaryInterceptor(auth.GRPCUnaryInterceptor(logger, token)))
+	}
+	s := grpc.NewServer(opts...)
 	coltracepb.RegisterTraceServiceServer(s, &traceService{consumer: consumer, logger: logger})
 	colmetricpb.RegisterMetricsServiceServer(s, &metricsService{consumer: consumer, logger: logger})
 	collogpb.RegisterLogsServiceServer(s, &logsService{consumer: consumer, logger: logger})

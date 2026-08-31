@@ -117,7 +117,7 @@ func TestEncodingTransportMatrix(t *testing.T) {
 
 			var traceClient coltracepb.TraceServiceClient
 			if transport == "grpc" {
-				gsrv := NewGRPCServer(pipeline, nil)
+				gsrv := NewGRPCServer(pipeline, nil, "")
 				ln, err := ServeGRPC(gsrv, "127.0.0.1:0")
 				if err != nil {
 					t.Fatal(err)

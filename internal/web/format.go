@@ -30,6 +30,7 @@ var funcs = template.FuncMap{
 }
 
 var pageTmpls = map[string]*template.Template{
+	"login":      mustParse("login.html"),
 	"overview":   mustParse("layout.html", "filterbar.html", "cards.html", "chart.html", "overview.html"),
 	"breakdowns": mustParse("layout.html", "filterbar.html", "breakdowns.html", "breakdowns_page.html"),
 	"recent":     mustParse("layout.html", "filterbar.html", "rows.html", "recent.html"),

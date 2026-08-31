@@ -10,7 +10,10 @@ import (
 	"github.com/tbshfr/ai-usage/internal/storage"
 	coltracepb "go.opentelemetry.io/proto/otlp/collector/trace/v1"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
 	"go.opentelemetry.io/collector/pdata/ptrace"
@@ -28,7 +31,7 @@ func TestGRPCTracesIngestion(t *testing.T) {
 		t.Fatal(err)
 	}
 	pipeline := NewPipeline(db, nil)
-	server := NewGRPCServer(pipeline, nil)
+	server := NewGRPCServer(pipeline, nil, "")
 
 	ln, err := ServeGRPC(server, "127.0.0.1:0")
 	if err != nil {
@@ -65,6 +68,43 @@ func TestGRPCTracesIngestion(t *testing.T) {
 	}
 	if s := pipeline.Stats(); s.Deduplicated != 1 {
 		t.Errorf("deduplicated = %d, want 1", s.Deduplicated)
+	}
+}
+
+func TestGRPCTokenRequired(t *testing.T) {
+	ctx := context.Background()
+	db, err := storage.Open(ctx, filepath.Join(t.TempDir(), "usage.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if err := storage.Migrate(db, nil); err != nil {
+		t.Fatal(err)
+	}
+	server := NewGRPCServer(NewPipeline(db, nil), nil, "s3cret")
+	ln, err := ServeGRPC(server, "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer server.Stop()
+	conn, err := grpc.NewClient(ln.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	client := coltracepb.NewTraceServiceClient(conn)
+	req := protoTraceRequest(t, "../../testdata/opencode/traces-llm.json")
+
+	if _, err := client.Export(ctx, req); status.Code(err) != codes.Unauthenticated {
+		t.Errorf("export without token: code = %v, want Unauthenticated", status.Code(err))
+	}
+	mdCtx := metadata.AppendToOutgoingContext(ctx, "authorization", "Bearer s3cret")
+	if _, err := client.Export(mdCtx, req); err != nil {
+		t.Fatalf("export with token: %v", err)
+	}
+	badCtx := metadata.AppendToOutgoingContext(ctx, "authorization", "Bearer wrong")
+	if _, err := client.Export(badCtx, req); status.Code(err) != codes.Unauthenticated {
+		t.Errorf("export with wrong token: code = %v, want Unauthenticated", status.Code(err))
 	}
 }
 

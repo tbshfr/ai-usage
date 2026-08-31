@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/tbshfr/ai-usage"
+	"github.com/tbshfr/ai-usage/internal/auth"
 	"github.com/tbshfr/ai-usage/internal/normalize"
 	"github.com/tbshfr/ai-usage/internal/storage"
 )
@@ -28,7 +29,18 @@ var staticFS = func() fs.FS {
 // New returns the dashboard UI routes (pages, fragments, static assets).
 // Templates are parsed once at package init from the embedded FS.
 func New(db *sql.DB) http.Handler {
-	s := &server{db: db}
+	return newMux(db, nil)
+}
+
+// NewAuthed adds the login/logout routes and applies the dashboard
+// guard to every UI route; api.NewWithAuth additionally wraps the whole
+// dashboard port so /api/* is protected as well.
+func NewAuthed(db *sql.DB, dash *auth.Dashboard) http.Handler {
+	return dash.Middleware(newMux(db, dash))
+}
+
+func newMux(db *sql.DB, dash *auth.Dashboard) http.Handler {
+	s := &server{db: db, dash: dash}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", s.overview)
 	mux.HandleFunc("GET /breakdowns", s.breakdowns)
@@ -39,24 +51,32 @@ func New(db *sql.DB) http.Handler {
 	mux.HandleFunc("GET /fragments/breakdowns", s.fragBreakdowns)
 	mux.HandleFunc("GET /fragments/recent-rows", s.fragRecentRows)
 	mux.Handle("GET /static/{path...}", http.StripPrefix("/static/", http.FileServerFS(staticFS)))
+	if dash != nil {
+		mux.HandleFunc("GET /login", s.loginForm)
+		mux.HandleFunc("POST /login", s.loginSubmit)
+		mux.HandleFunc("GET /logout", s.logout)
+	}
 	return mux
 }
 
 type server struct {
-	db *sql.DB
+	db   *sql.DB
+	dash *auth.Dashboard
 }
 
 // pageData is the single view model passed to every template set; each
 // template only reads the fields it needs.
 type pageData struct {
-	Title  string
-	Active string
-	F      filterView
-	Cards  []cardView
-	Chart  chartView
-	Recent recentView
-	Breaks breaksView
-	D      *normalize.Generation
+	Title      string
+	Active     string
+	ShowLogout bool
+	Error      string
+	F          filterView
+	Cards      []cardView
+	Chart      chartView
+	Recent     recentView
+	Breaks     breaksView
+	D          *normalize.Generation
 }
 
 type filterView struct {
@@ -389,11 +409,13 @@ func toAny(v []int64) []any {
 }
 
 func (s *server) render(w http.ResponseWriter, name string, d *pageData) {
+	d.ShowLogout = s.dash != nil
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_ = pageTmpls[name].ExecuteTemplate(w, "layout", d)
 }
 
 func (s *server) renderFrag(w http.ResponseWriter, name string, d *pageData) {
+	d.ShowLogout = s.dash != nil
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_ = fragTmpls[name].ExecuteTemplate(w, name, d)
 }

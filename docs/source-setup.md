@@ -40,12 +40,17 @@ itself stays in the environment, out of version control):
 
 ```jsonc
 {
-  "plugin": [["@devtheops/opencode-plugin-otel", {
-    "enabled": true,
-    "endpoint": "https://ai-usage.example.com:4318",
-    "protocol": "http/protobuf",
-    "otlpHeaders": "{env:OTEL_HEADERS}"
-  }]]
+  "plugin": [
+    [
+      "@devtheops/opencode-plugin-otel",
+      {
+        "enabled": true,
+        "endpoint": "https://ai-usage.example.com:4318",
+        "protocol": "http/protobuf",
+        "otlpHeaders": "{env:OTEL_HEADERS}",
+      },
+    ],
+  ],
 }
 ```
 
@@ -62,6 +67,16 @@ Code with:
 OTEL_EXPORTER_OTLP_ENDPOINT=https://ai-usage.example.com:4318 \
 OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer <token>" \
 code
+```
+
+Set it on windows with
+
+```
+[Environment]::SetEnvironmentVariable(
+  "OTEL_EXPORTER_OTLP_HEADERS",
+  "Authorization=Bearer <token>",
+  "User"
+)
 ```
 
 ### Verify

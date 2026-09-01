@@ -72,6 +72,15 @@ func (w *statusWriter) WriteHeader(code int) {
 	w.ResponseWriter.WriteHeader(code)
 }
 
+// Flush forwards http.Flusher so wrapped streaming handlers (the /events SSE
+// feed) can push bytes immediately; the embedded ResponseWriter interface
+// does not expose the underlying connection's Flush method.
+func (w *statusWriter) Flush() {
+	if f, ok := w.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
 // Unwrap lets http.NewResponseController reach the underlying writer, so
 // the /events SSE stream can clear the server's WriteTimeout.
 func (w *statusWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }

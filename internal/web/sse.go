@@ -21,14 +21,10 @@ const (
 // Dropped events are harmless — the next one follows, and the response is
 // one fragment re-render instead of pushed HTML.
 func (s *server) serveEvents(w http.ResponseWriter, r *http.Request) {
-	fl, ok := w.(http.Flusher)
-	if !ok {
-		http.Error(w, "streaming unsupported", http.StatusInternalServerError)
-		return
-	}
+	rc := http.NewResponseController(w)
 	// The dashboard server sets WriteTimeout (60s), which would kill every
 	// long-lived stream; clear the write deadline for this connection.
-	if err := http.NewResponseController(w).SetWriteDeadline(time.Time{}); err != nil {
+	if err := rc.SetWriteDeadline(time.Time{}); err != nil {
 		slog.Error("sse deadline setup failed", "error", err.Error())
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
@@ -37,7 +33,13 @@ func (s *server) serveEvents(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("X-Accel-Buffering", "no")
 	w.WriteHeader(http.StatusOK)
-	fl.Flush()
+	// Flush through ResponseController, not a direct http.Flusher assertion:
+	// ResponseController calls Flush on the outer writer when available, and
+	// otherwise unwraps middleware wrappers that expose it.
+	if err := rc.Flush(); err != nil {
+		slog.Error("sse flush unsupported", "error", err.Error())
+		return
+	}
 
 	var events <-chan struct{}
 	if s.hub != nil {
@@ -56,12 +58,12 @@ func (s *server) serveEvents(w http.ResponseWriter, r *http.Request) {
 			if _, err := io.WriteString(w, sseEventFrame); err != nil {
 				return
 			}
-			fl.Flush()
+			_ = rc.Flush()
 		case <-keepalive.C:
 			if _, err := io.WriteString(w, ssePingFrame); err != nil {
 				return
 			}
-			fl.Flush()
+			_ = rc.Flush()
 		}
 	}
 }

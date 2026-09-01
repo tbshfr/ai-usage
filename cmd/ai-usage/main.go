@@ -20,6 +20,7 @@ import (
 	"github.com/tbshfr/ai-usage/internal/auth"
 	"github.com/tbshfr/ai-usage/internal/config"
 	"github.com/tbshfr/ai-usage/internal/ingest"
+	"github.com/tbshfr/ai-usage/internal/live"
 	"github.com/tbshfr/ai-usage/internal/storage"
 	"google.golang.org/grpc"
 )
@@ -74,7 +75,8 @@ func run(cfg *config.Config, logger *slog.Logger) error {
 		return err
 	}
 
-	pipeline := ingest.NewPipeline(db, logger)
+	hub := live.New()
+	pipeline := ingest.NewPipeline(db, logger, hub)
 	// Empty addresses disable the corresponding listener (config supports
 	// this; see internal/config). Non-loopback binds without credentials
 	// are rejected by config validation before we get here.
@@ -91,7 +93,7 @@ func run(cfg *config.Config, logger *slog.Logger) error {
 	if cfg.HTTPAddr != "" {
 		servers = append(servers, &http.Server{
 			Addr:              cfg.HTTPAddr,
-			Handler:           api.NewWithAuth(db, logger, pipeline.Stats, version, dash),
+			Handler:           api.NewWithAuth(db, logger, pipeline.Stats, hub, version, dash),
 			ReadHeaderTimeout: 10 * time.Second,
 			ReadTimeout:       30 * time.Second,
 			WriteTimeout:      60 * time.Second,

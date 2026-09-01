@@ -246,7 +246,7 @@ func startIngestStack(t *testing.T) (*sql.DB, *Pipeline, *httptest.Server) {
 	if err := storage.Migrate(db, nil); err != nil {
 		t.Fatal(err)
 	}
-	pipeline := NewPipeline(db, nil)
+	pipeline := NewPipeline(db, nil, nil)
 	srv := httptest.NewServer(NewReceiver(pipeline, nil).Handler())
 	t.Cleanup(srv.Close)
 	return db, pipeline, srv

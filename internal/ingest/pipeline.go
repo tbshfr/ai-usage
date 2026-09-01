@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/tbshfr/ai-usage/internal/live"
 	"github.com/tbshfr/ai-usage/internal/normalize"
 	"github.com/tbshfr/ai-usage/internal/storage"
 	"go.opentelemetry.io/collector/pdata/plog"
@@ -34,10 +35,13 @@ type Stats struct {
 
 // Pipeline routes decoded signals into normalized Generation records.
 // Per-record failures never fail the batch; DB failures do (so exporters
-// retry — dedup makes retries safe).
+// retry — dedup makes retries safe). When a hub is set, each batch that
+// stored at least one new generation notifies it once, so the dashboard
+// can refresh its live fragments.
 type Pipeline struct {
 	db     *sql.DB
 	logger *slog.Logger
+	hub    *live.Hub
 
 	received   atomic.Uint64
 	normalized atomic.Uint64
@@ -49,11 +53,12 @@ type Pipeline struct {
 	ingErrors  atomic.Uint64
 }
 
-func NewPipeline(db *sql.DB, logger *slog.Logger) *Pipeline {
+// NewPipeline builds a pipeline; hub may be nil to skip notifications.
+func NewPipeline(db *sql.DB, logger *slog.Logger, hub *live.Hub) *Pipeline {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &Pipeline{db: db, logger: logger}
+	return &Pipeline{db: db, logger: logger, hub: hub}
 }
 
 func (p *Pipeline) Stats() Stats {
@@ -73,6 +78,7 @@ func (p *Pipeline) ConsumeTraces(ctx context.Context, td ptrace.Traces) error {
 	ctx, cancel := context.WithTimeout(ctx, batchTimeout)
 	defer cancel()
 
+	storedBefore := p.stored.Load()
 	for _, rs := range td.ResourceSpans().All() {
 		resource := rs.Resource().Attributes()
 		for _, ss := range rs.ScopeSpans().All() {
@@ -94,11 +100,17 @@ func (p *Pipeline) ConsumeTraces(ctx context.Context, td ptrace.Traces) error {
 					continue
 				}
 				p.normalized.Add(1)
-				inserted, err := storage.InsertGeneration(ctx, p.db, gen)
-				if err != nil {
-					p.ingErrors.Add(1)
-					return fmt.Errorf("store generation: %w", err)
+			inserted, err := storage.InsertGeneration(ctx, p.db, gen)
+			if err != nil {
+				p.ingErrors.Add(1)
+				// The row may have persisted despite the error (e.g. commit
+				// succeeded but the connection dropped); signal so the
+				// dashboard doesn't stay stale if the retry fully dedups.
+				if p.hub != nil && p.stored.Load() != storedBefore {
+					p.hub.Notify()
 				}
+				return fmt.Errorf("store generation: %w", err)
+			}
 				if inserted {
 					p.stored.Add(1)
 				} else {
@@ -106,6 +118,11 @@ func (p *Pipeline) ConsumeTraces(ctx context.Context, td ptrace.Traces) error {
 				}
 			}
 		}
+	}
+	// One notification per stored batch: bursts of spans coalesce into a
+	// single "data changed" signal for the dashboard's SSE stream.
+	if p.hub != nil && p.stored.Load() != storedBefore {
+		p.hub.Notify()
 	}
 	return nil
 }

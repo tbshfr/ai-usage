@@ -14,6 +14,7 @@ import (
 
 	"github.com/tbshfr/ai-usage"
 	"github.com/tbshfr/ai-usage/internal/auth"
+	"github.com/tbshfr/ai-usage/internal/live"
 	"github.com/tbshfr/ai-usage/internal/normalize"
 	"github.com/tbshfr/ai-usage/internal/storage"
 )
@@ -33,23 +34,25 @@ var staticFS = func() fs.FS {
 
 // New returns the dashboard UI routes (pages, fragments, static assets).
 // Templates are parsed once at package init from the embedded FS.
-// An empty version renders as "dev".
-func New(db *sql.DB, version string) http.Handler {
-	return newMux(db, nil, version)
+// An empty version renders as "dev". The hub drives the /events SSE
+// stream; nil disables data-changed signals (the stream then only sends
+// keepalives).
+func New(db *sql.DB, hub *live.Hub, version string) http.Handler {
+	return newMux(db, nil, hub, version)
 }
 
 // NewAuthed adds the login/logout routes and applies the dashboard
 // guard to every UI route; api.NewWithAuth additionally wraps the whole
 // dashboard port so /api/* is protected as well.
-func NewAuthed(db *sql.DB, dash *auth.Dashboard, version string) http.Handler {
-	return dash.Middleware(newMux(db, dash, version))
+func NewAuthed(db *sql.DB, dash *auth.Dashboard, hub *live.Hub, version string) http.Handler {
+	return dash.Middleware(newMux(db, dash, hub, version))
 }
 
-func newMux(db *sql.DB, dash *auth.Dashboard, version string) http.Handler {
+func newMux(db *sql.DB, dash *auth.Dashboard, hub *live.Hub, version string) http.Handler {
 	if version == "" {
 		version = "dev"
 	}
-	s := &server{db: db, dash: dash, limiter: newLoginLimiter(), version: version}
+	s := &server{db: db, dash: dash, hub: hub, limiter: newLoginLimiter(), version: version}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", s.dashboard)
 	mux.HandleFunc("GET /trends", s.trends)
@@ -57,6 +60,7 @@ func newMux(db *sql.DB, dash *auth.Dashboard, version string) http.Handler {
 	mux.HandleFunc("GET /sessions", s.sessions)
 	mux.HandleFunc("GET /generations", s.redirectSessions)
 	mux.HandleFunc("GET /generations/{id}", s.detail)
+	mux.HandleFunc("GET /events", s.serveEvents)
 	mux.HandleFunc("GET /fragments/dashboard-stats", s.fragDashboardStats)
 	mux.HandleFunc("GET /fragments/period-detail", s.fragPeriodDetail)
 	mux.HandleFunc("GET /fragments/trends", s.fragTrends)
@@ -87,6 +91,7 @@ func (s *server) robotsTxt(w http.ResponseWriter, r *http.Request) {
 type server struct {
 	db      *sql.DB
 	dash    *auth.Dashboard
+	hub     *live.Hub
 	limiter *loginLimiter
 	version string
 }

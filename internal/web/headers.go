@@ -17,7 +17,7 @@ func SecureHeaders(next http.Handler) http.Handler {
 // and protects deployments served over TLS.
 func secureHeaders(next http.Handler) http.Handler {
 	h := map[string]string{
-		"Content-Security-Policy": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+		"Content-Security-Policy":   "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
 		"Strict-Transport-Security": "max-age=31536000; includeSubDomains",
 		"X-Content-Type-Options":    "nosniff",
 		"X-Frame-Options":           "DENY",

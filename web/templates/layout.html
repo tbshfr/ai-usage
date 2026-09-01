@@ -12,6 +12,7 @@
 <!-- Loaded blocking (no defer) in the head: chart JSON blocks rendered in
      the body need renderDataCharts() registered before first paint. -->
 <script src="/static/vendor/htmx.min.js"></script>
+<script src="/static/vendor/sse.min.js"></script>
 <script src="/static/vendor/uplot.min.js"></script>
 <script src="/static/app.js"></script>
 </head>
@@ -26,7 +27,10 @@
     {{if .ShowLogout}}<a href="/logout" class="logout-link">Sign out</a>{{end}}
   </nav>
 </header>
-<main>{{template "content" .}}</main>
+<!-- The SSE connection stays open for the page's lifetime; its
+     data-changed events re-trigger whichever fragments this page renders
+     (other pages' fragments are not in the DOM, so they never refetch). -->
+<main hx-ext="sse" sse-connect="/events">{{template "content" .}}</main>
 <footer class="muted">All timestamps are UTC. · {{.Version}}</footer>
 </body>
 </html>{{end}}

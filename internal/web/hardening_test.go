@@ -18,7 +18,7 @@ import (
 // newServer, which seeds its own).
 func serverOnDB(t *testing.T, db *sql.DB) *httptest.Server {
 	t.Helper()
-	srv := httptest.NewServer(New(db, "test"))
+	srv := httptest.NewServer(New(db, nil, "test"))
 	t.Cleanup(srv.Close)
 	return srv
 }

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/tbshfr/ai-usage"
@@ -31,6 +32,22 @@ var staticFS = func() fs.FS {
 	}
 	return sub
 }()
+
+// staticHandler serves the embedded static files with cache headers:
+// vendored libraries are immutable (they only change with a binary
+// deploy), while first-party assets are unversioned, so they use
+// no-cache to force revalidation instead of risking stale CSS/JS.
+func staticHandler() http.Handler {
+	files := http.StripPrefix("/static/", http.FileServerFS(staticFS))
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/static/vendor/") {
+			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		} else {
+			w.Header().Set("Cache-Control", "no-cache")
+		}
+		files.ServeHTTP(w, r)
+	})
+}
 
 // New returns the dashboard UI routes (pages, fragments, static assets).
 // Templates are parsed once at package init from the embedded FS.
@@ -67,7 +84,7 @@ func newMux(db *sql.DB, dash *auth.Dashboard, hub *live.Hub, version string) htt
 	mux.HandleFunc("GET /fragments/breakdowns", s.fragBreakdowns)
 	mux.HandleFunc("GET /fragments/session-list", s.fragSessionList)
 	mux.HandleFunc("GET /robots.txt", s.robotsTxt)
-	mux.Handle("GET /static/{path...}", http.StripPrefix("/static/", http.FileServerFS(staticFS)))
+	mux.Handle("GET /static/{path...}", staticHandler())
 	if dash != nil {
 		mux.HandleFunc("GET /login", s.loginForm)
 		mux.HandleFunc("POST /login", s.loginSubmit)

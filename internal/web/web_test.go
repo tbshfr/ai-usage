@@ -315,14 +315,14 @@ func TestStaticAssets(t *testing.T) {
 	srv := newServer(t)
 	defer srv.Close()
 	for _, tc := range []struct {
-		path, contentType string
+		path, contentType, cacheControl string
 	}{
-		{"/static/app.css", "text/css"},
-		{"/static/app.js", "text/javascript"},
-		{"/static/vendor/htmx.min.js", "text/javascript"},
-		{"/static/vendor/uplot.min.js", "text/javascript"},
-		{"/static/vendor/uplot.min.css", "text/css"},
-		{"/robots.txt", "text/plain"},
+		{"/static/app.css", "text/css", "no-cache"},
+		{"/static/app.js", "text/javascript", "no-cache"},
+		{"/static/vendor/htmx.min.js", "text/javascript", "public, max-age=31536000, immutable"},
+		{"/static/vendor/uplot.min.js", "text/javascript", "public, max-age=31536000, immutable"},
+		{"/static/vendor/uplot.min.css", "text/css", "public, max-age=31536000, immutable"},
+		{"/robots.txt", "text/plain", ""},
 	} {
 		resp, err := http.Get(srv.URL + tc.path)
 		if err != nil {
@@ -334,6 +334,9 @@ func TestStaticAssets(t *testing.T) {
 		}
 		if ct := resp.Header.Get("Content-Type"); !strings.HasPrefix(ct, tc.contentType) {
 			t.Errorf("%s: content type %q, want prefix %q", tc.path, ct, tc.contentType)
+		}
+		if cc := resp.Header.Get("Cache-Control"); cc != tc.cacheControl {
+			t.Errorf("%s: cache-control %q, want %q", tc.path, cc, tc.cacheControl)
 		}
 	}
 	status, _ := get(t, srv.URL+"/static/vendor/missing.js")

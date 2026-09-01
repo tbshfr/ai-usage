@@ -5,13 +5,23 @@
 // signal follows, so slow subscribers drop instead of backing up.
 package live
 
-import "sync"
+import (
+	"context"
+	"sync"
+)
 
 // Hub fans notifications out to subscriber channels. The zero value is
 // ready to use; New is preferred for clarity.
 type Hub struct {
-	mu   sync.Mutex
-	subs map[chan struct{}]struct{}
+	mu      sync.Mutex
+	subs    map[chan struct{}]struct{}
+	streams map[*streamHandle]struct{}
+}
+
+// streamHandle anchors a tracked SSE stream in the map (cancel funcs are
+// not valid map keys, so the registration hangs off a pointer).
+type streamHandle struct {
+	cancel context.CancelFunc
 }
 
 // New returns an empty hub.
@@ -47,5 +57,40 @@ func (h *Hub) Notify() {
 		case ch <- struct{}{}:
 		default:
 		}
+	}
+}
+
+// TrackStream registers a live SSE handler's cancel function so a graceful
+// server shutdown can end every open stream. The returned untrack function
+// removes the registration; handlers defer it.
+func (h *Hub) TrackStream(cancel context.CancelFunc) (untrack func()) {
+	handle := &streamHandle{cancel: cancel}
+	h.mu.Lock()
+	if h.streams == nil {
+		h.streams = make(map[*streamHandle]struct{})
+	}
+	h.streams[handle] = struct{}{}
+	h.mu.Unlock()
+	return func() {
+		h.mu.Lock()
+		delete(h.streams, handle)
+		h.mu.Unlock()
+	}
+}
+
+// InterruptStreams cancels every tracked stream and drops the
+// registrations. http.Server.Shutdown waits for active connections and
+// never cancels request contexts, so without this a shutdown would always
+// burn its whole grace period while a dashboard tab holds an SSE stream.
+func (h *Hub) InterruptStreams() {
+	h.mu.Lock()
+	handles := make([]*streamHandle, 0, len(h.streams))
+	for handle := range h.streams {
+		handles = append(handles, handle)
+	}
+	h.streams = nil
+	h.mu.Unlock()
+	for _, handle := range handles {
+		handle.cancel()
 	}
 }

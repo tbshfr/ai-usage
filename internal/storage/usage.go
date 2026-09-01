@@ -81,14 +81,55 @@ const ConversationNone = "none"
 // batches reuse the same trace/span IDs, possibly with more attributes
 // filled in (docs/telemetry.md D2, README rule 3).
 func InsertGeneration(ctx context.Context, db *sql.DB, gen normalize.Generation) (bool, error) {
-	row := db.QueryRowContext(ctx, insertSQL, insertArgs(gen)...)
+	return insertGeneration(ctx, db, gen)
+}
+
+// InsertGenerations stores a batch of records in one transaction, returning
+// the number of newly inserted rows. Per-record semantics match
+// InsertGeneration (dedup via ID conflict, merge on conflict). The batch is
+// atomic: any error rolls back all of it, so a retried OTLP export replays
+// the whole batch (dedup makes replays safe).
+func InsertGenerations(ctx context.Context, db *sql.DB, gens []normalize.Generation) (int, error) {
+	if len(gens) == 0 {
+		return 0, nil
+	}
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, fmt.Errorf("begin batch insert: %w", err)
+	}
+	defer tx.Rollback() // no-op after a successful commit
+	stored := 0
+	for _, gen := range gens {
+		inserted, err := insertGeneration(ctx, tx, gen)
+		if err != nil {
+			return 0, err
+		}
+		if inserted {
+			stored++
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("commit batch insert: %w", err)
+	}
+	return stored, nil
+}
+
+// execQuerier covers *sql.DB and *sql.Tx, letting the insert helpers serve
+// both the single-record and the batched path.
+type execQuerier interface {
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
+}
+
+func insertGeneration(ctx context.Context, q execQuerier, gen normalize.Generation) (bool, error) {
+	row := q.QueryRowContext(ctx, insertSQL, insertArgs(gen)...)
 	var id string
 	switch err := row.Scan(&id); {
 	case err == nil:
 		return true, nil
 	case errors.Is(err, sql.ErrNoRows):
 		// conflict → merge only the missing pieces
-		if _, err := db.ExecContext(ctx, mergeSQL, mergeArgs(gen)...); err != nil {
+		if _, err := q.ExecContext(ctx, mergeSQL, mergeArgs(gen)...); err != nil {
 			return false, fmt.Errorf("merge generation: %w", err)
 		}
 		return false, nil

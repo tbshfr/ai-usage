@@ -52,5 +52,5 @@ func TestNoInlineStyles(t *testing.T) {
 		}
 	}
 	_, body := get(t, srv.URL+"/")
-	wantContains(t, body, `{"includeIndicatorStyles":false}`)
+	wantContains(t, body, `{"includeIndicatorCSS":false}`)
 }

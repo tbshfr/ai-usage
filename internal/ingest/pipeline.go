@@ -78,7 +78,7 @@ func (p *Pipeline) ConsumeTraces(ctx context.Context, td ptrace.Traces) error {
 	ctx, cancel := context.WithTimeout(ctx, batchTimeout)
 	defer cancel()
 
-	storedBefore := p.stored.Load()
+	var gens []normalize.Generation
 	for _, rs := range td.ResourceSpans().All() {
 		resource := rs.Resource().Attributes()
 		for _, ss := range rs.ScopeSpans().All() {
@@ -100,28 +100,25 @@ func (p *Pipeline) ConsumeTraces(ctx context.Context, td ptrace.Traces) error {
 					continue
 				}
 				p.normalized.Add(1)
-				inserted, err := storage.InsertGeneration(ctx, p.db, gen)
-				if err != nil {
-					p.ingErrors.Add(1)
-					// The row may have persisted despite the error (e.g. commit
-					// succeeded but the connection dropped); signal so the
-					// dashboard doesn't stay stale if the retry fully dedups.
-					if p.hub != nil && p.stored.Load() != storedBefore {
-						p.hub.Notify()
-					}
-					return fmt.Errorf("store generation: %w", err)
-				}
-				if inserted {
-					p.stored.Add(1)
-				} else {
-					p.dedup.Add(1)
-				}
+				gens = append(gens, gen)
 			}
 		}
 	}
+	// One transaction per batch: a single commit instead of one per span
+	// keeps the write lock held once and briefly, so dashboard reads never
+	// queue behind a long series of writes.
+	inserted, err := storage.InsertGenerations(ctx, p.db, gens)
+	if err != nil {
+		p.ingErrors.Add(1)
+		// The batch is atomic, so a failure means nothing was stored
+		// and the dashboard has nothing new to show; exporters retry.
+		return fmt.Errorf("store generations: %w", err)
+	}
+	p.stored.Add(uint64(inserted))
+	p.dedup.Add(uint64(len(gens) - inserted))
 	// One notification per stored batch: bursts of spans coalesce into a
 	// single "data changed" signal for the dashboard's SSE stream.
-	if p.hub != nil && p.stored.Load() != storedBefore {
+	if p.hub != nil && inserted > 0 {
 		p.hub.Notify()
 	}
 	return nil

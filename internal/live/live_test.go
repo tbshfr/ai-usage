@@ -1,6 +1,7 @@
 package live
 
 import (
+	"context"
 	"testing"
 	"time"
 )
@@ -65,4 +66,44 @@ func TestZeroHubIsUsable(t *testing.T) {
 	defer cancel()
 	h.Notify()
 	expectSignal(t, ch)
+}
+
+func TestInterruptStreamsCancelsTrackedStreams(t *testing.T) {
+	h := New()
+	ctx, cancel := context.WithCancel(context.Background())
+	untrack := h.TrackStream(cancel)
+	defer untrack()
+
+	h.InterruptStreams()
+	select {
+	case <-ctx.Done():
+	case <-time.After(testTimeout):
+		t.Fatal("tracked stream was not canceled by InterruptStreams")
+	}
+
+	// The registry is cleared, so untrack after the interrupt is a no-op
+	// and a second interrupt is safe.
+	untrack()
+	h.InterruptStreams()
+}
+
+func TestUntrackRemovesStream(t *testing.T) {
+	h := New()
+	ctx, cancel := context.WithCancel(context.Background())
+	untrack := h.TrackStream(cancel)
+	untrack()
+
+	h.InterruptStreams()
+	expectNoCancel(t, ctx.Done())
+}
+
+// expectNoCancel asserts the context stays live; InterruptStreams must
+// only affect still-tracked streams.
+func expectNoCancel(t *testing.T, done <-chan struct{}) {
+	t.Helper()
+	select {
+	case <-done:
+		t.Fatal("untracked stream was canceled")
+	case <-time.After(100 * time.Millisecond):
+	}
 }

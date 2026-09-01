@@ -425,7 +425,8 @@ footer { text-align: center; padding: 1rem; }
 .login-error { color: #b00020; margin: 0 0 0.5rem; }
 
 /* htmx request indicators (htmx's injected styles are disabled via the
-   htmx-config meta because inline <style> would violate the CSP). */
-.htmx-indicator { opacity: 0; }
-.htmx-request .htmx-indicator { opacity: 1; transition: opacity 200ms ease-in; }
-.htmx-request.htmx-indicator { opacity: 1; transition: opacity 200ms ease-in; }
+   htmx-config meta because CSSStyleSheet injection would violate the
+   CSP); the visibility rules mirror what htmx 4 injects itself. */
+.htmx-indicator { opacity: 0; visibility: hidden; }
+.htmx-request .htmx-indicator { opacity: 1; visibility: visible; transition: opacity 200ms ease-in; }
+.htmx-request.htmx-indicator { opacity: 1; visibility: visible; transition: opacity 200ms ease-in; }

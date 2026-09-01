@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"io"
 	"log/slog"
 	"net/http"
@@ -29,6 +30,20 @@ func (s *server) serveEvents(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
+
+	// The stream is tracked on the hub before the response starts so a
+	// graceful server shutdown can cancel it: http.Server.Shutdown waits
+	// for active connections but never cancels request contexts, so an
+	// open dashboard tab would otherwise block the shutdown until the
+	// grace period expires.
+	ctx, cancel := context.WithCancel(r.Context())
+	defer cancel()
+	untrack := func() {}
+	if s.hub != nil {
+		untrack = s.hub.TrackStream(cancel)
+	}
+	defer untrack()
+
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("X-Accel-Buffering", "no")
@@ -43,16 +58,16 @@ func (s *server) serveEvents(w http.ResponseWriter, r *http.Request) {
 
 	var events <-chan struct{}
 	if s.hub != nil {
-		var cancel func()
-		events, cancel = s.hub.Subscribe()
-		defer cancel()
+		var subCancel func()
+		events, subCancel = s.hub.Subscribe()
+		defer subCancel()
 	}
 	keepalive := time.NewTicker(sseKeepalive)
 	defer keepalive.Stop()
 
 	for {
 		select {
-		case <-r.Context().Done():
+		case <-ctx.Done():
 			return
 		case <-events:
 			if _, err := io.WriteString(w, sseEventFrame); err != nil {

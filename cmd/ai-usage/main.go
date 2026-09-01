@@ -91,14 +91,19 @@ func run(cfg *config.Config, logger *slog.Logger) error {
 	}
 	var servers []*http.Server
 	if cfg.HTTPAddr != "" {
-		servers = append(servers, &http.Server{
+		srv := &http.Server{
 			Addr:              cfg.HTTPAddr,
 			Handler:           api.NewWithAuth(db, logger, pipeline.Stats, hub, version, dash),
 			ReadHeaderTimeout: 10 * time.Second,
 			ReadTimeout:       30 * time.Second,
 			WriteTimeout:      60 * time.Second,
 			IdleTimeout:       120 * time.Second,
-		})
+		}
+		// End the dashboard's SSE streams when shutdown begins; Shutdown
+		// waits for active connections and would otherwise always burn
+		// the whole grace period while a dashboard tab is open.
+		srv.RegisterOnShutdown(hub.InterruptStreams)
+		servers = append(servers, srv)
 	}
 	if cfg.OTLPHTTPAddr != "" {
 		var h http.Handler = ingest.NewReceiver(pipeline, logger).Handler()

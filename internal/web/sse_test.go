@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -117,6 +118,46 @@ func TestEventsClientDisconnectCleansUp(t *testing.T) {
 	status, _ := get(t, srv.URL+"/")
 	if status != http.StatusOK {
 		t.Errorf("dashboard after SSE disconnect: status %d, want %d", status, http.StatusOK)
+	}
+}
+
+// Regression: http.Server.Shutdown waits for active connections and never
+// cancels request contexts, so an open /events stream used to block every
+// graceful shutdown until the grace period expired. Shutdown must return
+// promptly while a stream is open, because the hub interrupt (registered
+// via RegisterOnShutdown in main) ends it.
+func TestShutdownDoesNotWaitForOpenEventsStream(t *testing.T) {
+	hub := live.New()
+	handler := New(seedtest.DB(t), hub, "test")
+	hs := &http.Server{Handler: handler}
+	// Mirrors main.go: the interrupt ends tracked SSE streams when the
+	// graceful shutdown begins.
+	hs.RegisterOnShutdown(hub.InterruptStreams)
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	go hs.Serve(ln) //nolint:errcheck — Serve returns ErrServerClosed on Shutdown
+	defer hs.Close()
+
+	resp, err := http.Get("http://" + ln.Addr().String() + "/events")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if ct := resp.Header.Get("Content-Type"); ct != "text/event-stream" {
+		t.Fatalf("Content-Type %q, want text/event-stream", ct)
+	}
+
+	done := make(chan error, 1)
+	go func() { done <- hs.Shutdown(context.Background()) }()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("Shutdown with an open SSE stream: %v", err)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("Shutdown did not return while an SSE stream was open")
 	}
 }
 

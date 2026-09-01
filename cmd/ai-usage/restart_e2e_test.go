@@ -37,37 +37,7 @@ func TestRestartPersistence(t *testing.T) {
 	httpPort, otlpPort := freePort(t), freePort(t)
 
 	start := func() (*exec.Cmd, *bytes.Buffer) {
-		t.Helper()
-		var logs bytes.Buffer
-		cmd := exec.Command(bin,
-			"--http", fmt.Sprintf("127.0.0.1:%d", httpPort),
-			"--otlp-http", fmt.Sprintf("127.0.0.1:%d", otlpPort),
-			"--otlp-grpc", "",
-			"--data-dir", dataDir,
-			"--database", dbPath,
-		)
-		cmd.Stderr = &logs
-		if err := cmd.Start(); err != nil {
-			t.Fatal(err)
-		}
-		return cmd, &logs
-	}
-	stop := func(t *testing.T, cmd *exec.Cmd, logs *bytes.Buffer) {
-		t.Helper()
-		if err := cmd.Process.Signal(syscall.SIGTERM); err != nil {
-			t.Fatal(err)
-		}
-		done := make(chan error, 1)
-		go func() { done <- cmd.Wait() }()
-		select {
-		case err := <-done:
-			if err != nil {
-				t.Fatalf("process did not exit cleanly: %v\nlogs:\n%s", err, logs.String())
-			}
-		case <-time.After(15 * time.Second):
-			cmd.Process.Kill()
-			t.Fatalf("process did not exit after SIGTERM\nlogs:\n%s", logs.String())
-		}
+		return startApp(t, bin, dataDir, httpPort, otlpPort)
 	}
 
 	// ---- first run: ingest one fixture batch
@@ -91,7 +61,7 @@ func TestRestartPersistence(t *testing.T) {
 		t.Fatalf("stored = 0 after ingest")
 	}
 
-	stop(t, cmd1, logs1)
+	stopApp(t, cmd1, logs1)
 	assertShutdownLogs(t, logs1.String())
 
 	// ---- second run: data survives the restart, re-ingest deduplicates
@@ -116,7 +86,7 @@ func TestRestartPersistence(t *testing.T) {
 		t.Errorf("deduplicated counter after re-ingest = %d, want %d", got, stored)
 	}
 
-	stop(t, cmd2, logs2)
+	stopApp(t, cmd2, logs2)
 
 	// ---- final DB assertions: rows intact, migrations idempotent
 	db, err := storage.Open(context.Background(), dbPath)
@@ -154,6 +124,46 @@ func freePort(t *testing.T) int {
 	}
 	defer ln.Close()
 	return ln.Addr().(*net.TCPAddr).Port
+}
+
+// startApp launches the built binary with the dashboard and OTLP HTTP
+// listeners on the given ports (OTLP gRPC disabled), capturing stderr as
+// the log buffer.
+func startApp(t *testing.T, bin, dataDir string, httpPort, otlpPort int) (*exec.Cmd, *bytes.Buffer) {
+	t.Helper()
+	var logs bytes.Buffer
+	cmd := exec.Command(bin,
+		"--http", fmt.Sprintf("127.0.0.1:%d", httpPort),
+		"--otlp-http", fmt.Sprintf("127.0.0.1:%d", otlpPort),
+		"--otlp-grpc", "",
+		"--data-dir", dataDir,
+		"--database", filepath.Join(dataDir, "usage.db"),
+	)
+	cmd.Stderr = &logs
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	return cmd, &logs
+}
+
+// stopApp sends SIGTERM and expects a clean exit well inside the 10s
+// shutdown grace period.
+func stopApp(t *testing.T, cmd *exec.Cmd, logs *bytes.Buffer) {
+	t.Helper()
+	if err := cmd.Process.Signal(syscall.SIGTERM); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() { done <- cmd.Wait() }()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("process did not exit cleanly: %v\nlogs:\n%s", err, logs.String())
+		}
+	case <-time.After(15 * time.Second):
+		cmd.Process.Kill()
+		t.Fatalf("process did not exit after SIGTERM\nlogs:\n%s", logs.String())
+	}
 }
 
 func waitReady(t *testing.T, port int) {

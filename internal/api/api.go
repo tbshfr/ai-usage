@@ -53,14 +53,33 @@ func accessLog(logger *slog.Logger, next http.Handler) http.Handler {
 		start := time.Now()
 		sw := &statusWriter{ResponseWriter: w, status: http.StatusOK}
 		next.ServeHTTP(sw, r)
-		logger.Debug("http request",
+		elapsed := time.Since(start).Round(time.Microsecond)
+		fields := []any{
 			"method", r.Method,
 			"path", r.URL.Path,
 			"status", sw.status,
-			"duration", time.Since(start).Round(time.Microsecond).String(),
-		)
+			"duration", elapsed.String(),
+		}
+		// Slow requests are the symptom of pool starvation or a hung
+		// client; surface them at WARN so they are visible at the
+		// default log level instead of hiding behind debug access logs.
+		// The /events SSE stream is exempt: it stays open for as long
+		// as the tab is foregrounded, so its duration means nothing.
+		if r.URL.Path == "/events" {
+			logger.Debug("http request", fields...)
+			return
+		}
+		if elapsed > slowRequestThreshold {
+			logger.Warn("slow http request", fields...)
+			return
+		}
+		logger.Debug("http request", fields...)
 	})
 }
+
+// slowRequestThreshold is how long a request may take before the access
+// log escalates it from debug to warn.
+const slowRequestThreshold = time.Second
 
 type statusWriter struct {
 	http.ResponseWriter

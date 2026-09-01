@@ -1,6 +1,6 @@
 {{define "content"}}
 {{template "filterbar" .}}
-<div id="session-list" hx-get="/fragments/session-list" hx-trigger="change from:#filter-bar, sse:data-changed delay:2s" hx-include="#filter-bar">
+<div id="session-list" hx-get="/fragments/session-list" hx-trigger="change from:#filter-bar, data-changed from:body delay:2s" hx-include="#filter-bar">
 {{template "session-list" .}}
 </div>
 {{end}}

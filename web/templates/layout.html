@@ -6,13 +6,13 @@
 <title>{{.Title}} · AI Usage</title>
 <link rel="stylesheet" href="/static/vendor/uplot.min.css">
 <link rel="stylesheet" href="/static/app.css">
-<!-- htmx's injected indicator <style> would violate the CSP (style-src
-     'self'); the rules live in app.css instead. -->
-<meta name="htmx-config" content='{"includeIndicatorStyles":false}'>
+<!-- htmx 4 injects indicator styles through a CSSStyleSheet, which the
+     CSP (style-src 'self') blocks too; the rules live in app.css instead. -->
+<meta name="htmx-config" content='{"includeIndicatorCSS":false}'>
 <!-- Loaded blocking (no defer) in the head: chart JSON blocks rendered in
      the body need renderDataCharts() registered before first paint. -->
 <script src="/static/vendor/htmx.min.js"></script>
-<script src="/static/vendor/sse.min.js"></script>
+<script src="/static/vendor/hx-sse.min.js"></script>
 <script src="/static/vendor/uplot.min.js"></script>
 <script src="/static/app.js"></script>
 </head>
@@ -27,10 +27,14 @@
     {{if .ShowLogout}}<a href="/logout" class="logout-link">Sign out</a>{{end}}
   </nav>
 </header>
-<!-- The SSE connection stays open for the page's lifetime; its
-     data-changed events re-trigger whichever fragments this page renders
-     (other pages' fragments are not in the DOM, so they never refetch). -->
-<main hx-ext="sse" sse-connect="/events">{{template "content" .}}</main>
+<!-- Live updates ride one SSE stream per page (hx-sse:connect defaults to
+     hx-trigger="load" and to pauseOnBackground, which closes the stream
+     while the page is hidden — so background tabs never hold one of the
+     browser's six per-host connections). The named data-changed event
+     bubbles from here to <body>, where the fragments' hx-trigger specs
+     re-fetch whatever this page renders (other pages' fragments are not
+     in the DOM, so they never refetch). -->
+<main hx-sse:connect="/events">{{template "content" .}}</main>
 <footer class="muted">All timestamps are UTC. · {{.Version}}</footer>
 </body>
 </html>{{end}}

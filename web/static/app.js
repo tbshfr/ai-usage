@@ -28,7 +28,7 @@ function renderDataCharts() {
 }
 
 document.addEventListener('DOMContentLoaded', renderDataCharts);
-document.addEventListener('htmx:afterSettle', renderDataCharts);
+document.addEventListener('htmx:after:settle', renderDataCharts);
 
 function renderChart(id, d) {
   const el = document.getElementById(id);

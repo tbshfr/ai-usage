@@ -161,15 +161,24 @@ Ingestion counters since process start — useful when "nothing shows up".
 
 ```json
 {
-  "received": 120,
+  "received": 165,
   "normalized": 118,
   "stored": 117,
   "deduplicated": 1,
   "rejected": 2,
+  "ignoredNotUsed": 45,
   "normalizationErrors": 0,
   "ingestionErrors": 0
 }
 ```
+
+`rejected` counts spans that were detected as belonging to a source but
+could not become a generation (e.g. non-`chat` Copilot spans), or spans from
+an unknown source. `ignoredNotUsed` counts log records and metric datapoints:
+they arrive healthy but can never become generations (only spans do), so they
+are counted and dropped by design — exporters like VS Code Copilot send these
+continuously. Both counters are part of the invariant
+`received == normalized + rejected + ignoredNotUsed + normalizationErrors`.
 
 ## Health probes
 

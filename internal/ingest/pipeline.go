@@ -18,11 +18,16 @@ import (
 const batchTimeout = 10 * time.Second
 
 type Stats struct {
-	Received            uint64
-	Normalized          uint64
-	Stored              uint64
-	Deduplicated        uint64
-	Rejected            uint64
+	Received     uint64
+	Normalized   uint64
+	Stored       uint64
+	Deduplicated uint64
+	Rejected     uint64
+	// IgnoredNotUsed counts records that arrived and were healthy but can
+	// never become generations: log records (no source exports generations
+	// via logs) and metric datapoints (aggregates that would double count
+	// tokens already captured by spans). Not an error and not a rejection.
+	IgnoredNotUsed      uint64
 	NormalizationErrors uint64
 	IngestionErrors     uint64
 }
@@ -39,6 +44,7 @@ type Pipeline struct {
 	stored     atomic.Uint64
 	dedup      atomic.Uint64
 	rejected   atomic.Uint64
+	ignored    atomic.Uint64
 	normErrors atomic.Uint64
 	ingErrors  atomic.Uint64
 }
@@ -57,6 +63,7 @@ func (p *Pipeline) Stats() Stats {
 		Stored:              p.stored.Load(),
 		Deduplicated:        p.dedup.Load(),
 		Rejected:            p.rejected.Load(),
+		IgnoredNotUsed:      p.ignored.Load(),
 		NormalizationErrors: p.normErrors.Load(),
 		IngestionErrors:     p.ingErrors.Load(),
 	}
@@ -103,15 +110,17 @@ func (p *Pipeline) ConsumeTraces(ctx context.Context, td ptrace.Traces) error {
 	return nil
 }
 
-// ConsumeLogs counts log records only; no source's logs become generations.
+// ConsumeLogs counts log records only; no source's logs become generations,
+// so they are ignored (see Stats.IgnoredNotUsed).
 func (p *Pipeline) ConsumeLogs(_ context.Context, ld plog.Logs) error {
 	n := ld.LogRecordCount()
 	p.received.Add(uint64(n))
-	p.rejected.Add(uint64(n))
+	p.ignored.Add(uint64(n))
 	return nil
 }
 
-// ConsumeMetrics counts metrics only; they are aggregates and would double count.
+// ConsumeMetrics counts metrics only; they are aggregates and would double
+// count, so they are ignored (see Stats.IgnoredNotUsed).
 func (p *Pipeline) ConsumeMetrics(_ context.Context, md pmetric.Metrics) error {
 	var n int
 	for _, rm := range md.ResourceMetrics().All() {
@@ -120,6 +129,6 @@ func (p *Pipeline) ConsumeMetrics(_ context.Context, md pmetric.Metrics) error {
 		}
 	}
 	p.received.Add(uint64(n))
-	p.rejected.Add(uint64(n))
+	p.ignored.Add(uint64(n))
 	return nil
 }

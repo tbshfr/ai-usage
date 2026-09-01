@@ -150,9 +150,9 @@ func TestEndToEndHTTP(t *testing.T) {
 
 	// stats invariant
 	s := pipeline.Stats()
-	if s.Received != s.Normalized+s.Rejected+s.NormalizationErrors {
-		t.Errorf("received %d != normalized %d + rejected %d + norm_errors %d",
-			s.Received, s.Normalized, s.Rejected, s.NormalizationErrors)
+	if s.Received != s.Normalized+s.Rejected+s.IgnoredNotUsed+s.NormalizationErrors {
+		t.Errorf("received %d != normalized %d + rejected %d + ignored %d + norm_errors %d",
+			s.Received, s.Normalized, s.Rejected, s.IgnoredNotUsed, s.NormalizationErrors)
 	}
 	if s.Normalized != s.Stored+s.Deduplicated {
 		t.Errorf("normalized %d != stored %d + deduplicated %d",

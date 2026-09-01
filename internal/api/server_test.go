@@ -420,18 +420,21 @@ func TestGenerationByID(t *testing.T) {
 
 func TestStatsEndpoint(t *testing.T) {
 	srv := newServer(t, seedtest.DB(t), func() ingest.Stats {
-		return ingest.Stats{Received: 100, Normalized: 95, Stored: 90, Deduplicated: 5, Rejected: 5, IngestionErrors: 1}
+		return ingest.Stats{Received: 100, Normalized: 95, Stored: 90, Deduplicated: 5, Rejected: 4, IgnoredNotUsed: 3, IngestionErrors: 1}
 	})
 
 	status, body := get(t, srv.URL+"/api/stats")
 	if status != http.StatusOK {
 		t.Fatalf("status = %d", status)
 	}
+	if !strings.Contains(body, `"ignoredNotUsed":3`) {
+		t.Errorf("stats body missing ignoredNotUsed: %s", body)
+	}
 	var got ingest.Stats
 	if err := json.Unmarshal([]byte(body), &got); err != nil {
 		t.Fatal(err)
 	}
-	want := ingest.Stats{Received: 100, Normalized: 95, Stored: 90, Deduplicated: 5, Rejected: 5, IngestionErrors: 1}
+	want := ingest.Stats{Received: 100, Normalized: 95, Stored: 90, Deduplicated: 5, Rejected: 4, IgnoredNotUsed: 3, IngestionErrors: 1}
 	if got != want {
 		t.Errorf("stats = %+v, want %+v", got, want)
 	}

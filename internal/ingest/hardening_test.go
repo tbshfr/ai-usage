@@ -382,8 +382,11 @@ func TestNonTruthSignalsYieldZeroRows(t *testing.T) {
 	if s.Received == 0 {
 		t.Error("received = 0, want nonzero for ingested non-truth signals")
 	}
-	if s.Rejected != s.Received {
-		t.Errorf("rejected = %d, want == received %d (all non-truth records)", s.Rejected, s.Received)
+	if s.IgnoredNotUsed != s.Received {
+		t.Errorf("ignoredNotUsed = %d, want == received %d (all non-truth records)", s.IgnoredNotUsed, s.Received)
+	}
+	if s.Rejected != 0 {
+		t.Errorf("rejected = %d, want 0 (ignored records are not rejections)", s.Rejected)
 	}
 	if s.Normalized != 0 {
 		t.Errorf("normalized = %d, want 0", s.Normalized)

@@ -100,17 +100,17 @@ func (p *Pipeline) ConsumeTraces(ctx context.Context, td ptrace.Traces) error {
 					continue
 				}
 				p.normalized.Add(1)
-			inserted, err := storage.InsertGeneration(ctx, p.db, gen)
-			if err != nil {
-				p.ingErrors.Add(1)
-				// The row may have persisted despite the error (e.g. commit
-				// succeeded but the connection dropped); signal so the
-				// dashboard doesn't stay stale if the retry fully dedups.
-				if p.hub != nil && p.stored.Load() != storedBefore {
-					p.hub.Notify()
+				inserted, err := storage.InsertGeneration(ctx, p.db, gen)
+				if err != nil {
+					p.ingErrors.Add(1)
+					// The row may have persisted despite the error (e.g. commit
+					// succeeded but the connection dropped); signal so the
+					// dashboard doesn't stay stale if the retry fully dedups.
+					if p.hub != nil && p.stored.Load() != storedBefore {
+						p.hub.Notify()
+					}
+					return fmt.Errorf("store generation: %w", err)
 				}
-				return fmt.Errorf("store generation: %w", err)
-			}
 				if inserted {
 					p.stored.Add(1)
 				} else {

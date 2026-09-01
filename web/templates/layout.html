@@ -6,8 +6,11 @@
 <title>{{.Title}} · AI Usage</title>
 <link rel="stylesheet" href="/static/vendor/uplot.min.css">
 <link rel="stylesheet" href="/static/app.css">
-<!-- Loaded blocking (no defer) in the head: page templates render inline
-     chart scripts in the body that call renderChart() on first paint. -->
+<!-- htmx's injected indicator <style> would violate the CSP (style-src
+     'self'); the rules live in app.css instead. -->
+<meta name="htmx-config" content='{"includeIndicatorStyles":false}'>
+<!-- Loaded blocking (no defer) in the head: chart JSON blocks rendered in
+     the body need renderDataCharts() registered before first paint. -->
 <script src="/static/vendor/htmx.min.js"></script>
 <script src="/static/vendor/uplot.min.js"></script>
 <script src="/static/app.js"></script>

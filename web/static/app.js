@@ -4,9 +4,35 @@ const PALETTE = ['#c96f4a', '#dfa14f', '#7d9b76', '#b06a6a', '#8b7d9b', '#a89f91
 // Live chart instances; stale ones (htmx-swapped away) are pruned on resize.
 const charts = [];
 
+// Chart data arrives as <script type="application/json" data-chart="id">
+// blocks rendered into the page or swapped in by htmx. CSP forbids inline
+// scripts, so instead of calling renderChart() directly, the templates
+// embed the JSON and this scans for blocks and renders them once each.
+function renderDataCharts() {
+  for (const block of document.querySelectorAll('script[data-chart]')) {
+    if (block.dataset.rendered) continue;
+    block.dataset.rendered = 'true';
+    let d;
+    try {
+      d = JSON.parse(block.textContent);
+    } catch (e) {
+      console.error('chart data parse failed:', block.dataset.chart, e);
+      continue;
+    }
+    try {
+      renderChart(block.dataset.chart, d);
+    } catch (e) {
+      console.error('chart render failed:', block.dataset.chart, e);
+    }
+  }
+}
+
+document.addEventListener('DOMContentLoaded', renderDataCharts);
+document.addEventListener('htmx:afterSettle', renderDataCharts);
+
 function renderChart(id, d) {
   const el = document.getElementById(id);
-  if (!el || !window.uPlot || !d.labels.length) return;
+  if (!el || !window.uPlot || !d || !d.labels || !d.labels.length) return;
   const xs = d.labels.map(ms => ms / 1000);
   const rows = [xs].concat(d.series.map(s => s.values));
   const isPct = d.series.some(s => s.fmt === 'pct');

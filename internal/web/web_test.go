@@ -87,7 +87,7 @@ func TestFooterShowsVersion(t *testing.T) {
 	if status != http.StatusOK {
 		t.Fatalf("status %d", status)
 	}
-	wantContains(t, body, "All timestamps are UTC. · vtest")
+	wantContains(t, body, "All timestamps are UTC. · test")
 }
 
 func TestPeriodDetailFragmentHasCost(t *testing.T) {
@@ -125,7 +125,7 @@ func TestTrendsPageAndFragment(t *testing.T) {
 	}
 	wantContains(t, body,
 		"Tokens over time", "Tokens by source", "Cache hit rate",
-		"renderChart('chart-tokens'", "renderChart('chart-sources'", "renderChart('chart-cache'",
+		`data-chart="chart-tokens"`, `data-chart="chart-sources"`, `data-chart="chart-cache"`,
 	)
 
 	// fragment with month bucket; cost series is gone, pct series is present

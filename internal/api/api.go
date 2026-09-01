@@ -44,7 +44,7 @@ func NewWithAuth(db *sql.DB, logger *slog.Logger, stats StatsFunc, version strin
 	if dash != nil {
 		h = dash.Middleware(h)
 	}
-	return h
+	return web.SecureHeaders(h)
 }
 
 func accessLog(logger *slog.Logger, next http.Handler) http.Handler {

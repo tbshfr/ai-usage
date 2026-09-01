@@ -14,7 +14,7 @@
 <section class="panel">
   <h3>Tokens over time</h3>
   <div id="chart-tokens" class="chart"></div>
-  <script>renderChart('chart-tokens', {{toJSON .Charts.TokenData}});</script>
+  <script type="application/json" data-chart="chart-tokens">{{toJSON .Charts.TokenData}}</script>
 </section>
 {{else}}
 <p class="muted">No usage in this range.</p>
@@ -23,14 +23,14 @@
 <section class="panel">
   <h3>Tokens by source</h3>
   <div id="chart-sources" class="chart"></div>
-  <script>renderChart('chart-sources', {{toJSON .Charts.SourceData}});</script>
+  <script type="application/json" data-chart="chart-sources">{{toJSON .Charts.SourceData}}</script>
 </section>
 {{end}}
 {{if .Charts.HasCache}}
 <section class="panel">
   <h3>Cache hit rate</h3>
   <div id="chart-cache" class="chart"></div>
-  <script>renderChart('chart-cache', {{toJSON .Charts.CacheData}});</script>
+  <script type="application/json" data-chart="chart-cache">{{toJSON .Charts.CacheData}}</script>
 </section>
 {{end}}
 {{end}}

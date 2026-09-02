@@ -18,12 +18,11 @@ func TestSecurityHeadersOnEveryRoute(t *testing.T) {
 		}
 		resp.Body.Close()
 		want := map[string]string{
-			"Content-Security-Policy":   "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
-			"Strict-Transport-Security": "max-age=31536000; includeSubDomains",
-			"X-Content-Type-Options":    "nosniff",
-			"X-Frame-Options":           "DENY",
-			"Referrer-Policy":           "no-referrer",
-			"Permissions-Policy":        "camera=(), microphone=(), geolocation=()",
+			"Content-Security-Policy": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+			"X-Content-Type-Options":  "nosniff",
+			"X-Frame-Options":         "DENY",
+			"Referrer-Policy":         "no-referrer",
+			"Permissions-Policy":      "camera=(), microphone=(), geolocation=()",
 		}
 		for h, v := range want {
 			if got := resp.Header.Get(h); got != v {

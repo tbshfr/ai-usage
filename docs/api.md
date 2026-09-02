@@ -180,6 +180,27 @@ are counted and dropped by design — exporters like VS Code Copilot send these
 continuously. Both counters are part of the invariant
 `received == normalized + rejected + ignoredNotUsed + normalizationErrors`.
 
+### `GET /api/stats/reasons?day=YYYY-MM-DD`
+
+The per-reason breakdown behind the day rows on the `/stats` page: fixed
+`kind`/`reason` pairs (no free-form values), so the response is always a
+small bounded list. Persisted data is written every save interval, so
+today's row can lag the live counters by up to one minute.
+
+```json
+[
+  { "kind": "rejected", "reason": "no_source", "count": 4 },
+  { "kind": "http_reject", "reason": "unauthorized", "count": 9 }
+]
+```
+
+Kinds: `rejected` (spans that can never become records), `ignored` (log
+records and metric datapoints), `norm_error` (malformed generation spans),
+`dedup` (duplicate records, broken down by source), and `http_reject`
+(requests rejected before the pipeline — auth failures, malformed
+requests — counted per request, not per record). A day with nothing
+recorded returns `[]`; a malformed `day` returns `400`.
+
 ## Health probes
 
 `GET /health` always returns `{"status":"ok"}`; `GET /ready` returns 200

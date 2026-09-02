@@ -34,7 +34,7 @@ func TestStatsPageShowsTodayWithoutStatsFunc(t *testing.T) {
 	seedDailyStats(t, db)
 	// A nil stats func is documented as valid; today's persisted row is
 	// then the best available data and must not be dropped.
-	srv := httptest.NewServer(New(db, nil, nil, "test"))
+	srv := httptest.NewServer(New(db, nil, nil, nil, "test"))
 	defer srv.Close()
 
 	status, body := get(t, srv.URL+"/stats")
@@ -50,7 +50,7 @@ func TestStatsPageLiveRowReplacesPersistedToday(t *testing.T) {
 	seedDailyStats(t, db)
 	srv := httptest.NewServer(New(db, func() ingest.Stats {
 		return ingest.Stats{Received: 888, Stored: 880}
-	}, nil, "test"))
+	}, nil, nil, "test"))
 	defer srv.Close()
 
 	status, body := get(t, srv.URL+"/stats")

@@ -14,13 +14,13 @@ import (
 
 // New returns the dashboard-port HTTP handler: liveness/readiness probes plus
 // the JSON API routes from server.go, with debug-level access logging.
-func New(db *sql.DB, logger *slog.Logger, stats StatsFunc, hub *live.Hub, version string) http.Handler {
-	return NewWithAuth(db, logger, stats, hub, version, nil)
+func New(db *sql.DB, logger *slog.Logger, stats StatsFunc, reasons ReasonCountsFunc, hub *live.Hub, version string) http.Handler {
+	return NewWithAuth(db, logger, stats, reasons, hub, version, nil)
 }
 
 // NewWithAuth wraps the dashboard with the login-session guard when dash
 // is non-nil; /health, /ready, /static and /login stay public.
-func NewWithAuth(db *sql.DB, logger *slog.Logger, stats StatsFunc, hub *live.Hub, version string, dash *auth.Dashboard) http.Handler {
+func NewWithAuth(db *sql.DB, logger *slog.Logger, stats StatsFunc, reasons ReasonCountsFunc, hub *live.Hub, version string, dash *auth.Dashboard) http.Handler {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -35,11 +35,11 @@ func NewWithAuth(db *sql.DB, logger *slog.Logger, stats StatsFunc, hub *live.Hub
 		}
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ready"})
 	})
-	mux.Handle("/api/", apiRoutes(db, stats, logger))
+	mux.Handle("/api/", apiRoutes(db, stats, reasons, logger))
 	if dash != nil {
-		mux.Handle("/", web.NewAuthed(db, stats, dash, hub, version))
+		mux.Handle("/", web.NewAuthed(db, stats, reasons, dash, hub, version))
 	} else {
-		mux.Handle("/", web.New(db, stats, hub, version))
+		mux.Handle("/", web.New(db, stats, reasons, hub, version))
 	}
 	h := accessLog(logger, mux)
 	if dash != nil {

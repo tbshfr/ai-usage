@@ -8,13 +8,13 @@
 {{end}}
 <section>
   <h2>Ingestion counters by day</h2>
-  <p class="muted">Per-UTC-day totals of what arrived at the OTLP endpoints; they persist across restarts and today's row is live. Ignored (not used) counts log records and metric datapoints that can never become generations.</p>
+  <p class="muted">Per-UTC-day totals of what arrived at the OTLP endpoints; they persist across restarts and today's row is live. Ignored (not used) counts log records and metric datapoints that can never become generations. Click a day for the rejection, error, and duplicate breakdown.</p>
   <div class="table-scroll">
   <table>
     <thead><tr><th>Day</th><th>Received</th><th>Normalized</th><th>Stored</th><th>Deduplicated</th><th>Rejected</th><th>Ignored (not used)</th><th>Normalization errors</th><th>Ingestion errors</th></tr></thead>
     <tbody>
       {{range .S.Rows}}
-      <tr>
+      <tr class="row-detail" hx-get="/fragments/stats-reasons?day={{.Day}}" hx-target="#stats-reasons" title="Show rejection, error, and duplicate details">
         <td>{{.Day}}{{if .Live}} <span class="muted">(live)</span>{{end}}</td>
         <td>{{commas .Received}}</td>
         <td>{{commas .Normalized}}</td>

@@ -58,6 +58,7 @@ var fragTmpls = map[string]*template.Template{
 	"breakdowns":      mustParse("breakdowns.html"),
 	"session-list":    mustParse("session_list.html", "conversations.html", "rows.html"),
 	"stats":           mustParse("stats.html"),
+	"stats-reasons":   mustParse("stats-reasons.html"),
 }
 
 func mustParse(files ...string) *template.Template {

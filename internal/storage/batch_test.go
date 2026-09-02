@@ -48,7 +48,7 @@ func TestInsertGenerationsBatch(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	stored, err := InsertGenerations(ctx, db, []normalize.Generation{
+	storedBySource, err := InsertGenerations(ctx, db, []normalize.Generation{
 		batchGen("new-1"),
 		batchGen("new-1"), // duplicate inside the batch
 		batchGen("existing"),
@@ -56,19 +56,19 @@ func TestInsertGenerationsBatch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if stored != 1 {
-		t.Errorf("stored = %d, want 1 (one fresh, two deduplicated)", stored)
+	if storedBySource["copilot"] != 1 {
+		t.Errorf("stored = %v, want 1 for copilot (one fresh, two deduplicated)", storedBySource)
 	}
 
 	// A batch of conflicts merges without reporting inserts.
 	merge := batchGen("existing")
 	merge.Model = "gpt-5.6-luna"
-	stored, err = InsertGenerations(ctx, db, []normalize.Generation{merge})
+	storedBySource, err = InsertGenerations(ctx, db, []normalize.Generation{merge})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if stored != 0 {
-		t.Errorf("stored = %d, want 0 (conflict merges, not inserts)", stored)
+	if storedBySource["copilot"] != 0 {
+		t.Errorf("stored = %v, want 0 for copilot (conflict merges, not inserts)", storedBySource)
 	}
 	var model sql.NullString
 	if err := db.QueryRow(`SELECT model FROM generations WHERE id = 'existing'`).Scan(&model); err != nil {
@@ -92,8 +92,8 @@ func TestInsertGenerationsEmptyBatch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if stored != 0 {
-		t.Errorf("stored = %d, want 0 for an empty batch", stored)
+	if len(stored) != 0 {
+		t.Errorf("stored = %v, want empty for an empty batch", stored)
 	}
 }
 

@@ -1,6 +1,7 @@
 package normalize
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -97,6 +98,11 @@ func attrString(m pcommon.Map, key string) (string, bool) {
 	return v.Str(), true
 }
 
+// ErrNonStringAttrs marks corrupt input where a known attribute key is
+// present with a non-string value. Callers classify it to count
+// normalization errors by reason.
+var ErrNonStringAttrs = errors.New("non-string attribute values")
+
 // requireStrings errors when any key is present with a non-string value.
 // attrString treats such values as missing, which would silently store
 // generation records with dropped fields; wrong-typed attributes are corrupt
@@ -109,7 +115,7 @@ func requireStrings(m pcommon.Map, keys ...string) error {
 		}
 	}
 	if len(bad) > 0 {
-		return fmt.Errorf("non-string values for %s", strings.Join(bad, ", "))
+		return fmt.Errorf("%w: %s", ErrNonStringAttrs, strings.Join(bad, ", "))
 	}
 	return nil
 }

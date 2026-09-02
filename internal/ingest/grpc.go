@@ -25,14 +25,16 @@ import (
 
 // NewGRPCServer builds the OTLP/gRPC server feeding the same pipeline as
 // the HTTP receiver. A non-empty token requires clients to send
-// "authorization: Bearer <token>" metadata.
-func NewGRPCServer(consumer Consumer, logger *slog.Logger, token string) *grpc.Server {
+// "authorization: Bearer <token>" metadata; onReject (may be nil) is
+// called once per unauthenticated export so the caller can count
+// transport-level rejections.
+func NewGRPCServer(consumer Consumer, logger *slog.Logger, token string, onReject func()) *grpc.Server {
 	if logger == nil {
 		logger = slog.Default()
 	}
 	opts := []grpc.ServerOption{}
 	if token != "" {
-		opts = append(opts, grpc.ChainUnaryInterceptor(auth.GRPCUnaryInterceptor(logger, token)))
+		opts = append(opts, grpc.ChainUnaryInterceptor(auth.GRPCUnaryInterceptorWithHook(logger, token, onReject)))
 	}
 	s := grpc.NewServer(opts...)
 	coltracepb.RegisterTraceServiceServer(s, &traceService{consumer: consumer, logger: logger})

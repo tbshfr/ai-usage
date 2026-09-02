@@ -128,7 +128,7 @@ func TestEventsClientDisconnectCleansUp(t *testing.T) {
 // via RegisterOnShutdown in main) ends it.
 func TestShutdownDoesNotWaitForOpenEventsStream(t *testing.T) {
 	hub := live.New()
-	handler := New(seedtest.DB(t), nil, hub, "test")
+	handler := New(seedtest.DB(t), nil, nil, hub, "test")
 	hs := &http.Server{Handler: handler}
 	// Mirrors main.go: the interrupt ends tracked SSE streams when the
 	// graceful shutdown begins.
@@ -164,7 +164,7 @@ func TestShutdownDoesNotWaitForOpenEventsStream(t *testing.T) {
 // httptestServer builds an unauthenticated UI server on the given hub.
 func httptestServer(t *testing.T, hub *live.Hub) *httptest.Server {
 	t.Helper()
-	srv := httptest.NewServer(New(seedtest.DB(t), nil, hub, "test"))
+	srv := httptest.NewServer(New(seedtest.DB(t), nil, nil, hub, "test"))
 	t.Cleanup(srv.Close)
 	return srv
 }

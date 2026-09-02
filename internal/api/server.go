@@ -23,7 +23,13 @@ const (
 // GET /api/stats. It comes from the ingest pipeline in main.
 type StatsFunc func() ingest.Stats
 
-func apiRoutes(db *sql.DB, stats StatsFunc, logger *slog.Logger) *http.ServeMux {
+// ReasonCountsFunc returns the live per-reason breakdown for today
+// (persisted base + session counters), grouped by kind. It comes from the
+// ingest pipeline in main and may be nil (the API then serves persisted
+// data only).
+type ReasonCountsFunc func() ingest.ReasonCounts
+
+func apiRoutes(db *sql.DB, stats StatsFunc, reasons ReasonCountsFunc, logger *slog.Logger) *http.ServeMux {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -208,6 +214,31 @@ func apiRoutes(db *sql.DB, stats StatsFunc, logger *slog.Logger) *http.ServeMux 
 				IngestionErrors:     uint64(s.IngestionErrors),
 				UpdatedAt:           s.UpdatedAt.Format(time.RFC3339),
 			})
+		}
+		writeJSON(w, http.StatusOK, out)
+	})
+	// GET /api/stats/reasons?day=YYYY-MM-DD serves the per-reason
+	// breakdown of one day's ingestion counters (fixed-enum kind/reason
+	// pairs). The data is persisted every save interval, so today's row
+	// can lag the live counters by up to one minute.
+	mux.HandleFunc("GET /api/stats/reasons", func(w http.ResponseWriter, r *http.Request) {
+		day := r.URL.Query().Get("day")
+		if day == "" {
+			writeErr(w, http.StatusBadRequest, "missing day parameter (want YYYY-MM-DD)")
+			return
+		}
+		if _, err := time.Parse("2006-01-02", day); err != nil {
+			writeErr(w, http.StatusBadRequest, fmt.Sprintf("invalid day %q (want YYYY-MM-DD)", day))
+			return
+		}
+		rows, _, err := storage.DailyReasonsForDay(r.Context(), db, day)
+		if err != nil {
+			internalErr(w, err)
+			return
+		}
+		out := make([]reasonStatResponse, 0, len(rows))
+		for _, s := range rows {
+			out = append(out, reasonStatResponse{Kind: s.Kind, Reason: s.Reason, Count: s.Count})
 		}
 		writeJSON(w, http.StatusOK, out)
 	})
@@ -474,6 +505,14 @@ type dailyStatsResponse struct {
 	NormalizationErrors uint64 `json:"normalizationErrors"`
 	IngestionErrors     uint64 `json:"ingestionErrors"`
 	UpdatedAt           string `json:"updatedAt"`
+}
+
+// reasonStatResponse is one (kind, reason) counter of a day's breakdown,
+// served by GET /api/stats/reasons.
+type reasonStatResponse struct {
+	Kind   string `json:"kind"`
+	Reason string `json:"reason"`
+	Count  int64  `json:"count"`
 }
 
 func writeErr(w http.ResponseWriter, code int, msg string) {

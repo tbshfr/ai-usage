@@ -22,7 +22,7 @@ func TestHealthAndReady(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	srv := httptest.NewServer(New(db, testLogger(t), nil, nil, "test"))
+	srv := httptest.NewServer(New(db, testLogger(t), nil, nil, nil, "test"))
 	defer srv.Close()
 
 	resp, err := http.Get(srv.URL + "/health")
@@ -61,7 +61,7 @@ func TestReadyFailsWhenDBClosed(t *testing.T) {
 	}
 	db.Close() // closed → ping fails
 
-	srv := httptest.NewServer(New(db, testLogger(t), nil, nil, "test"))
+	srv := httptest.NewServer(New(db, testLogger(t), nil, nil, nil, "test"))
 	defer srv.Close()
 
 	resp, err := http.Get(srv.URL + "/ready")

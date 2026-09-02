@@ -27,6 +27,10 @@ import (
 
 const shutdownGrace = 10 * time.Second
 
+// statsSaveInterval is how often the day's ingestion counters are
+// persisted to SQLite; they are also saved once on shutdown.
+const statsSaveInterval = time.Minute
+
 // version is set at build time via -ldflags "-X main.version=...".
 var version = "dev"
 
@@ -77,6 +81,16 @@ func run(cfg *config.Config, logger *slog.Logger) error {
 
 	hub := live.New()
 	pipeline := ingest.NewPipeline(db, logger, hub)
+	// Continue today's persisted counters across restarts and keep them
+	// saved periodically; a final save happens on shutdown. A failed
+	// restore is fatal: running with a zero base would let the next save
+	// overwrite today's persisted counters with session-only values.
+	if err := pipeline.RestoreBase(context.Background()); err != nil {
+		return fmt.Errorf("restore stats base: %w", err)
+	}
+	saverCtx, stopSaver := context.WithCancel(context.Background())
+	defer stopSaver()
+	pipeline.StartSaver(saverCtx, statsSaveInterval)
 	// Empty addresses disable the corresponding listener (config supports
 	// this; see internal/config). Non-loopback binds without credentials
 	// are rejected by config validation before we get here.
@@ -147,6 +161,15 @@ func run(cfg *config.Config, logger *slog.Logger) error {
 	case sig := <-stop:
 		logger.Info("shutdown started", "signal", sig.String())
 	case err := <-errCh:
+		// A listener died; persist the final snapshot before the process
+		// exits so the error path loses no more than the counters added
+		// since the last periodic save. Double stopSaver with the defer
+		// is harmless (context cancel is idempotent).
+		logger.Error("shutdown started", "reason", "listener error", "error", err.Error())
+		stopSaver()
+		if saveErr := pipeline.Save(); saveErr != nil {
+			logger.Error("stats save failed", "error", saveErr.Error())
+		}
 		return err
 	}
 
@@ -168,6 +191,12 @@ func run(cfg *config.Config, logger *slog.Logger) error {
 		case <-shutdownCtx.Done():
 			grpcServer.Stop()
 		}
+	}
+	// Persist the final counter snapshot while the DB is still open; the
+	// saver goroutine is stopped first so it cannot race the last write.
+	stopSaver()
+	if err := pipeline.Save(); err != nil {
+		logger.Error("stats save failed", "error", err.Error())
 	}
 	logger.Info("shutdown complete")
 	return nil

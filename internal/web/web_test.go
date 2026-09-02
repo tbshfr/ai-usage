@@ -13,7 +13,7 @@ const fullRangeQuery = "from=2024-01-01&to=2026-04-01"
 
 func newServer(t *testing.T) *httptest.Server {
 	t.Helper()
-	return httptest.NewServer(New(seedtest.DB(t), nil, "test"))
+	return httptest.NewServer(New(seedtest.DB(t), nil, nil, "test"))
 }
 
 func get(t *testing.T, url string) (int, string) {

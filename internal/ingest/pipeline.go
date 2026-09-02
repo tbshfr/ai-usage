@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -51,6 +52,18 @@ type Pipeline struct {
 	ignored    atomic.Uint64
 	normErrors atomic.Uint64
 	ingErrors  atomic.Uint64
+
+	// mu guards the persisted part of the current day's counters: base
+	// holds what was already saved to stats_daily for baseDay before this
+	// process started (or before the last UTC midnight rollover), so the
+	// live totals in Stats() continue across restarts instead of
+	// resetting to zero. Stats takes the read lock, so concurrent reads
+	// are never serialized against each other, but a read can briefly
+	// block behind a save's write lock (a single small upsert per save
+	// interval); only Save and RestoreBase write.
+	mu      sync.RWMutex
+	base    Stats
+	baseDay string
 }
 
 // NewPipeline builds a pipeline; hub may be nil to skip notifications.
@@ -62,6 +75,20 @@ func NewPipeline(db *sql.DB, logger *slog.Logger, hub *live.Hub) *Pipeline {
 }
 
 func (p *Pipeline) Stats() Stats {
+	// The persisted base only counts toward today's totals on the day it
+	// was recorded for; after a midnight rollover (before the next save)
+	// today's row is empty, so the effective base is zero.
+	var base Stats
+	today := utcDay(time.Now())
+	p.mu.RLock()
+	if p.baseDay == today {
+		base = p.base
+	}
+	p.mu.RUnlock()
+	return base.add(p.atomicStats())
+}
+
+func (p *Pipeline) atomicStats() Stats {
 	return Stats{
 		Received:            p.received.Load(),
 		Normalized:          p.normalized.Load(),
@@ -72,6 +99,155 @@ func (p *Pipeline) Stats() Stats {
 		NormalizationErrors: p.normErrors.Load(),
 		IngestionErrors:     p.ingErrors.Load(),
 	}
+}
+
+func (s Stats) add(o Stats) Stats {
+	return Stats{
+		Received:            s.Received + o.Received,
+		Normalized:          s.Normalized + o.Normalized,
+		Stored:              s.Stored + o.Stored,
+		Deduplicated:        s.Deduplicated + o.Deduplicated,
+		Rejected:            s.Rejected + o.Rejected,
+		IgnoredNotUsed:      s.IgnoredNotUsed + o.IgnoredNotUsed,
+		NormalizationErrors: s.NormalizationErrors + o.NormalizationErrors,
+		IngestionErrors:     s.IngestionErrors + o.IngestionErrors,
+	}
+}
+
+func utcDay(t time.Time) string {
+	return t.UTC().Format("2006-01-02")
+}
+
+// RestoreBase loads today's persisted counters as the base the live
+// session counters add up to. Call once at startup, after migrations.
+// A missing row for today is not an error (the base stays zero), but a
+// failed read is: callers should abort rather than run with a zero base,
+// or the next Save would overwrite today's persisted counters with
+// session-only values.
+func (p *Pipeline) RestoreBase(ctx context.Context) error {
+	day := utcDay(time.Now())
+	row, found, err := storage.DailyStatsForDay(ctx, p.db, day)
+	if err != nil {
+		return fmt.Errorf("load daily stats for %s: %w", day, err)
+	}
+	if !found {
+		return nil
+	}
+	p.mu.Lock()
+	p.base = Stats{
+		Received:            uint64(row.Received),
+		Normalized:          uint64(row.Normalized),
+		Stored:              uint64(row.Stored),
+		Deduplicated:        uint64(row.Deduplicated),
+		Rejected:            uint64(row.Rejected),
+		IgnoredNotUsed:      uint64(row.IgnoredNotUsed),
+		NormalizationErrors: uint64(row.NormalizationErrors),
+		IngestionErrors:     uint64(row.IngestionErrors),
+	}
+	p.baseDay = day
+	p.mu.Unlock()
+	p.logger.Info("stats base restored", "day", day, "received", row.Received)
+	return nil
+}
+
+// StartSaver persists the day's counters every interval until ctx is
+// cancelled. It also handles the UTC midnight rollover: a timer aligned
+// to the next midnight triggers a save at the day boundary, so the final
+// old-day totals are written and the session counters restart from zero
+// right away instead of waiting for the next periodic tick.
+func (p *Pipeline) StartSaver(ctx context.Context, interval time.Duration) {
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		midnight := time.NewTimer(time.Until(nextUTCMidnight(time.Now())))
+		defer midnight.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if err := p.Save(); err != nil {
+					p.logger.Warn("stats save failed", "error", err.Error())
+				}
+			case <-midnight.C:
+				midnight.Reset(time.Until(nextUTCMidnight(time.Now())))
+				if err := p.Save(); err != nil {
+					p.logger.Warn("stats save failed", "error", err.Error())
+				}
+			}
+		}
+	}()
+}
+
+// nextUTCMidnight returns the start of the UTC day after t. UTC has no
+// DST transitions, so adding 24h to the truncated day is always exact.
+func nextUTCMidnight(t time.Time) time.Time {
+	u := t.UTC()
+	return time.Date(u.Year(), u.Month(), u.Day(), 0, 0, 0, 0, time.UTC).Add(24 * time.Hour)
+}
+
+// Save persists the day's counters (persisted base + this session) as an
+// absolute snapshot. Called periodically by StartSaver and once on
+// shutdown. When the UTC day rolled over since the last save, everything
+// so far is written to the old day and the session counters restart from
+// zero for the new day (records consumed in the instant between snapshot
+// and reset are the only casualty, a sub-millisecond window).
+//
+// Known edge: a cold start (baseDay == "" from a missing row for today)
+// within statsSaveInterval of UTC midnight writes the pre-midnight session
+// counters to the new day on the first periodic save, because the rollover
+// branch needs a baseDay to file the old totals under. The window is tiny
+// and only shifts one day's attribution slightly; accepted trade-off.
+func (p *Pipeline) Save() error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	today := utcDay(time.Now())
+	snap := p.base.add(p.atomicStats())
+	if p.baseDay != "" && p.baseDay != today {
+		if err := p.persistLocked(p.baseDay, snap); err != nil {
+			return err
+		}
+		p.resetLocked()
+		p.baseDay = today
+		return nil
+	}
+	p.baseDay = today
+	return p.persistLocked(today, snap)
+}
+
+func (p *Pipeline) persistLocked(day string, s Stats) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return storage.UpsertDailyStats(ctx, p.db, storage.DailyStats{
+		Day:                 day,
+		Received:            int64(s.Received),
+		Normalized:          int64(s.Normalized),
+		Stored:              int64(s.Stored),
+		Deduplicated:        int64(s.Deduplicated),
+		Rejected:            int64(s.Rejected),
+		IgnoredNotUsed:      int64(s.IgnoredNotUsed),
+		NormalizationErrors: int64(s.NormalizationErrors),
+		IngestionErrors:     int64(s.IngestionErrors),
+	})
+}
+
+// resetLocked zeroes the persisted base and the session counters after
+// the old day's totals have been saved. The counters are reset one at a
+// time, so a concurrent Stats() read mid-rollover can observe a torn
+// snapshot (e.g. received already zeroed, stored still holding old-day
+// values) for a few microseconds; the next read is consistent again.
+// Accepted non-atomicity, not worth a lock-wide counter reset.
+func (p *Pipeline) resetLocked() {
+	p.base = Stats{}
+	p.received.Store(0)
+	p.normalized.Store(0)
+	p.stored.Store(0)
+	p.dedup.Store(0)
+	p.rejected.Store(0)
+	p.ignored.Store(0)
+	p.normErrors.Store(0)
+	p.ingErrors.Store(0)
 }
 
 func (p *Pipeline) ConsumeTraces(ctx context.Context, td ptrace.Traces) error {

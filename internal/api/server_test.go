@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"encoding/json"
 	"io"
@@ -12,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/tbshfr/ai-usage/internal/ingest"
+	"github.com/tbshfr/ai-usage/internal/storage"
 	"github.com/tbshfr/ai-usage/internal/storage/seedtest"
 )
 
@@ -471,6 +473,120 @@ func TestEmptyDBAllEndpoints(t *testing.T) {
 	}
 	if status, _ := get(t, srv.URL+"/api/generations/whatever"); status != http.StatusNotFound {
 		t.Errorf("empty DB generation lookup status = %d, want 404", status)
+	}
+}
+
+// seedDailyStats upserts a few days of counters so the /api/stats/daily
+// endpoint has rows to return; seedtest only seeds generations.
+func seedDailyStats(t *testing.T, db *sql.DB) {
+	t.Helper()
+	for _, s := range []struct {
+		day      string
+		received int64
+	}{
+		{"2026-08-01", 10},
+		{"2026-08-02", 20},
+		{"2026-08-03", 30},
+		{"2026-08-05", 50},
+	} {
+		if err := storage.UpsertDailyStats(context.Background(), db, storage.DailyStats{
+			Day: s.day, Received: s.received,
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func dailyDays(t *testing.T, body string) []string {
+	t.Helper()
+	var rows []struct {
+		Day string `json:"day"`
+	}
+	if err := json.Unmarshal([]byte(body), &rows); err != nil {
+		t.Fatal(err)
+	}
+	days := make([]string, 0, len(rows))
+	for _, r := range rows {
+		days = append(days, r.Day)
+	}
+	return days
+}
+
+func TestStatsDailyEndpoint(t *testing.T) {
+	db := seedtest.EmptyDB(t)
+	seedDailyStats(t, db)
+	srv := newServer(t, db, nil)
+
+	tests := []struct {
+		name  string
+		query string
+		want  []string
+	}{
+		{"no params returns all recent", "", []string{"2026-08-05", "2026-08-03", "2026-08-02", "2026-08-01"}},
+		{"from only is unbounded above", "from=2026-08-02", []string{"2026-08-05", "2026-08-03", "2026-08-02"}},
+		{"to only is unbounded below", "to=2026-08-02", []string{"2026-08-02", "2026-08-01"}},
+		{"both bounds", "from=2026-08-01&to=2026-08-03", []string{"2026-08-03", "2026-08-02", "2026-08-01"}},
+		{"limit keeps newest in range", "from=2026-08-01&limit=2", []string{"2026-08-05", "2026-08-03"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			status, body := get(t, srv.URL+"/api/stats/daily?"+tt.query)
+			if status != http.StatusOK {
+				t.Fatalf("status = %d, body %s", status, body)
+			}
+			got := dailyDays(t, body)
+			if len(got) != len(tt.want) {
+				t.Fatalf("days = %v, want %v", got, tt.want)
+			}
+			for i := range tt.want {
+				if got[i] != tt.want[i] {
+					t.Fatalf("days = %v, want %v", got, tt.want)
+				}
+			}
+		})
+	}
+
+	// Counter values come through as numbers, not strings.
+	_, body := get(t, srv.URL+"/api/stats/daily?from=2026-08-05")
+	if !strings.Contains(body, `"received":50`) {
+		t.Errorf("daily stats body missing counters: %s", body)
+	}
+	if !strings.Contains(body, `"updatedAt":`) {
+		t.Errorf("daily stats body missing updatedAt: %s", body)
+	}
+}
+
+func TestStatsDailyBadParams(t *testing.T) {
+	srv := newServer(t, seedtest.EmptyDB(t), nil)
+
+	for _, tc := range []struct{ name, query string }{
+		{"bad from", "from=not-a-date"},
+		{"bad to", "to=08/01/2026"},
+		{"to before from", "from=2026-08-05&to=2026-08-01"},
+		{"limit not a number", "limit=abc"},
+		{"limit zero", "limit=0"},
+		{"limit negative", "limit=-1"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			status, body := get(t, srv.URL+"/api/stats/daily?"+tc.query)
+			if status != http.StatusBadRequest {
+				t.Errorf("status = %d, want 400 (body %s)", status, body)
+			}
+		})
+	}
+}
+
+func TestStatsDailyLimitClamped(t *testing.T) {
+	db := seedtest.EmptyDB(t)
+	seedDailyStats(t, db)
+	srv := newServer(t, db, nil)
+
+	status, body := get(t, srv.URL+"/api/stats/daily?limit=9999")
+	if status != http.StatusOK {
+		t.Fatalf("status = %d, body %s", status, body)
+	}
+	if days := dailyDays(t, body); len(days) != 4 {
+		t.Errorf("days = %v, want all 4 (clamp does not drop real rows)", days)
 	}
 }
 

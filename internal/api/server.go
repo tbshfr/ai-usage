@@ -168,7 +168,71 @@ func apiRoutes(db *sql.DB, stats StatsFunc, logger *slog.Logger) *http.ServeMux 
 			IngestionErrors:     s.IngestionErrors,
 		})
 	})
+	mux.HandleFunc("GET /api/stats/daily", func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		from, to, ok := dayRangeParams(w, q.Get("from"), q.Get("to"))
+		if !ok {
+			return
+		}
+		limit := 30
+		if v := q.Get("limit"); v != "" {
+			n, err := strconv.Atoi(v)
+			if err != nil || n < 1 {
+				writeErr(w, http.StatusBadRequest, fmt.Sprintf("invalid limit %q (want a positive integer)", v))
+				return
+			}
+			limit = min(n, 365)
+		}
+		var rows []storage.DailyStats
+		var err error
+		if from != "" || to != "" {
+			rows, err = storage.DailyStatsRange(r.Context(), db, from, to, limit)
+		} else {
+			rows, err = storage.RecentDailyStats(r.Context(), db, limit)
+		}
+		if err != nil {
+			internalErr(w, err)
+			return
+		}
+		out := make([]dailyStatsResponse, 0, len(rows))
+		for _, s := range rows {
+			out = append(out, dailyStatsResponse{
+				Day:                 s.Day,
+				Received:            uint64(s.Received),
+				Normalized:          uint64(s.Normalized),
+				Stored:              uint64(s.Stored),
+				Deduplicated:        uint64(s.Deduplicated),
+				Rejected:            uint64(s.Rejected),
+				IgnoredNotUsed:      uint64(s.IgnoredNotUsed),
+				NormalizationErrors: uint64(s.NormalizationErrors),
+				IngestionErrors:     uint64(s.IngestionErrors),
+				UpdatedAt:           s.UpdatedAt.Format(time.RFC3339),
+			})
+		}
+		writeJSON(w, http.StatusOK, out)
+	})
 	return mux
+}
+
+// dayRangeParams validates the YYYY-MM-DD from/to pair for the daily stats
+// endpoints; empty strings mean unbounded on that side.
+func dayRangeParams(w http.ResponseWriter, from, to string) (string, string, bool) {
+	// Ordered pairs, not a map, so validation order (and the error
+	// message when both params are invalid) is deterministic.
+	for _, p := range [2]struct{ name, v string }{{"from", from}, {"to", to}} {
+		if p.v == "" {
+			continue
+		}
+		if _, err := time.Parse("2006-01-02", p.v); err != nil {
+			writeErr(w, http.StatusBadRequest, fmt.Sprintf("invalid %s %q (want YYYY-MM-DD)", p.name, p.v))
+			return "", "", false
+		}
+	}
+	if from != "" && to != "" && to < from {
+		writeErr(w, http.StatusBadRequest, fmt.Sprintf("invalid filter: to (%s) before from (%s)", to, from))
+		return "", "", false
+	}
+	return from, to, true
 }
 
 func breakdownOf(ctx context.Context, db *sql.DB, f storage.Filter, column string) ([]breakdownRow, error) {
@@ -395,6 +459,21 @@ type statsResponse struct {
 	IgnoredNotUsed      uint64 `json:"ignoredNotUsed"`
 	NormalizationErrors uint64 `json:"normalizationErrors"`
 	IngestionErrors     uint64 `json:"ingestionErrors"`
+}
+
+// dailyStatsResponse is one persisted day of counters, newest first in
+// the GET /api/stats/daily response.
+type dailyStatsResponse struct {
+	Day                 string `json:"day"`
+	Received            uint64 `json:"received"`
+	Normalized          uint64 `json:"normalized"`
+	Stored              uint64 `json:"stored"`
+	Deduplicated        uint64 `json:"deduplicated"`
+	Rejected            uint64 `json:"rejected"`
+	IgnoredNotUsed      uint64 `json:"ignoredNotUsed"`
+	NormalizationErrors uint64 `json:"normalizationErrors"`
+	IngestionErrors     uint64 `json:"ingestionErrors"`
+	UpdatedAt           string `json:"updatedAt"`
 }
 
 func writeErr(w http.ResponseWriter, code int, msg string) {

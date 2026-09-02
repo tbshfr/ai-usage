@@ -1,0 +1,48 @@
+{{define "stats"}}
+{{if .S.HasChart}}
+<section class="panel">
+  <h3>Rejected &amp; errors per day</h3>
+  <div id="chart-stats" class="chart"></div>
+  <script type="application/json" data-chart="chart-stats">{{toJSON .S.Chart}}</script>
+</section>
+{{end}}
+<section>
+  <h2>Ingestion counters by day</h2>
+  <p class="muted">Per-UTC-day totals of what arrived at the OTLP endpoints; they persist across restarts and today's row is live. Ignored (not used) counts log records and metric datapoints that can never become generations.</p>
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th>Day</th><th>Received</th><th>Normalized</th><th>Stored</th><th>Deduplicated</th><th>Rejected</th><th>Ignored (not used)</th><th>Normalization errors</th><th>Ingestion errors</th></tr></thead>
+    <tbody>
+      {{range .S.Rows}}
+      <tr>
+        <td>{{.Day}}{{if .Live}} <span class="muted">(live)</span>{{end}}</td>
+        <td>{{commas .Received}}</td>
+        <td>{{commas .Normalized}}</td>
+        <td>{{commas .Stored}}</td>
+        <td>{{commas .Deduplicated}}</td>
+        <td>{{commas .Rejected}}</td>
+        <td>{{commas .IgnoredNotUsed}}</td>
+        <td>{{commas .NormalizationErrors}}</td>
+        <td>{{commas .IngestionErrors}}</td>
+      </tr>
+      {{else}}
+      <tr><td colspan="9" class="muted">No ingestion activity recorded yet.</td></tr>
+      {{end}}
+      {{if .S.Rows}}
+      <tr class="totals">
+        <td>Total ({{len .S.Rows}} days)</td>
+        <td>{{commas .S.Total.Received}}</td>
+        <td>{{commas .S.Total.Normalized}}</td>
+        <td>{{commas .S.Total.Stored}}</td>
+        <td>{{commas .S.Total.Deduplicated}}</td>
+        <td>{{commas .S.Total.Rejected}}</td>
+        <td>{{commas .S.Total.IgnoredNotUsed}}</td>
+        <td>{{commas .S.Total.NormalizationErrors}}</td>
+        <td>{{commas .S.Total.IngestionErrors}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+</section>
+{{end}}

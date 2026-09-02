@@ -37,9 +37,9 @@ func NewWithAuth(db *sql.DB, logger *slog.Logger, stats StatsFunc, hub *live.Hub
 	})
 	mux.Handle("/api/", apiRoutes(db, stats, logger))
 	if dash != nil {
-		mux.Handle("/", web.NewAuthed(db, dash, hub, version))
+		mux.Handle("/", web.NewAuthed(db, stats, dash, hub, version))
 	} else {
-		mux.Handle("/", web.New(db, hub, version))
+		mux.Handle("/", web.New(db, stats, hub, version))
 	}
 	h := accessLog(logger, mux)
 	if dash != nil {

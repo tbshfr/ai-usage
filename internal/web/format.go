@@ -45,6 +45,7 @@ var pageTmpls = map[string]*template.Template{
 	"breakdowns": mustParse("layout.html", "filterbar.html", "breakdowns.html", "breakdowns_page.html"),
 	"sessions":   mustParse("layout.html", "filterbar.html", "session_list.html", "conversations.html", "rows.html", "sessions_page.html"),
 	"detail":     mustParse("layout.html", "detail.html"),
+	"stats":      mustParse("layout.html", "stats_page.html", "stats.html"),
 }
 
 // fragTmpls render bare page sections (no layout); the same named templates
@@ -56,6 +57,7 @@ var fragTmpls = map[string]*template.Template{
 	"trends":          mustParse("chart.html"),
 	"breakdowns":      mustParse("breakdowns.html"),
 	"session-list":    mustParse("session_list.html", "conversations.html", "rows.html"),
+	"stats":           mustParse("stats.html"),
 }
 
 func mustParse(files ...string) *template.Template {
@@ -70,8 +72,21 @@ func mustParse(files ...string) *template.Template {
 	return t
 }
 
-func commas(n int64) string {
-	s := strconv.FormatInt(n, 10)
+// commas renders an integer with thousands separators. It accepts the
+// int64 counts used by the storage layer and the uint64 counters from the
+// ingest pipeline.
+func commas(v any) string {
+	var s string
+	switch n := v.(type) {
+	case int64:
+		s = strconv.FormatInt(n, 10)
+	case uint64:
+		s = strconv.FormatUint(n, 10)
+	case int:
+		s = strconv.Itoa(n)
+	default:
+		return emDash
+	}
 	neg := strings.HasPrefix(s, "-")
 	if neg {
 		s = s[1:]

@@ -15,6 +15,7 @@ import (
 
 	"github.com/tbshfr/ai-usage"
 	"github.com/tbshfr/ai-usage/internal/auth"
+	"github.com/tbshfr/ai-usage/internal/ingest"
 	"github.com/tbshfr/ai-usage/internal/live"
 	"github.com/tbshfr/ai-usage/internal/normalize"
 	"github.com/tbshfr/ai-usage/internal/storage"
@@ -23,6 +24,7 @@ import (
 const (
 	recentLimit        = 50
 	conversationsLimit = 24
+	statsDaysLimit     = 30
 )
 
 var staticFS = func() fs.FS {
@@ -53,28 +55,30 @@ func staticHandler() http.Handler {
 // Templates are parsed once at package init from the embedded FS.
 // An empty version renders as "dev". The hub drives the /events SSE
 // stream; nil disables data-changed signals (the stream then only sends
-// keepalives).
-func New(db *sql.DB, hub *live.Hub, version string) http.Handler {
-	return newMux(db, nil, hub, version)
+// keepalives). stats may be nil; when set, the stats page merges the live
+// pipeline counters into today's row.
+func New(db *sql.DB, stats func() ingest.Stats, hub *live.Hub, version string) http.Handler {
+	return newMux(db, stats, nil, hub, version)
 }
 
 // NewAuthed adds the login/logout routes and applies the dashboard
 // guard to every UI route; api.NewWithAuth additionally wraps the whole
 // dashboard port so /api/* is protected as well.
-func NewAuthed(db *sql.DB, dash *auth.Dashboard, hub *live.Hub, version string) http.Handler {
-	return dash.Middleware(newMux(db, dash, hub, version))
+func NewAuthed(db *sql.DB, stats func() ingest.Stats, dash *auth.Dashboard, hub *live.Hub, version string) http.Handler {
+	return dash.Middleware(newMux(db, stats, dash, hub, version))
 }
 
-func newMux(db *sql.DB, dash *auth.Dashboard, hub *live.Hub, version string) http.Handler {
+func newMux(db *sql.DB, stats func() ingest.Stats, dash *auth.Dashboard, hub *live.Hub, version string) http.Handler {
 	if version == "" {
 		version = "dev"
 	}
-	s := &server{db: db, dash: dash, hub: hub, limiter: newLoginLimiter(), version: version}
+	s := &server{db: db, stats: stats, dash: dash, hub: hub, limiter: newLoginLimiter(), version: version}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", s.dashboard)
 	mux.HandleFunc("GET /trends", s.trends)
 	mux.HandleFunc("GET /breakdowns", s.breakdowns)
 	mux.HandleFunc("GET /sessions", s.sessions)
+	mux.HandleFunc("GET /stats", s.statsPage)
 	mux.HandleFunc("GET /generations", s.redirectSessions)
 	mux.HandleFunc("GET /generations/{id}", s.detail)
 	mux.HandleFunc("GET /events", s.serveEvents)
@@ -83,6 +87,7 @@ func newMux(db *sql.DB, dash *auth.Dashboard, hub *live.Hub, version string) htt
 	mux.HandleFunc("GET /fragments/trends", s.fragTrends)
 	mux.HandleFunc("GET /fragments/breakdowns", s.fragBreakdowns)
 	mux.HandleFunc("GET /fragments/session-list", s.fragSessionList)
+	mux.HandleFunc("GET /fragments/stats", s.fragStats)
 	mux.HandleFunc("GET /robots.txt", s.robotsTxt)
 	mux.Handle("GET /static/{path...}", staticHandler())
 	if dash != nil {
@@ -107,6 +112,7 @@ func (s *server) robotsTxt(w http.ResponseWriter, r *http.Request) {
 
 type server struct {
 	db      *sql.DB
+	stats   func() ingest.Stats
 	dash    *auth.Dashboard
 	hub     *live.Hub
 	limiter *loginLimiter
@@ -128,6 +134,7 @@ type pageData struct {
 	Convs       convsView
 	Recent      recentView
 	Breaks      breaksView
+	S           statsView
 	D           *normalize.Generation
 	View        string        // sessions page: "sessions" or "requests"
 	SortOrder   storage.Order // sessions page list sort
@@ -225,6 +232,21 @@ type convsView struct {
 type breaksView struct {
 	Source, Provider, Model                []storage.Breakdown
 	SourceTotal, ProviderTotal, ModelTotal storage.Breakdown
+}
+
+// statsRow is one day of ingestion counters; Live marks today's row, whose
+// values come straight from the pipeline instead of the last save.
+type statsRow struct {
+	Day  string
+	Live bool
+	ingest.Stats
+}
+
+type statsView struct {
+	Rows     []statsRow
+	Total    ingest.Stats
+	Chart    chartJSON
+	HasChart bool
 }
 
 // dashboard renders the landing page: today's tokens big, weekly/monthly/
@@ -472,6 +494,116 @@ func (s *server) fragBreakdowns(w http.ResponseWriter, r *http.Request) {
 	d.Breaks.ProviderTotal = totalBreakdown(d.Breaks.Provider)
 	d.Breaks.ModelTotal = totalBreakdown(d.Breaks.Model)
 	s.renderFrag(w, "breakdowns", d)
+}
+
+// statsPage renders the per-day ingestion counters: a chart of rejected /
+// error counters over the last 30 days plus the full daily table. Today's
+// row shows live pipeline counters, so it is current even before the next
+// periodic save.
+func (s *server) statsPage(w http.ResponseWriter, r *http.Request) {
+	d := &pageData{Title: "Stats", Active: "stats"}
+	if err := s.loadStats(r.Context(), d); err != nil {
+		writeErr(w, err)
+		return
+	}
+	s.render(w, "stats", d)
+}
+
+// fragStats is the SSE-refreshable section of the stats page.
+func (s *server) fragStats(w http.ResponseWriter, r *http.Request) {
+	d := &pageData{}
+	if err := s.loadStats(r.Context(), d); err != nil {
+		writeErr(w, err)
+		return
+	}
+	s.renderFrag(w, "stats", d)
+}
+
+func (s *server) loadStats(ctx context.Context, d *pageData) error {
+	rows, err := storage.RecentDailyStats(ctx, s.db, statsDaysLimit)
+	if err != nil {
+		return err
+	}
+	today := utcDate(time.Now())
+	v := statsView{Rows: make([]statsRow, 0, len(rows)+1)}
+	for _, r := range rows {
+		// Days where nothing arrived are pure noise; when live counters
+		// are available, today's persisted row is stale by up to one
+		// save interval, so the live counters replace it. Without a
+		// stats func, today's persisted row is the best data available
+		// and must not be dropped.
+		if (s.stats != nil && r.Day == today) || r.Received == 0 {
+			continue
+		}
+		v.Rows = append(v.Rows, statsRow{Day: r.Day, Stats: dailyToIngest(r)})
+	}
+	if s.stats != nil {
+		if live := s.stats(); live.Received > 0 {
+			v.Rows = append([]statsRow{{Day: today, Live: true, Stats: live}}, v.Rows...)
+		}
+	}
+	for _, r := range v.Rows {
+		v.Total = addIngestStats(v.Total, r.Stats)
+	}
+	v.Chart, v.HasChart = buildStatsChart(v.Rows)
+	d.S = v
+	return nil
+}
+
+func dailyToIngest(s storage.DailyStats) ingest.Stats {
+	return ingest.Stats{
+		Received:            uint64(s.Received),
+		Normalized:          uint64(s.Normalized),
+		Stored:              uint64(s.Stored),
+		Deduplicated:        uint64(s.Deduplicated),
+		Rejected:            uint64(s.Rejected),
+		IgnoredNotUsed:      uint64(s.IgnoredNotUsed),
+		NormalizationErrors: uint64(s.NormalizationErrors),
+		IngestionErrors:     uint64(s.IngestionErrors),
+	}
+}
+
+func addIngestStats(a, b ingest.Stats) ingest.Stats {
+	return ingest.Stats{
+		Received:            a.Received + b.Received,
+		Normalized:          a.Normalized + b.Normalized,
+		Stored:              a.Stored + b.Stored,
+		Deduplicated:        a.Deduplicated + b.Deduplicated,
+		Rejected:            a.Rejected + b.Rejected,
+		IgnoredNotUsed:      a.IgnoredNotUsed + b.IgnoredNotUsed,
+		NormalizationErrors: a.NormalizationErrors + b.NormalizationErrors,
+		IngestionErrors:     a.IngestionErrors + b.IngestionErrors,
+	}
+}
+
+// buildStatsChart plots the problem counters (rejected, normalization and
+// ingestion errors) per day, oldest first.
+func buildStatsChart(rows []statsRow) (chartJSON, bool) {
+	chart := chartJSON{}
+	rejected := make([]any, 0, len(rows))
+	normErrs := make([]any, 0, len(rows))
+	ingErrs := make([]any, 0, len(rows))
+	anyNonZero := false
+	for i := len(rows) - 1; i >= 0; i-- {
+		r := rows[i]
+		t, err := time.Parse("2006-01-02", r.Day)
+		if err != nil {
+			continue
+		}
+		chart.Labels = append(chart.Labels, t.UnixMilli())
+		rejected = append(rejected, r.Rejected)
+		normErrs = append(normErrs, r.NormalizationErrors)
+		ingErrs = append(ingErrs, r.IngestionErrors)
+		if r.Rejected > 0 || r.NormalizationErrors > 0 || r.IngestionErrors > 0 {
+			anyNonZero = true
+		}
+	}
+	chart.Series = []chartSeries{
+		{Name: "Rejected", Values: rejected},
+		{Name: "Normalization errors", Values: normErrs},
+		{Name: "Ingestion errors", Values: ingErrs},
+	}
+	return chart, anyNonZero
 }
 
 // sessions renders the sessions page: conversation cards on top, drilling

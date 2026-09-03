@@ -178,18 +178,23 @@ type presetView struct {
 }
 
 // cardView is one dashboard period stat (hero card or secondary card).
+// Since is only set on the "all" card: the first stored generation
+// matching the active filters, nil when nothing matches.
 type cardView struct {
 	Period string // today | week | month | all
 	Label  string
 	Hero   bool
 	S      storage.SummaryResult
+	Since  *time.Time
 }
 
 // periodDetailView is the inline expansion under the dashboard cards.
+// Since mirrors the card's first-data date for the "all" period.
 type periodDetailView struct {
 	Period string
 	Label  string
 	S      storage.SummaryResult
+	Since  *time.Time
 }
 
 type trendsView struct {
@@ -345,6 +350,19 @@ func (s *server) fragPeriodDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	d := &pageData{Detail: &periodDetailView{Period: period, Label: label, S: sum}}
+	if period == "all" {
+		since, err := storage.Earliest(r.Context(), s.db, storage.Filter{
+			Source:       u.Source,
+			Provider:     u.Provider,
+			Model:        u.Model,
+			Conversation: u.Conversation,
+		})
+		if err != nil {
+			writeErr(w, err)
+			return
+		}
+		d.Detail.Since = since
+	}
 	s.renderFrag(w, "period-detail", d)
 }
 
@@ -387,6 +405,21 @@ func (s *server) cards(ctx context.Context, u uiFilter) ([]cardView, error) {
 			return nil, err
 		}
 		out = append(out, cardView{Period: p.period, Label: p.label, Hero: p.hero, S: sum})
+	}
+	since, err := storage.Earliest(ctx, s.db, storage.Filter{
+		Source:       u.Source,
+		Provider:     u.Provider,
+		Model:        u.Model,
+		Conversation: u.Conversation,
+	})
+	if err != nil {
+		return nil, err
+	}
+	for i := range out {
+		if out[i].Period == "all" {
+			out[i].Since = since
+			break
+		}
 	}
 	return out, nil
 }

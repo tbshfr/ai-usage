@@ -22,7 +22,7 @@
   <button class="stat-card" hx-get="/fragments/period-detail?period={{.Period}}" hx-target="#period-detail" hx-include="#filter-bar" title="Show details">
     <div class="stat-top"><span class="stat-label">{{.Label}}</span></div>
     <div class="stat-mid">{{commas .S.TotalTokens}}</div>
-    <div class="stat-unit muted">tokens</div>
+    <div class="stat-unit muted">{{if .Since}}tokens since {{utcDate .Since}}{{else}}tokens{{end}}</div>
     <div class="stat-foot">
       <span class="badge badge-cache">hit {{pct .S.CacheHitRate}}</span>
       <span class="muted">{{commas .S.Requests}} requests</span>
@@ -47,6 +47,7 @@
     <div><dt>Cache creation</dt><dd>{{tokens .Detail.S.CacheCreationTokens}}</dd></div>
     <div><dt>Reasoning</dt><dd>{{tokens .Detail.S.ReasoningTokens}}</dd></div>
     <div><dt>Cache hit rate</dt><dd>{{pct .Detail.S.CacheHitRate}}</dd></div>
+    {{if .Detail.Since}}<div><dt>Since</dt><dd>{{utcDate .Detail.Since}}</dd></div>{{end}}
     <div><dt>Cost</dt><dd>{{costLine .Detail.S.CostKnownCount .Detail.S.CostUnknownCount .Detail.S.CostTotal}}</dd></div>
   </dl>
 </section>

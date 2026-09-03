@@ -202,6 +202,32 @@ FROM generations WHERE ` + where
 	return s, nil
 }
 
+// Earliest returns the timestamp of the first stored generation matching
+// the filter's source/provider/model/conversation constraints. The filter's
+// From lower bound is ignored so the All time card can label itself
+// "tokens since <date>"; To is kept (normalized to now when zero) to match
+// the card's upper bound. It returns nil when no row matches (empty DB or
+// an overly narrow filter), in which case callers keep the plain "tokens"
+// label.
+func Earliest(ctx context.Context, db *sql.DB, f Filter) (*time.Time, error) {
+	f.From = time.Time{}
+	f, err := f.normalize(time.Now())
+	if err != nil {
+		return nil, err
+	}
+	where, args := f.whereSQL()
+	var min sql.NullInt64
+	if err := db.QueryRowContext(ctx,
+		`SELECT MIN(timestamp) FROM generations WHERE `+where, args...).Scan(&min); err != nil {
+		return nil, fmt.Errorf("earliest query: %w", err)
+	}
+	if !min.Valid {
+		return nil, nil
+	}
+	t := time.UnixMilli(min.Int64).UTC()
+	return &t, nil
+}
+
 // Timeseries returns per-bucket aggregates. Hour and day buckets are grouped
 // in SQL; day rows are merged in Go for week (Monday-anchored) and month
 // (calendar month) buckets.

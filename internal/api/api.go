@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"database/sql"
 	"encoding/json"
 	"log/slog"
@@ -105,7 +106,15 @@ func (w *statusWriter) Flush() {
 func (w *statusWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
 
 func writeJSON(w http.ResponseWriter, code int, body any) {
+	// Encode to a buffer first: json.Encode fails on non-finite floats
+	// (+Inf/NaN). Writing the header first would send 200 with an empty
+	// body; fail closed with 500 before anything is written instead.
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(body); err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
-	_ = json.NewEncoder(w).Encode(body)
+	_, _ = w.Write(buf.Bytes())
 }

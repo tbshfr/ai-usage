@@ -125,6 +125,16 @@ Run the dashboard behind a TLS-terminating reverse proxy (nginx, Caddy)
 when exposing it beyond a trusted network; the binary itself serves
 plain HTTP.
 
+> Login rate limiting notes: per-IP limiting (`3/15m` per IP, `100/15m`
+> global) attributes attempts by the rightmost `X-Forwarded-For` entry,
+> which is only trustworthy behind an appending reverse proxy (Caddy and
+> nginx append the observed peer address by default, so the rightmost
+> entry is the one the proxy saw). Do not expose the binary directly to
+> untrusted clients: a direct client can rotate `X-Forwarded-For` to evade
+> the per-IP limit and, with 100 spoofed failures, lock out legitimate
+> logins until the window drains. Behind Caddy/nginx with default
+> appending behavior this rotation fails and the limits hold.
+
 ## Data location & privacy
 
 Everything stays on your machine. The binary makes no outbound network

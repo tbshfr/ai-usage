@@ -3,9 +3,11 @@ package normalize
 import (
 	"errors"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/ptrace"
@@ -87,7 +89,34 @@ func hasPrefixKey(m pcommon.Map, prefix string) bool {
 
 func serviceName(resource pcommon.Map) string {
 	name, _ := attrString(resource, "service.name")
-	return name
+	return truncateLabel(name)
+}
+
+// maxTokensPerCall and maxCostUSD bound single-span values so one crafted
+// OTLP span cannot poison SUM() aggregates or JSON encoding for all readers.
+// Real single LLM calls are orders of magnitude smaller; out-of-range values
+// are treated as missing (nil), never stored.
+const (
+	maxTokensPerCall = int64(1_000_000_000)
+	maxCostUSD       = 1_000_000.0
+)
+
+// maxLabelLen caps free-form telemetry strings (model, provider,
+// conversation, agent, repo, branch) so one writer cannot permanently inflate
+// dropdowns, GROUP BYs, and page sizes for all readers. The cap is a byte
+// budget; truncation stays on a rune boundary so multi-byte labels never
+// store invalid UTF-8.
+const maxLabelLen = 256
+
+func truncateLabel(s string) string {
+	if len(s) <= maxLabelLen {
+		return s
+	}
+	b := s[:maxLabelLen]
+	for len(b) > 0 && !utf8.ValidString(b) {
+		b = b[:len(b)-1]
+	}
+	return b
 }
 
 func attrString(m pcommon.Map, key string) (string, bool) {
@@ -123,13 +152,16 @@ func requireStrings(m pcommon.Map, keys ...string) error {
 func firstString(m pcommon.Map, keys ...string) string {
 	for _, k := range keys {
 		if v, ok := attrString(m, k); ok {
-			return v
+			return truncateLabel(v)
 		}
 	}
 	return ""
 }
 
 // attrInt tolerates exporters that send numbers as doubles or strings.
+// Non-finite doubles (NaN/Inf), negatives, and values above maxTokensPerCall
+// are rejected as missing so one crafted span cannot poison aggregates
+// (SUM overflow, MinInt64 coercion) or deflate ledgers.
 func attrInt(m pcommon.Map, key string) (int64, bool) {
 	v, ok := m.Get(key)
 	if !ok {
@@ -137,12 +169,20 @@ func attrInt(m pcommon.Map, key string) (int64, bool) {
 	}
 	switch v.Type() {
 	case pcommon.ValueTypeInt:
-		return v.Int(), true
+		n := v.Int()
+		if n < 0 || n > maxTokensPerCall {
+			return 0, false
+		}
+		return n, true
 	case pcommon.ValueTypeDouble:
-		return int64(v.Double()), true
+		d := v.Double()
+		if math.IsNaN(d) || math.IsInf(d, 0) || d < 0 || d > float64(maxTokensPerCall) {
+			return 0, false
+		}
+		return int64(d), true
 	case pcommon.ValueTypeStr:
 		n, err := strconv.ParseInt(v.Str(), 10, 64)
-		if err != nil {
+		if err != nil || n < 0 || n > maxTokensPerCall {
 			return 0, false
 		}
 		return n, true
@@ -158,12 +198,20 @@ func attrDouble(m pcommon.Map, key string) (float64, bool) {
 	}
 	switch v.Type() {
 	case pcommon.ValueTypeDouble:
-		return v.Double(), true
+		d := v.Double()
+		if math.IsNaN(d) || math.IsInf(d, 0) || d < 0 || d > maxCostUSD {
+			return 0, false
+		}
+		return d, true
 	case pcommon.ValueTypeInt:
-		return float64(v.Int()), true
+		n := v.Int()
+		if n < 0 || float64(n) > maxCostUSD {
+			return 0, false
+		}
+		return float64(n), true
 	case pcommon.ValueTypeStr:
 		f, err := strconv.ParseFloat(v.Str(), 64)
-		if err != nil {
+		if err != nil || math.IsNaN(f) || math.IsInf(f, 0) || f < 0 || f > maxCostUSD {
 			return 0, false
 		}
 		return f, true

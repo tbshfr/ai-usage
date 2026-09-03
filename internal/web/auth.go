@@ -31,6 +31,11 @@ const (
 // to X-Forwarded-For, so the rightmost entry is the only one the proxy
 // observed; everything to its left is client-controlled. Requests that did
 // not come through the proxy fall back to RemoteAddr.
+//
+// WARNING: this trust is only safe behind an appending proxy (Caddy/nginx
+// default). A client connecting directly controls X-Forwarded-For and can
+// rotate it to evade the per-IP login limit (see README). Always run behind
+// the proxy when non-loopback.
 func clientIP(r *http.Request) string {
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
 		parts := strings.Split(xff, ",")

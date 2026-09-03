@@ -12,6 +12,15 @@ import (
 
 const dayMs = 86400000
 
+// maxDistinctValues and maxBreakdownGroups bound filter dropdowns and
+// breakdown tables so one OTLP writer sending many unique model/provider
+// values cannot permanently inflate every reader's page size. Values beyond
+// the cap are omitted from dropdowns/groups until cleanup.
+const (
+	maxDistinctValues  = 1000
+	maxBreakdownGroups = 1000
+)
+
 // Bucket selects the timeseries granularity. Hour and day are grouped
 // directly in SQL; week (Monday-anchored) and month (calendar month) merge
 // UTC day rows in Go. All bucketing is done in UTC (the API layer documents
@@ -123,6 +132,13 @@ func CacheHitRate(input, cacheRead, cacheCreation int64) *float64 {
 		return nil
 	}
 	rate := float64(cacheRead) / float64(denom)
+	// Clamp defense-in-depth: with validated non-negative inputs rate is
+	// already in [0,1]; clamp so legacy/edge rows can never render -10% etc.
+	if rate < 0 {
+		rate = 0
+	} else if rate > 1 {
+		rate = 1
+	}
 	return &rate
 }
 
@@ -343,7 +359,10 @@ FROM generations WHERE ` + where + ` GROUP BY ` + column
 		q += ` ORDER BY COALESCE(SUM(input_tokens), 0) + COALESCE(SUM(output_tokens), 0)
 			+ COALESCE(SUM(cache_read_tokens), 0) + COALESCE(SUM(cache_creation_tokens), 0)
 			+ COALESCE(SUM(reasoning_tokens), 0) DESC`
+	} else {
+		q += ` ORDER BY COALESCE(` + column + `, '')`
 	}
+	q += fmt.Sprintf(` LIMIT %d`, maxBreakdownGroups)
 	rows, err := db.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, fmt.Errorf("breakdown query: %w", err)
@@ -402,7 +421,7 @@ func distinct(ctx context.Context, db *sql.DB, f Filter, column string) ([]strin
 	}
 	where, args := f.whereSQL()
 	rows, err := db.QueryContext(ctx,
-		`SELECT DISTINCT `+column+` FROM generations WHERE `+column+` IS NOT NULL AND `+where,
+		`SELECT DISTINCT `+column+` FROM generations WHERE `+column+` IS NOT NULL AND `+where+` ORDER BY `+column+fmt.Sprintf(` LIMIT %d`, maxDistinctValues),
 		args...)
 	if err != nil {
 		return nil, fmt.Errorf("distinct query: %w", err)

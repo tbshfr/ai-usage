@@ -116,6 +116,46 @@ func TestBumpHTTPRejectCounts(t *testing.T) {
 	wantReason(t, got, ReasonKindHTTPReject, ReasonBadContentType, 1)
 }
 
+// TestHTTPRejectAllowlistMatchesCanonicalList guards the fixed enum: the
+// allowlist map is built from HTTPRejectReasons, so the two cannot drift,
+// and every canonical reason must bump (a new const missing from the slice
+// is a silent drop, so keep the slice next to the consts in pipeline.go).
+func TestHTTPRejectAllowlistMatchesCanonicalList(t *testing.T) {
+	if len(HTTPRejectReasons) == 0 {
+		t.Fatal("HTTPRejectReasons is empty")
+	}
+	seen := map[string]bool{}
+	for _, r := range HTTPRejectReasons {
+		if r == "" {
+			t.Errorf("HTTPRejectReasons contains empty reason")
+		}
+		if seen[r] {
+			t.Errorf("HTTPRejectReasons duplicates %q", r)
+		}
+		seen[r] = true
+		if _, ok := validHTTPRejectReasons[r]; !ok {
+			t.Errorf("allowlist missing canonical reason %q", r)
+		}
+	}
+	if len(validHTTPRejectReasons) != len(seen) {
+		t.Errorf("allowlist size %d != canonical list size %d", len(validHTTPRejectReasons), len(seen))
+	}
+	// Every allowlisted reason must actually count.
+	p := newStatsPipeline(t)
+	for _, r := range HTTPRejectReasons {
+		p.BumpHTTPReject(r)
+	}
+	got := p.ReasonCounts()
+	for _, r := range HTTPRejectReasons {
+		wantReason(t, got, ReasonKindHTTPReject, r, 1)
+	}
+	// Request-derived strings must never create rows.
+	p.BumpHTTPReject("application/json")
+	if n := p.ReasonCounts()[ReasonKindHTTPReject]["application/json"]; n != 0 {
+		t.Errorf("request-derived reason counted: %d", n)
+	}
+}
+
 func TestReceiverRejectsAreCounted(t *testing.T) {
 	db, pipeline, srv := startIngestStack(t)
 	defer db.Close()

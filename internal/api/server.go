@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"sort"
 	"strconv"
 	"time"
 
@@ -219,8 +220,9 @@ func apiRoutes(db *sql.DB, stats StatsFunc, reasons ReasonCountsFunc, logger *sl
 	})
 	// GET /api/stats/reasons?day=YYYY-MM-DD serves the per-reason
 	// breakdown of one day's ingestion counters (fixed-enum kind/reason
-	// pairs). The data is persisted every save interval, so today's row
-	// can lag the live counters by up to one minute.
+	// pairs). For today the live pipeline counters replace the persisted
+	// rows (they already include the persisted base); older days serve
+	// persisted rows directly.
 	mux.HandleFunc("GET /api/stats/reasons", func(w http.ResponseWriter, r *http.Request) {
 		day := r.URL.Query().Get("day")
 		if day == "" {
@@ -231,6 +233,21 @@ func apiRoutes(db *sql.DB, stats StatsFunc, reasons ReasonCountsFunc, logger *sl
 			writeErr(w, http.StatusBadRequest, fmt.Sprintf("invalid day %q (want YYYY-MM-DD)", day))
 			return
 		}
+		if day == time.Now().UTC().Format("2006-01-02") && reasons != nil {
+			live := reasons()
+			out := make([]reasonStatResponse, 0)
+			for kind, byReason := range live {
+				for reason, n := range byReason {
+					if n == 0 {
+						continue
+					}
+					out = append(out, reasonStatResponse{Kind: kind, Reason: reason, Count: int64(n)})
+				}
+			}
+			sortReasonStats(out)
+			writeJSON(w, http.StatusOK, out)
+			return
+		}
 		rows, _, err := storage.DailyReasonsForDay(r.Context(), db, day)
 		if err != nil {
 			internalErr(w, err)
@@ -238,8 +255,12 @@ func apiRoutes(db *sql.DB, stats StatsFunc, reasons ReasonCountsFunc, logger *sl
 		}
 		out := make([]reasonStatResponse, 0, len(rows))
 		for _, s := range rows {
+			if s.Count == 0 {
+				continue
+			}
 			out = append(out, reasonStatResponse{Kind: s.Kind, Reason: s.Reason, Count: s.Count})
 		}
+		sortReasonStats(out)
 		writeJSON(w, http.StatusOK, out)
 	})
 	return mux
@@ -513,6 +534,22 @@ type reasonStatResponse struct {
 	Kind   string `json:"kind"`
 	Reason string `json:"reason"`
 	Count  int64  `json:"count"`
+}
+
+// sortReasonStats orders the breakdown in the canonical kind order shared
+// with the dashboard UI (see ingest.ReasonKindOrder), reasons alphabetical
+// within a kind. Unknown kinds sort last.
+func sortReasonStats(out []reasonStatResponse) {
+	sort.Slice(out, func(i, j int) bool {
+		ri, rj := ingest.ReasonKindRank(out[i].Kind), ingest.ReasonKindRank(out[j].Kind)
+		if ri != rj {
+			return ri < rj
+		}
+		if out[i].Kind != out[j].Kind {
+			return out[i].Kind < out[j].Kind
+		}
+		return out[i].Reason < out[j].Reason
+	})
 }
 
 func writeErr(w http.ResponseWriter, code int, msg string) {

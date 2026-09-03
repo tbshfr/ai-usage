@@ -42,13 +42,15 @@ func TestStatsReasonsFragmentForPersistedDay(t *testing.T) {
 	wantNotContains(t, body, "no_source", "unauthorized")
 }
 
-func TestStatsReasonsFragmentMergesLiveForToday(t *testing.T) {
+func TestStatsReasonsFragmentLiveReplacesPersistedForToday(t *testing.T) {
 	db := seedtest.DB(t)
 	today := utcDate(time.Now())
 	seedReasons(t, db, today)
+	// Production ReasonCounts returns base + session (persisted 9 + 1 new
+	// = 10); the fragment must show 10, not 9+10=19.
 	srv := httptest.NewServer(New(db, nil,
 		func() ingest.ReasonCounts {
-			return ingest.ReasonCounts{ingest.ReasonKindHTTPReject: {ingest.ReasonUnauthorized: 1}}
+			return ingest.ReasonCounts{ingest.ReasonKindHTTPReject: {ingest.ReasonUnauthorized: 10}}
 		}, nil, "test"))
 	defer srv.Close()
 
@@ -56,8 +58,8 @@ func TestStatsReasonsFragmentMergesLiveForToday(t *testing.T) {
 	if status != http.StatusOK {
 		t.Fatalf("status %d", status)
 	}
-	// Persisted 9 + live 1 = 10, and today's row is marked live.
 	wantContains(t, body, "10", "(live)")
+	wantNotContains(t, body, "19")
 }
 
 func TestStatsReasonsFragmentCloseAndInvalidDay(t *testing.T) {
@@ -100,4 +102,35 @@ func TestStatsPageKeepsRejectionOnlyDays(t *testing.T) {
 		t.Fatalf("status %d", status)
 	}
 	wantContains(t, body, day, "rejection, error, and duplicate")
+}
+
+func TestReasonLabelsCoverHTTPRejectReasons(t *testing.T) {
+	// Every transport-rejection reason needs a friendly label; a new
+	// HTTPRejectReasons entry without a reasonLabel case would render raw.
+	for _, reason := range ingest.HTTPRejectReasons {
+		if got := reasonLabel(ingest.ReasonKindHTTPReject, reason); got == reason {
+			t.Errorf("reasonLabel(http_reject, %q) = raw %q, want friendly label", reason, got)
+		}
+	}
+}
+
+func TestStatsReasonsFragmentRendersUnknownKind(t *testing.T) {
+	db := seedtest.DB(t)
+	day := "2026-08-02"
+	if err := storage.UpsertDailyReasons(context.Background(), db, day, []storage.ReasonStat{
+		{Kind: ingest.ReasonKindRejected, Reason: ingest.ReasonNoSource, Count: 1},
+		{Kind: "future_kind", Reason: "future_reason", Count: 2},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(New(db, nil, nil, nil, "test"))
+	defer srv.Close()
+
+	status, body := get(t, srv.URL+"/fragments/stats-reasons?day="+url.QueryEscape(day))
+	if status != http.StatusOK {
+		t.Fatalf("status %d", status)
+	}
+	// Unknown kinds render with their raw kind as fallback label instead
+	// of being dropped (parity with the JSON API, which sorts them last).
+	wantContains(t, body, "future_kind", "future_reason")
 }

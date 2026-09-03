@@ -27,7 +27,9 @@ import (
 // the HTTP receiver. A non-empty token requires clients to send
 // "authorization: Bearer <token>" metadata; onReject (may be nil) is
 // called once per unauthenticated export so the caller can count
-// transport-level rejections.
+// transport-level rejections. Malformed payloads are counted as
+// decode_failed via RejectCounter when the consumer implements it,
+// matching the HTTP receiver.
 func NewGRPCServer(consumer Consumer, logger *slog.Logger, token string, onReject func()) *grpc.Server {
 	if logger == nil {
 		logger = slog.Default()
@@ -69,6 +71,9 @@ type traceService struct {
 func (t *traceService) Export(ctx context.Context, req *coltracepb.ExportTraceServiceRequest) (*coltracepb.ExportTraceServiceResponse, error) {
 	td, err := tracesFromProto(req)
 	if err != nil {
+		if rc, ok := t.consumer.(RejectCounter); ok {
+			rc.BumpHTTPReject(ReasonDecodeFailed)
+		}
 		return nil, decodeErr(err)
 	}
 	if err := t.consumer.ConsumeTraces(ctx, td); err != nil {
@@ -100,6 +105,9 @@ type metricsService struct {
 func (m *metricsService) Export(ctx context.Context, req *colmetricpb.ExportMetricsServiceRequest) (*colmetricpb.ExportMetricsServiceResponse, error) {
 	md, err := metricsFromProto(req)
 	if err != nil {
+		if rc, ok := m.consumer.(RejectCounter); ok {
+			rc.BumpHTTPReject(ReasonDecodeFailed)
+		}
 		return nil, decodeErr(err)
 	}
 	if err := m.consumer.ConsumeMetrics(ctx, md); err != nil {
@@ -141,6 +149,9 @@ type logsService struct {
 func (l *logsService) Export(ctx context.Context, req *collogpb.ExportLogsServiceRequest) (*collogpb.ExportLogsServiceResponse, error) {
 	ld, err := logsFromProto(req)
 	if err != nil {
+		if rc, ok := l.consumer.(RejectCounter); ok {
+			rc.BumpHTTPReject(ReasonDecodeFailed)
+		}
 		return nil, decodeErr(err)
 	}
 	if err := l.consumer.ConsumeLogs(ctx, ld); err != nil {

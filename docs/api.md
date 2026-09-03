@@ -184,8 +184,8 @@ continuously. Both counters are part of the invariant
 
 The per-reason breakdown behind the day rows on the `/stats` page: fixed
 `kind`/`reason` pairs (no free-form values), so the response is always a
-small bounded list. Persisted data is written every save interval, so
-today's row can lag the live counters by up to one minute.
+small bounded list. Today's row serves the live counters; older days serve
+persisted rows.
 
 ```json
 [
@@ -198,7 +198,8 @@ Kinds: `rejected` (spans that can never become records), `ignored` (log
 records and metric datapoints), `norm_error` (malformed generation spans),
 `dedup` (duplicate records, broken down by source), and `http_reject`
 (requests rejected before the pipeline — auth failures, malformed
-requests — counted per request, not per record). A day with nothing
+requests — counted per request, not per record). Today's row serves the
+live counters; older days serve persisted rows. A day with nothing
 recorded returns `[]`; a malformed `day` returns `400`.
 
 ## Health probes

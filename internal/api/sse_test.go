@@ -20,7 +20,7 @@ import (
 // stream a data-changed frame through the full middleware chain.
 func TestEventsThroughAccessLog(t *testing.T) {
 	hub := live.New()
-	h := NewWithAuth(seedtest.DB(t), testLogger(t), nil, hub, "test", nil)
+	h := NewWithAuth(seedtest.DB(t), testLogger(t), nil, nil, hub, "test", nil)
 	srv := httptest.NewServer(h)
 	t.Cleanup(srv.Close)
 

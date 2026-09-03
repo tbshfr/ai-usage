@@ -163,7 +163,30 @@ func TestRestoreBaseMissingRowIsNotAnError(t *testing.T) {
 	if err := p.RestoreBase(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if p.baseDay != "" || p.base.Received != 0 {
+	// The day is recorded even when the row is missing so a later
+	// midnight rollover can attribute pre-midnight session counters to
+	// the correct day; the counters themselves stay zero.
+	if p.baseDay != utcDay(time.Now()) || p.base.Received != 0 {
 		t.Errorf("base must stay zero for a missing row: day=%q base=%+v", p.baseDay, p.base)
+	}
+}
+
+func TestRestoreBaseKeepsOrphanReasons(t *testing.T) {
+	ctx := context.Background()
+	p := newStatsPipeline(t)
+	today := utcDay(time.Now())
+	// Partial save: reasons committed, stats row missing.
+	if err := storage.UpsertDailyReasons(ctx, p.db, today, []storage.ReasonStat{
+		{Kind: ReasonKindHTTPReject, Reason: ReasonUnauthorized, Count: 5},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	p2 := newStatsPipelineOn(t, p.db)
+	if err := p2.RestoreBase(ctx); err != nil {
+		t.Fatal(err)
+	}
+	got := p2.ReasonCounts()
+	if got[ReasonKindHTTPReject][ReasonUnauthorized] != 5 {
+		t.Errorf("orphan reasons lost: %v", got)
 	}
 }

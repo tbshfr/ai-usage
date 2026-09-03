@@ -31,7 +31,7 @@ func TestGRPCTracesIngestion(t *testing.T) {
 		t.Fatal(err)
 	}
 	pipeline := NewPipeline(db, nil, nil)
-	server := NewGRPCServer(pipeline, nil, "")
+	server := NewGRPCServer(pipeline, nil, "", nil)
 
 	ln, err := ServeGRPC(server, "127.0.0.1:0")
 	if err != nil {
@@ -81,7 +81,7 @@ func TestGRPCTokenRequired(t *testing.T) {
 	if err := storage.Migrate(db, nil); err != nil {
 		t.Fatal(err)
 	}
-	server := NewGRPCServer(NewPipeline(db, nil, nil), nil, "s3cret")
+	server := NewGRPCServer(NewPipeline(db, nil, nil), nil, "s3cret", nil)
 	ln, err := ServeGRPC(server, "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)

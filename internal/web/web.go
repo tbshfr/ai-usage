@@ -55,24 +55,25 @@ func staticHandler() http.Handler {
 // Templates are parsed once at package init from the embedded FS.
 // An empty version renders as "dev". The hub drives the /events SSE
 // stream; nil disables data-changed signals (the stream then only sends
-// keepalives). stats may be nil; when set, the stats page merges the live
-// pipeline counters into today's row.
-func New(db *sql.DB, stats func() ingest.Stats, hub *live.Hub, version string) http.Handler {
-	return newMux(db, stats, nil, hub, version)
+// keepalives). stats may be nil; when set, the live pipeline counters
+// replace today's persisted row. reasons may be nil; when set, the live
+// per-reason breakdown replaces today's persisted rows.
+func New(db *sql.DB, stats func() ingest.Stats, reasons func() ingest.ReasonCounts, hub *live.Hub, version string) http.Handler {
+	return newMux(db, stats, reasons, nil, hub, version)
 }
 
 // NewAuthed adds the login/logout routes and applies the dashboard
 // guard to every UI route; api.NewWithAuth additionally wraps the whole
 // dashboard port so /api/* is protected as well.
-func NewAuthed(db *sql.DB, stats func() ingest.Stats, dash *auth.Dashboard, hub *live.Hub, version string) http.Handler {
-	return dash.Middleware(newMux(db, stats, dash, hub, version))
+func NewAuthed(db *sql.DB, stats func() ingest.Stats, reasons func() ingest.ReasonCounts, dash *auth.Dashboard, hub *live.Hub, version string) http.Handler {
+	return dash.Middleware(newMux(db, stats, reasons, dash, hub, version))
 }
 
-func newMux(db *sql.DB, stats func() ingest.Stats, dash *auth.Dashboard, hub *live.Hub, version string) http.Handler {
+func newMux(db *sql.DB, stats func() ingest.Stats, reasons func() ingest.ReasonCounts, dash *auth.Dashboard, hub *live.Hub, version string) http.Handler {
 	if version == "" {
 		version = "dev"
 	}
-	s := &server{db: db, stats: stats, dash: dash, hub: hub, limiter: newLoginLimiter(), version: version}
+	s := &server{db: db, stats: stats, reasons: reasons, dash: dash, hub: hub, limiter: newLoginLimiter(), version: version}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", s.dashboard)
 	mux.HandleFunc("GET /trends", s.trends)
@@ -88,6 +89,7 @@ func newMux(db *sql.DB, stats func() ingest.Stats, dash *auth.Dashboard, hub *li
 	mux.HandleFunc("GET /fragments/breakdowns", s.fragBreakdowns)
 	mux.HandleFunc("GET /fragments/session-list", s.fragSessionList)
 	mux.HandleFunc("GET /fragments/stats", s.fragStats)
+	mux.HandleFunc("GET /fragments/stats-reasons", s.fragStatsReasons)
 	mux.HandleFunc("GET /robots.txt", s.robotsTxt)
 	mux.Handle("GET /static/{path...}", staticHandler())
 	if dash != nil {
@@ -113,6 +115,7 @@ func (s *server) robotsTxt(w http.ResponseWriter, r *http.Request) {
 type server struct {
 	db      *sql.DB
 	stats   func() ingest.Stats
+	reasons func() ingest.ReasonCounts
 	dash    *auth.Dashboard
 	hub     *live.Hub
 	limiter *loginLimiter
@@ -135,6 +138,7 @@ type pageData struct {
 	Recent      recentView
 	Breaks      breaksView
 	S           statsView
+	Reasons     *reasonsDetailView
 	D           *normalize.Generation
 	View        string        // sessions page: "sessions" or "requests"
 	SortOrder   storage.Order // sessions page list sort
@@ -247,6 +251,27 @@ type statsView struct {
 	Total    ingest.Stats
 	Chart    chartJSON
 	HasChart bool
+}
+
+// reasonsDetailView is the per-day stats breakdown expansion: reason
+// counters grouped by kind, with human-readable labels.
+type reasonsDetailView struct {
+	Day    string
+	Live   bool // true when today's live pipeline counters replace the persisted rows
+	Groups []reasonGroup
+}
+
+type reasonGroup struct {
+	Kind  string
+	Label string
+	Rows  []reasonRow
+	Note  string // optional footnote (e.g. transport rejections count requests)
+}
+
+type reasonRow struct {
+	Reason string
+	Label  string
+	Count  uint64
 }
 
 // dashboard renders the landing page: today's tokens big, weekly/monthly/
@@ -519,8 +544,208 @@ func (s *server) fragStats(w http.ResponseWriter, r *http.Request) {
 	s.renderFrag(w, "stats", d)
 }
 
+// fragStatsReasons swaps the per-day rejection/error/dedup breakdown on
+// the stats page. A missing day param renders an empty body (the close
+// button). Today's breakdown replaces the persisted rows with the live
+// pipeline counters, mirroring loadStats. Reasons come from a fixed
+// enum, so the query parameter only selects a day — nothing client
+// supplied ever reaches the stats tables.
+func (s *server) fragStatsReasons(w http.ResponseWriter, r *http.Request) {
+	day := r.URL.Query().Get("day")
+	if day == "" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	if _, err := time.Parse("2006-01-02", day); err != nil {
+		http.Error(w, "invalid day "+day+" (want YYYY-MM-DD)", http.StatusBadRequest)
+		return
+	}
+	d := &pageData{}
+	view, err := s.reasonsDetail(r.Context(), day)
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	d.Reasons = view
+	s.renderFrag(w, "stats-reasons", d)
+}
+
+// reasonsDetail assembles one day's per-reason breakdown. For today the
+// live pipeline counters replace the persisted rows (they already include
+// the persisted base, so merging would double-count); older days serve
+// persisted rows directly.
+func (s *server) reasonsDetail(ctx context.Context, day string) (*reasonsDetailView, error) {
+	counts := map[ingestReasonKey]uint64{}
+	today := utcDate(time.Now())
+	live := day == today && s.reasons != nil
+	if live {
+		for kind, reasons := range s.reasons() {
+			for reason, n := range reasons {
+				if n == 0 {
+					continue
+				}
+				counts[ingestReasonKey{kind, reason}] = n
+			}
+		}
+	} else {
+		rows, _, err := storage.DailyReasonsForDay(ctx, s.db, day)
+		if err != nil {
+			return nil, err
+		}
+		for _, row := range rows {
+			counts[ingestReasonKey{row.Kind, row.Reason}] += uint64(row.Count)
+		}
+	}
+	// Deterministic order: canonical kind order shared with the JSON API
+	// (see ingest.ReasonKindOrder), reasons alphabetical. Unknown kinds
+	// (manual DB rows, future kinds) render last, matching sortReasonStats.
+	var groups []reasonGroup
+	seen := make(map[string]bool, len(ingest.ReasonKindOrder))
+	for _, kind := range ingest.ReasonKindOrder {
+		seen[kind] = true
+		reasons, ok := groupReasons(counts, kind)
+		if !ok {
+			continue
+		}
+		label, note := kind, ""
+		if meta, ok := reasonKindMeta[kind]; ok {
+			label, note = meta.label, meta.note
+		}
+		groups = append(groups, reasonGroup{
+			Kind:  kind,
+			Label: label,
+			Rows:  reasons,
+			Note:  note,
+		})
+	}
+	for _, kind := range unknownReasonKinds(counts, seen) {
+		reasons, ok := groupReasons(counts, kind)
+		if !ok {
+			continue
+		}
+		groups = append(groups, reasonGroup{
+			Kind:  kind,
+			Label: kind,
+			Rows:  reasons,
+		})
+	}
+	return &reasonsDetailView{Day: day, Live: live, Groups: groups}, nil
+}
+
+// unknownReasonKinds returns kinds present with non-zero counters that are
+// not in the canonical order, sorted like the JSON API (rank, then kind).
+func unknownReasonKinds(counts map[ingestReasonKey]uint64, seen map[string]bool) []string {
+	var kinds []string
+	present := map[string]bool{}
+	for k, v := range counts {
+		if v == 0 || seen[k.kind] || present[k.kind] {
+			continue
+		}
+		present[k.kind] = true
+		kinds = append(kinds, k.kind)
+	}
+	sort.Slice(kinds, func(i, j int) bool {
+		ri, rj := ingest.ReasonKindRank(kinds[i]), ingest.ReasonKindRank(kinds[j])
+		if ri != rj {
+			return ri < rj
+		}
+		return kinds[i] < kinds[j]
+	})
+	return kinds
+}
+
+type ingestReasonKey struct{ kind, reason string }
+
+// reasonKindMeta carries the labels/footnotes for the breakdown groups.
+// Ordering comes from ingest.ReasonKindOrder (shared with the API), so the
+// same data renders in the same order everywhere. Reasons not in
+// reasonLabel (e.g. a dedup source) render with their raw enum value.
+var reasonKindMeta = map[string]struct {
+	label string
+	note  string
+}{
+	ingest.ReasonKindRejected:   {"Rejected spans", "Spans with no known source's markers, or healthy spans that are never generation records."},
+	ingest.ReasonKindIgnored:    {"Ignored (not used)", "Records that arrived healthy but can never become generations."},
+	ingest.ReasonKindNormError:  {"Normalization errors", "Spans recognized as generations but too malformed to normalize."},
+	ingest.ReasonKindDedup:      {"Deduplicated", "Duplicate generation records, by source (same trace/span ID retried or re-exported)."},
+	ingest.ReasonKindHTTPReject: {"Transport rejections", "Requests rejected before the pipeline; counted per request, not per record."},
+}
+
+// groupReasons sorts one kind's counters into display rows; ok is false
+// when the kind has no non-zero counters.
+func groupReasons(counts map[ingestReasonKey]uint64, kind string) ([]reasonRow, bool) {
+	keys := make([]string, 0, len(counts))
+	for k, v := range counts {
+		if k.kind != kind || v == 0 {
+			continue
+		}
+		keys = append(keys, k.reason)
+	}
+	if len(keys) == 0 {
+		return nil, false
+	}
+	sort.Strings(keys)
+	rows := make([]reasonRow, 0, len(keys))
+	for _, reason := range keys {
+		rows = append(rows, reasonRow{
+			Reason: reason,
+			Label:  reasonLabel(kind, reason),
+			Count:  counts[ingestReasonKey{kind, reason}],
+		})
+	}
+	return rows, true
+}
+
+// reasonLabel maps the fixed-enum reason codes to human-readable labels;
+// unknown values (dedup sources) render as-is.
+func reasonLabel(kind, reason string) string {
+	if kind == ingest.ReasonKindDedup {
+		return friendlySource(reason)
+	}
+	switch reason {
+	case ingest.ReasonNoSource:
+		return "No known source"
+	case ingest.ReasonNotGeneration:
+		return "Not a generation record"
+	case ingest.ReasonLogs:
+		return "Log records"
+	case ingest.ReasonMetrics:
+		return "Metric datapoints"
+	case ingest.ReasonBadAttrs:
+		return "Non-string attribute values"
+	case ingest.ReasonBadIDs:
+		return "Empty trace/span ID"
+	case ingest.ReasonNormOther:
+		return "Other"
+	case ingest.ReasonUnauthorized:
+		return "Missing or invalid bearer token (HTTP)"
+	case ingest.ReasonGRPCUnauthorized:
+		return "Missing or invalid bearer token (gRPC)"
+	case ingest.ReasonBadContentType:
+		return "Missing or unsupported content type"
+	case ingest.ReasonBadEncoding:
+		return "Unsupported content encoding"
+	case ingest.ReasonBodyTooLarge:
+		return "Request body too large"
+	case ingest.ReasonBodyReadError:
+		return "Request body read error"
+	case ingest.ReasonBadGzip:
+		return "Malformed gzip body"
+	case ingest.ReasonDecodeFailed:
+		return "Payload decode failed"
+	default:
+		return reason
+	}
+}
+
 func (s *server) loadStats(ctx context.Context, d *pageData) error {
 	rows, err := storage.RecentDailyStats(ctx, s.db, statsDaysLimit)
+	if err != nil {
+		return err
+	}
+	// Days whose only activity was transport rejections have zero record
+	// counters; they stay visible so attack traffic shows up in the table.
+	reasonDays, err := storage.RecentReasonDays(ctx, s.db, statsDaysLimit)
 	if err != nil {
 		return err
 	}
@@ -532,15 +757,53 @@ func (s *server) loadStats(ctx context.Context, d *pageData) error {
 		// save interval, so the live counters replace it. Without a
 		// stats func, today's persisted row is the best data available
 		// and must not be dropped.
-		if (s.stats != nil && r.Day == today) || r.Received == 0 {
+		if (s.stats != nil && r.Day == today) || (r.Received == 0 && !reasonDays[r.Day]) {
 			continue
 		}
 		v.Rows = append(v.Rows, statsRow{Day: r.Day, Stats: dailyToIngest(r)})
 	}
+	// Orphan reason days: a crash between the old two-transaction saves
+	// could leave stats_daily_reasons rows without a stats_daily row.
+	// Saves are now atomic (see UpsertDailySnapshot), but pre-existing
+	// orphans must still surface — the table iterates stats_daily, so
+	// without this union they stay historically invisible.
+	seen := make(map[string]bool, len(v.Rows)+len(reasonDays))
+	for _, r := range v.Rows {
+		seen[r.Day] = true
+	}
+	for day := range reasonDays {
+		if seen[day] {
+			continue
+		}
+		// Today's live row (below) already covers today when live
+		// counters are available.
+		if day == today && s.stats != nil {
+			continue
+		}
+		seen[day] = true
+		v.Rows = append(v.Rows, statsRow{Day: day})
+	}
+	sort.Slice(v.Rows, func(i, j int) bool { return v.Rows[i].Day > v.Rows[j].Day })
 	if s.stats != nil {
-		if live := s.stats(); live.Received > 0 {
+		live := s.stats()
+		// Transport rejections never increment Received, so a live row
+		// with only http_reject activity is all-zero in Stats. It must
+		// still show today, otherwise an all-day auth flood disappears
+		// until it becomes yesterday. Persisted reason rows keep today
+		// visible across restarts when the session counters are still
+		// zero.
+		showLive := !isZeroIngestStats(live) || reasonDays[today]
+		if !showLive && s.reasons != nil {
+			showLive = hasLiveReasons(s.reasons())
+		}
+		if showLive {
 			v.Rows = append([]statsRow{{Day: today, Live: true, Stats: live}}, v.Rows...)
 		}
+	}
+	// Hard cap includes the live today row: without this, a today with no
+	// persisted snapshot yet (or orphan reason days) yields 31 rows.
+	if len(v.Rows) > statsDaysLimit {
+		v.Rows = v.Rows[:statsDaysLimit]
 	}
 	for _, r := range v.Rows {
 		v.Total = addIngestStats(v.Total, r.Stats)
@@ -574,6 +837,26 @@ func addIngestStats(a, b ingest.Stats) ingest.Stats {
 		NormalizationErrors: a.NormalizationErrors + b.NormalizationErrors,
 		IngestionErrors:     a.IngestionErrors + b.IngestionErrors,
 	}
+}
+
+// isZeroIngestStats reports whether no record-level activity was counted.
+// Transport rejections (http_reject) live only in the per-reason breakdown,
+// so a zero Stats can still mean visible activity (see hasLiveReasons).
+func isZeroIngestStats(s ingest.Stats) bool {
+	return s == (ingest.Stats{})
+}
+
+// hasLiveReasons reports whether the live per-reason breakdown holds any
+// non-zero counter.
+func hasLiveReasons(rc ingest.ReasonCounts) bool {
+	for _, reasons := range rc {
+		for _, n := range reasons {
+			if n > 0 {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // buildStatsChart plots the problem counters (rejected, normalization and

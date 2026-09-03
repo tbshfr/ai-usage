@@ -1,0 +1,31 @@
+{{define "stats-reasons"}}
+{{if .Reasons}}
+<section class="period-detail">
+  <div class="detail-head">
+    <h2>Ingestion details &mdash; {{.Reasons.Day}}{{if .Reasons.Live}} <span class="muted">(live)</span>{{end}}</h2>
+    <button class="close" hx-get="/fragments/stats-reasons" hx-target="#stats-reasons" aria-label="Close details">&times;</button>
+  </div>
+  {{range .Reasons.Groups}}
+  <div class="reason-group">
+    <h3>{{.Label}}</h3>
+    <div class="table-scroll">
+    <table>
+      <thead><tr><th>Reason</th><th>Count</th></tr></thead>
+      <tbody>
+        {{range .Rows}}
+        <tr>
+          <td>{{.Label}}</td>
+          <td>{{commas .Count}}</td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+    </div>
+    {{if .Note}}<p class="muted">{{.Note}}</p>{{end}}
+  </div>
+  {{else}}
+  <p class="muted">No rejections, errors, or duplicates recorded for this day.</p>
+  {{end}}
+</section>
+{{end}}
+{{end}}

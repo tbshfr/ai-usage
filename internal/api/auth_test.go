@@ -17,7 +17,7 @@ func newAuthedServer(t *testing.T) *httptest.Server {
 		t.Fatal(err)
 	}
 	dash := auth.NewDashboard("admin", "s3cret", sessions)
-	srv := httptest.NewServer(NewWithAuth(seedtest.DB(t), testLogger(t), nil, nil, "test", dash))
+	srv := httptest.NewServer(NewWithAuth(seedtest.DB(t), testLogger(t), nil, nil, nil, "test", dash))
 	t.Cleanup(srv.Close)
 	return srv
 }

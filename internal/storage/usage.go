@@ -85,31 +85,31 @@ func InsertGeneration(ctx context.Context, db *sql.DB, gen normalize.Generation)
 }
 
 // InsertGenerations stores a batch of records in one transaction, returning
-// the number of newly inserted rows. Per-record semantics match
+// the number of newly inserted rows per source. Per-record semantics match
 // InsertGeneration (dedup via ID conflict, merge on conflict). The batch is
 // atomic: any error rolls back all of it, so a retried OTLP export replays
 // the whole batch (dedup makes replays safe).
-func InsertGenerations(ctx context.Context, db *sql.DB, gens []normalize.Generation) (int, error) {
+func InsertGenerations(ctx context.Context, db *sql.DB, gens []normalize.Generation) (map[string]int, error) {
 	if len(gens) == 0 {
-		return 0, nil
+		return nil, nil
 	}
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
-		return 0, fmt.Errorf("begin batch insert: %w", err)
+		return nil, fmt.Errorf("begin batch insert: %w", err)
 	}
 	defer tx.Rollback() // no-op after a successful commit
-	stored := 0
+	stored := make(map[string]int)
 	for _, gen := range gens {
 		inserted, err := insertGeneration(ctx, tx, gen)
 		if err != nil {
-			return 0, err
+			return nil, err
 		}
 		if inserted {
-			stored++
+			stored[gen.Source]++
 		}
 	}
 	if err := tx.Commit(); err != nil {
-		return 0, fmt.Errorf("commit batch insert: %w", err)
+		return nil, fmt.Errorf("commit batch insert: %w", err)
 	}
 	return stored, nil
 }

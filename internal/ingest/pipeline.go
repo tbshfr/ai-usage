@@ -3,6 +3,7 @@ package ingest
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -18,6 +19,92 @@ import (
 )
 
 const batchTimeout = 10 * time.Second
+
+// Reason kinds and reasons of the per-reason stats breakdown. Both are a
+// FIXED ENUM: values are persisted into stats_daily_reasons, so a new
+// value must come with a migration-safe review. Free-form strings (model
+// names, error texts) must never be used, or any authenticated client
+// could grow the table without bound.
+const (
+	ReasonKindRejected   = "rejected"
+	ReasonKindIgnored    = "ignored"
+	ReasonKindNormError  = "norm_error"
+	ReasonKindDedup      = "dedup"
+	ReasonKindHTTPReject = "http_reject"
+)
+
+const (
+	ReasonNoSource      = "no_source"        // span carries no known source's markers
+	ReasonNotGeneration = "not_a_generation" // healthy span, but never a generation record
+	ReasonLogs          = "logs"             // log records are ignored (see Stats.IgnoredNotUsed)
+	ReasonMetrics       = "metrics"          // metric datapoints are ignored (see Stats.IgnoredNotUsed)
+	ReasonBadAttrs      = "bad_attributes"   // known attribute present with a non-string value
+	ReasonBadIDs        = "bad_ids"          // empty trace/span ID, no dedup key derivable
+	ReasonNormOther     = "other"            // unclassified normalization error
+)
+
+// HTTP-reject reasons for the http_reject kind. When adding a value here,
+// add it to HTTPRejectReasons below — BumpHTTPReject drops anything not
+// allowlisted, so a missing entry silently loses counts (Warn only).
+const (
+	ReasonUnauthorized     = "unauthorized"         // OTLP/HTTP request without a valid bearer token
+	ReasonGRPCUnauthorized = "grpc_unauthenticated" // OTLP/gRPC export without a valid bearer token
+	ReasonBadContentType   = "bad_content_type"     // missing or unsupported content type
+	ReasonBadEncoding      = "bad_content_encoding"
+	ReasonBodyTooLarge     = "body_too_large"
+	ReasonBodyReadError    = "body_read_error"
+	ReasonBadGzip          = "bad_gzip"
+	ReasonDecodeFailed     = "decode_failed"
+)
+
+// HTTPRejectReasons is the canonical list of http_reject reasons. The
+// (day, kind, reason) rows are a fixed enum, so BumpHTTPReject must never
+// accept request-derived strings (e.g. a content-type value) — that would
+// let any client grow stats_daily_reasons without bound.
+var HTTPRejectReasons = []string{
+	ReasonUnauthorized,
+	ReasonGRPCUnauthorized,
+	ReasonBadContentType,
+	ReasonBadEncoding,
+	ReasonBodyTooLarge,
+	ReasonBodyReadError,
+	ReasonBadGzip,
+	ReasonDecodeFailed,
+}
+
+var validHTTPRejectReasons = func() map[string]struct{} {
+	m := make(map[string]struct{}, len(HTTPRejectReasons))
+	for _, r := range HTTPRejectReasons {
+		m[r] = struct{}{}
+	}
+	return m
+}()
+
+// ReasonKindOrder is the canonical display order of the breakdown groups,
+// shared by the dashboard UI and the JSON API so the same data renders in
+// the same order everywhere.
+var ReasonKindOrder = []string{
+	ReasonKindRejected,
+	ReasonKindIgnored,
+	ReasonKindNormError,
+	ReasonKindDedup,
+	ReasonKindHTTPReject,
+}
+
+// ReasonKindRank returns the display rank of a kind (lower sorts first);
+// unknown kinds sort after all known kinds.
+func ReasonKindRank(kind string) int {
+	for i, k := range ReasonKindOrder {
+		if k == kind {
+			return i
+		}
+	}
+	return len(ReasonKindOrder)
+}
+
+// ReasonCounts groups per-reason counters by kind, e.g.
+// ["rejected"]["no_source"] = 3. Only non-zero entries are present.
+type ReasonCounts map[string]map[string]uint64
 
 type Stats struct {
 	Received     uint64
@@ -53,6 +140,12 @@ type Pipeline struct {
 	normErrors atomic.Uint64
 	ingErrors  atomic.Uint64
 
+	// Per-reason counters of the stats breakdown (see ReasonCounts). The
+	// map only ever holds fixed-enum keys; the mutex guards map access,
+	// the atomic values make concurrent Add lock-free after first use.
+	reasonsMu sync.Mutex
+	reasons   map[reasonKey]*atomic.Uint64
+
 	// mu guards the persisted part of the current day's counters: base
 	// holds what was already saved to stats_daily for baseDay before this
 	// process started (or before the last UTC midnight rollover), so the
@@ -61,17 +154,21 @@ type Pipeline struct {
 	// are never serialized against each other, but a read can briefly
 	// block behind a save's write lock (a single small upsert per save
 	// interval); only Save and RestoreBase write.
-	mu      sync.RWMutex
-	base    Stats
-	baseDay string
+	mu          sync.RWMutex
+	base        Stats
+	baseReasons map[reasonKey]uint64
+	baseDay     string
 }
+
+// reasonKey is one fixed-enum cell of the stats breakdown.
+type reasonKey struct{ kind, reason string }
 
 // NewPipeline builds a pipeline; hub may be nil to skip notifications.
 func NewPipeline(db *sql.DB, logger *slog.Logger, hub *live.Hub) *Pipeline {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &Pipeline{db: db, logger: logger, hub: hub}
+	return &Pipeline{db: db, logger: logger, hub: hub, reasons: map[reasonKey]*atomic.Uint64{}}
 }
 
 func (p *Pipeline) Stats() Stats {
@@ -114,6 +211,85 @@ func (s Stats) add(o Stats) Stats {
 	}
 }
 
+// bumpReason adds n to the fixed-enum (kind, reason) counter.
+func (p *Pipeline) bumpReason(kind, reason string, n uint64) {
+	if n == 0 {
+		return
+	}
+	key := reasonKey{kind, reason}
+	p.reasonsMu.Lock()
+	c, ok := p.reasons[key]
+	if !ok {
+		c = &atomic.Uint64{}
+		p.reasons[key] = c
+	}
+	p.reasonsMu.Unlock()
+	c.Add(n)
+}
+
+// BumpHTTPReject records a transport-level rejection (auth failure,
+// malformed request) that never reaches the pipeline's record counters.
+// Called from the OTLP receivers and the auth middleware; safe for
+// concurrent use. Unauthenticated callers can only bump these integer
+// counters — the (day, kind, reason) rows are a fixed enum, so flooding
+// inflates numbers, never the table. Unknown reasons are dropped (with a
+// warning) instead of creating new rows, so a future caller passing
+// request-derived data cannot grow the table without bound.
+func (p *Pipeline) BumpHTTPReject(reason string) {
+	if _, ok := validHTTPRejectReasons[reason]; !ok {
+		p.logger.Warn("unknown http reject reason dropped", "reason", reason)
+		return
+	}
+	p.bumpReason(ReasonKindHTTPReject, reason, 1)
+}
+
+// ReasonCounts returns today's effective per-reason counters: the
+// persisted base for today (so counts continue across restarts) plus this
+// session's counters. Zero entries are omitted.
+func (p *Pipeline) ReasonCounts() ReasonCounts {
+	today := utcDay(time.Now())
+	combined := map[reasonKey]uint64{}
+	p.mu.RLock()
+	if p.baseDay == today {
+		for k, v := range p.baseReasons {
+			combined[k] = v
+		}
+	}
+	p.mu.RUnlock()
+	p.reasonsMu.Lock()
+	for k, c := range p.reasons {
+		if n := c.Load(); n > 0 {
+			combined[k] += n
+		}
+	}
+	p.reasonsMu.Unlock()
+	out := ReasonCounts{}
+	for k, v := range combined {
+		if v == 0 {
+			continue
+		}
+		if out[k.kind] == nil {
+			out[k.kind] = map[string]uint64{}
+		}
+		out[k.kind][k.reason] = v
+	}
+	return out
+}
+
+// normErrorReason classifies a normalization error into the fixed-enum
+// reason set; unclassified errors fall back to "other" instead of leaking
+// error text into the stats tables.
+func normErrorReason(err error) string {
+	switch {
+	case errors.Is(err, normalize.ErrNonStringAttrs):
+		return ReasonBadAttrs
+	case errors.Is(err, normalize.ErrMissingSpanIDs):
+		return ReasonBadIDs
+	default:
+		return ReasonNormOther
+	}
+}
+
 func utcDay(t time.Time) string {
 	return t.UTC().Format("2006-01-02")
 }
@@ -130,9 +306,19 @@ func (p *Pipeline) RestoreBase(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("load daily stats for %s: %w", day, err)
 	}
-	if !found {
-		return nil
+	reasons, _, err := storage.DailyReasonsForDay(ctx, p.db, day)
+	if err != nil {
+		return fmt.Errorf("load daily stats reasons for %s: %w", day, err)
 	}
+	baseReasons := make(map[reasonKey]uint64, len(reasons))
+	for _, r := range reasons {
+		baseReasons[reasonKey{r.Kind, r.Reason}] = uint64(r.Count)
+	}
+	// Always assign the base, even when the stats row is missing: a
+	// partial save (reasons committed, stats failed) leaves orphan reason
+	// rows, and dropping them here would let the next Save overwrite them
+	// with session-only values. A missing row yields a zero Stats base,
+	// which is exactly the previous behavior for that case.
 	p.mu.Lock()
 	p.base = Stats{
 		Received:            uint64(row.Received),
@@ -144,8 +330,12 @@ func (p *Pipeline) RestoreBase(ctx context.Context) error {
 		NormalizationErrors: uint64(row.NormalizationErrors),
 		IngestionErrors:     uint64(row.IngestionErrors),
 	}
+	p.baseReasons = baseReasons
 	p.baseDay = day
 	p.mu.Unlock()
+	if !found {
+		return nil
+	}
 	p.logger.Info("stats base restored", "day", day, "received", row.Received)
 	return nil
 }
@@ -193,11 +383,9 @@ func nextUTCMidnight(t time.Time) time.Time {
 // zero for the new day (records consumed in the instant between snapshot
 // and reset are the only casualty, a sub-millisecond window).
 //
-// Known edge: a cold start (baseDay == "" from a missing row for today)
-// within statsSaveInterval of UTC midnight writes the pre-midnight session
-// counters to the new day on the first periodic save, because the rollover
-// branch needs a baseDay to file the old totals under. The window is tiny
-// and only shifts one day's attribution slightly; accepted trade-off.
+// RestoreBase always records the startup day in baseDay (even when no row
+// exists yet), so the rollover branch can attribute pre-midnight session
+// counters to the correct day after a cold start near midnight.
 func (p *Pipeline) Save() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -219,7 +407,7 @@ func (p *Pipeline) Save() error {
 func (p *Pipeline) persistLocked(day string, s Stats) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	return storage.UpsertDailyStats(ctx, p.db, storage.DailyStats{
+	return storage.UpsertDailySnapshot(ctx, p.db, storage.DailyStats{
 		Day:                 day,
 		Received:            int64(s.Received),
 		Normalized:          int64(s.Normalized),
@@ -229,7 +417,34 @@ func (p *Pipeline) persistLocked(day string, s Stats) error {
 		IgnoredNotUsed:      int64(s.IgnoredNotUsed),
 		NormalizationErrors: int64(s.NormalizationErrors),
 		IngestionErrors:     int64(s.IngestionErrors),
-	})
+	}, p.snapshotReasonsLocked())
+}
+
+// snapshotReasonsLocked builds the day's per-reason counters (persisted
+// base + this session) as an absolute snapshot. Both Save branches call it
+// only for p.baseDay, which is the day baseReasons belongs to. The caller
+// must hold p.mu; the combined slice is persisted together with the stats
+// row in a single transaction (see UpsertDailySnapshot).
+func (p *Pipeline) snapshotReasonsLocked() []storage.ReasonStat {
+	combined := map[reasonKey]uint64{}
+	for k, v := range p.baseReasons {
+		combined[k] = v
+	}
+	p.reasonsMu.Lock()
+	for k, c := range p.reasons {
+		if n := c.Load(); n > 0 {
+			combined[k] += n
+		}
+	}
+	p.reasonsMu.Unlock()
+	stats := make([]storage.ReasonStat, 0, len(combined))
+	for k, v := range combined {
+		if v == 0 {
+			continue
+		}
+		stats = append(stats, storage.ReasonStat{Kind: k.kind, Reason: k.reason, Count: int64(v)})
+	}
+	return stats
 }
 
 // resetLocked zeroes the persisted base and the session counters after
@@ -240,6 +455,10 @@ func (p *Pipeline) persistLocked(day string, s Stats) error {
 // Accepted non-atomicity, not worth a lock-wide counter reset.
 func (p *Pipeline) resetLocked() {
 	p.base = Stats{}
+	p.baseReasons = nil
+	p.reasonsMu.Lock()
+	p.reasons = map[reasonKey]*atomic.Uint64{}
+	p.reasonsMu.Unlock()
 	p.received.Store(0)
 	p.normalized.Store(0)
 	p.stored.Store(0)
@@ -263,16 +482,19 @@ func (p *Pipeline) ConsumeTraces(ctx context.Context, td ptrace.Traces) error {
 				source := normalize.DetectSource(resource, span.Attributes())
 				if source == "" {
 					p.rejected.Add(1)
+					p.bumpReason(ReasonKindRejected, ReasonNoSource, 1)
 					continue
 				}
 				gen, ok, err := normalize.FromSpan(source, resource, span)
 				if err != nil {
 					p.normErrors.Add(1)
+					p.bumpReason(ReasonKindNormError, normErrorReason(err), 1)
 					p.logger.Debug("normalization failed", "source", source, "error", err.Error())
 					continue
 				}
 				if !ok {
 					p.rejected.Add(1)
+					p.bumpReason(ReasonKindRejected, ReasonNotGeneration, 1)
 					continue
 				}
 				p.normalized.Add(1)
@@ -283,21 +505,43 @@ func (p *Pipeline) ConsumeTraces(ctx context.Context, td ptrace.Traces) error {
 	// One transaction per batch: a single commit instead of one per span
 	// keeps the write lock held once and briefly, so dashboard reads never
 	// queue behind a long series of writes.
-	inserted, err := storage.InsertGenerations(ctx, p.db, gens)
+	storedBySource, err := storage.InsertGenerations(ctx, p.db, gens)
 	if err != nil {
 		p.ingErrors.Add(1)
 		// The batch is atomic, so a failure means nothing was stored
 		// and the dashboard has nothing new to show; exporters retry.
 		return fmt.Errorf("store generations: %w", err)
 	}
-	p.stored.Add(uint64(inserted))
-	p.dedup.Add(uint64(len(gens) - inserted))
+	var stored uint64
+	for _, n := range storedBySource {
+		stored += uint64(n)
+	}
+	p.stored.Add(stored)
+	if dedup := uint64(len(gens)) - stored; dedup > 0 {
+		p.dedup.Add(dedup)
+		// Per-source dedup breakdown: the batch is grouped by the fixed
+		// source enum, so the keys stay bounded.
+		for src, n := range countBySource(gens) {
+			if d := uint64(n) - uint64(storedBySource[src]); d > 0 {
+				p.bumpReason(ReasonKindDedup, src, d)
+			}
+		}
+	}
 	// One notification per stored batch: bursts of spans coalesce into a
 	// single "data changed" signal for the dashboard's SSE stream.
-	if p.hub != nil && inserted > 0 {
+	if p.hub != nil && stored > 0 {
 		p.hub.Notify()
 	}
 	return nil
+}
+
+// countBySource counts generations per source (fixed enum).
+func countBySource(gens []normalize.Generation) map[string]int {
+	out := make(map[string]int)
+	for _, g := range gens {
+		out[g.Source]++
+	}
+	return out
 }
 
 // ConsumeLogs counts log records only; no source's logs become generations,
@@ -306,6 +550,7 @@ func (p *Pipeline) ConsumeLogs(_ context.Context, ld plog.Logs) error {
 	n := ld.LogRecordCount()
 	p.received.Add(uint64(n))
 	p.ignored.Add(uint64(n))
+	p.bumpReason(ReasonKindIgnored, ReasonLogs, uint64(n))
 	return nil
 }
 
@@ -320,5 +565,6 @@ func (p *Pipeline) ConsumeMetrics(_ context.Context, md pmetric.Metrics) error {
 	}
 	p.received.Add(uint64(n))
 	p.ignored.Add(uint64(n))
+	p.bumpReason(ReasonKindIgnored, ReasonMetrics, uint64(n))
 	return nil
 }

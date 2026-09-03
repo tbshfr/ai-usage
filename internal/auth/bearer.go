@@ -12,6 +12,14 @@ import (
 // Bearer wraps next so it only answers requests carrying
 // "Authorization: Bearer <token>". The token is never logged.
 func Bearer(logger *slog.Logger, token string, next http.Handler) http.Handler {
+	return BearerWithHook(logger, token, next, nil)
+}
+
+// BearerWithHook additionally calls onReject once per rejected request,
+// before the 401 is written, so callers can count transport-level
+// rejections without auth depending on any counter package. The hook runs
+// after the token check fails; it must be cheap and non-blocking.
+func BearerWithHook(logger *slog.Logger, token string, next http.Handler, onReject func()) http.Handler {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -19,6 +27,9 @@ func Bearer(logger *slog.Logger, token string, next http.Handler) http.Handler {
 		if bearerValid(r.Header.Get("Authorization"), token) {
 			next.ServeHTTP(w, r)
 			return
+		}
+		if onReject != nil {
+			onReject()
 		}
 		logger.Warn("request rejected", "reason", "missing or invalid bearer token", "path", r.URL.Path)
 		w.Header().Set("WWW-Authenticate", `Bearer realm="restricted"`)

@@ -14,6 +14,13 @@ import (
 // GRPCUnaryInterceptor rejects OTLP/gRPC exports that do not carry
 // "authorization: Bearer <token>" metadata. The token is never logged.
 func GRPCUnaryInterceptor(logger *slog.Logger, token string) grpc.UnaryServerInterceptor {
+	return GRPCUnaryInterceptorWithHook(logger, token, nil)
+}
+
+// GRPCUnaryInterceptorWithHook additionally calls onReject once per
+// rejected export, so callers can count transport-level rejections
+// without auth depending on any counter package.
+func GRPCUnaryInterceptorWithHook(logger *slog.Logger, token string, onReject func()) grpc.UnaryServerInterceptor {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -21,6 +28,9 @@ func GRPCUnaryInterceptor(logger *slog.Logger, token string) grpc.UnaryServerInt
 		md, _ := metadata.FromIncomingContext(ctx)
 		if bearerValidMD(md, token) {
 			return handler(ctx, req)
+		}
+		if onReject != nil {
+			onReject()
 		}
 		logger.Warn("grpc request rejected", "reason", "missing or invalid bearer token", "method", info.FullMethod)
 		return nil, status.Error(codes.Unauthenticated, "invalid or missing bearer token")

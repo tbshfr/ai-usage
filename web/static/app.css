@@ -321,6 +321,11 @@ tbody tr:hover:not(.totals) { background: var(--panel-hover); }
 tr.totals td { font-weight: 700; border-top: 2px solid var(--border); background: var(--accent-soft); }
 td { font-variant-numeric: tabular-nums; }
 
+/* Clickable detail rows (stats page day breakdown) */
+tr.row-detail { cursor: pointer; }
+.reason-group { margin: 0.9rem 0; }
+.reason-group h3 { margin: 0.3rem 0 0.5rem; }
+
 /* Sessions page */
 .list-head {
   display: flex;

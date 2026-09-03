@@ -107,7 +107,7 @@ func run(cfg *config.Config, logger *slog.Logger) error {
 	if cfg.HTTPAddr != "" {
 		srv := &http.Server{
 			Addr:              cfg.HTTPAddr,
-			Handler:           api.NewWithAuth(db, logger, pipeline.Stats, hub, version, dash),
+			Handler:           api.NewWithAuth(db, logger, pipeline.Stats, pipeline.ReasonCounts, hub, version, dash),
 			ReadHeaderTimeout: 10 * time.Second,
 			ReadTimeout:       30 * time.Second,
 			WriteTimeout:      60 * time.Second,
@@ -122,7 +122,12 @@ func run(cfg *config.Config, logger *slog.Logger) error {
 	if cfg.OTLPHTTPAddr != "" {
 		var h http.Handler = ingest.NewReceiver(pipeline, logger).Handler()
 		if cfg.OTLPToken != "" {
-			h = auth.Bearer(logger, cfg.OTLPToken, h)
+			// Count 401s under the fixed http_reject enum: unauthenticated
+			// traffic never reaches the pipeline, so this only bumps
+			// integer counters on fixed rows (no flood-amplification).
+			h = auth.BearerWithHook(logger, cfg.OTLPToken, h, func() {
+				pipeline.BumpHTTPReject(ingest.ReasonUnauthorized)
+			})
 		}
 		servers = append(servers, &http.Server{
 			Addr:              cfg.OTLPHTTPAddr,
@@ -146,7 +151,9 @@ func run(cfg *config.Config, logger *slog.Logger) error {
 
 	var grpcServer *grpc.Server
 	if cfg.OTLPGRPCAddr != "" {
-		grpcServer = ingest.NewGRPCServer(pipeline, logger, cfg.OTLPToken)
+		grpcServer = ingest.NewGRPCServer(pipeline, logger, cfg.OTLPToken, func() {
+			pipeline.BumpHTTPReject(ingest.ReasonGRPCUnauthorized)
+		})
 		ln, err := ingest.ServeGRPC(grpcServer, cfg.OTLPGRPCAddr)
 		if err != nil {
 			return err

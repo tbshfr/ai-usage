@@ -5,16 +5,19 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 )
 
 const (
-	sseEventName  = "data-changed"
-	sseKeepalive  = 20 * time.Second
-	sseEventFrame = "event: " + sseEventName + "\ndata: 1\n\n"
-	ssePingFrame  = ": keepalive\n\n"
-	sseHelloFrame = ": connected\n\n"
+	sseEventName    = "data-changed"
+	sseKeepalive    = 20 * time.Second
+	sseHelloPadding = 2 * 1024
+	sseEventFrame   = "event: " + sseEventName + "\ndata: 1\n\n"
+	ssePingFrame    = ": keepalive\n\n"
 )
+
+var sseHelloFrame = ":" + strings.Repeat(" ", sseHelloPadding) + "\n\n"
 
 // serveEvents streams the dashboard's Server-Sent Events feed. The stream
 // carries no page content: a named data-changed event only signals "new
@@ -53,9 +56,14 @@ func (s *server) serveEvents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Cache-Control", "no-cache, no-transform")
 	w.Header().Set("X-Accel-Buffering", "no")
 	w.WriteHeader(http.StatusOK)
+	// Include enough body data in the first flush to cross buffering thresholds
+	// in browsers and intermediaries. The SSE parser ignores comment frames.
+	if _, err := io.WriteString(w, sseHelloFrame); err != nil {
+		return
+	}
 	// Flush through ResponseController, not a direct http.Flusher assertion:
 	// ResponseController calls Flush on the outer writer when available, and
 	// otherwise unwraps middleware wrappers that expose it.
@@ -63,14 +71,6 @@ func (s *server) serveEvents(w http.ResponseWriter, r *http.Request) {
 		slog.Error("sse flush unsupported", "error", err.Error())
 		return
 	}
-	// First body bytes go on the wire immediately: an all-headers stream
-	// looks dead to intermediaries with short idle timeouts until either a
-	// real event or the 20s keepalive arrives. htmx's SSE parser ignores
-	// comment frames, so this is invisible to the client logic.
-	if _, err := io.WriteString(w, sseHelloFrame); err != nil {
-		return
-	}
-	_ = rc.Flush()
 
 	keepalive := time.NewTicker(sseKeepalive)
 	defer keepalive.Stop()

@@ -44,8 +44,8 @@ func TestEventsSignalsDataChanged(t *testing.T) {
 	if ct := resp.Header.Get("Content-Type"); ct != "text/event-stream" {
 		t.Errorf("Content-Type %q, want text/event-stream", ct)
 	}
-	if cc := resp.Header.Get("Cache-Control"); cc != "no-cache" {
-		t.Errorf("Cache-Control %q, want no-cache", cc)
+	if cc := resp.Header.Get("Cache-Control"); cc != "no-cache, no-transform" {
+		t.Errorf("Cache-Control %q, want no-cache, no-transform", cc)
 	}
 
 	hub.Notify()
@@ -75,6 +75,9 @@ func TestEventsSubscribesBeforeFirstFlush(t *testing.T) {
 	req := httptest.NewRequestWithContext(ctx, http.MethodGet, "/events", nil)
 	(&server{hub: hub}).serveEvents(recorder, req)
 
+	if recorder.bodyOnFirstFlush != sseHelloFrame {
+		t.Fatalf("body on first flush has length %d, want initial SSE comment length %d", len(recorder.bodyOnFirstFlush), len(sseHelloFrame))
+	}
 	if !strings.Contains(recorder.Body.String(), sseEventFrame) {
 		t.Fatalf("response %q does not contain notification fired on first flush", recorder.Body.String())
 	}
@@ -82,14 +85,16 @@ func TestEventsSubscribesBeforeFirstFlush(t *testing.T) {
 
 type notifyOnFirstFlushRecorder struct {
 	*httptest.ResponseRecorder
-	onFirstFlush func()
-	afterFlush   func()
-	flushed      bool
+	onFirstFlush     func()
+	afterFlush       func()
+	flushed          bool
+	bodyOnFirstFlush string
 }
 
 func (w *notifyOnFirstFlushRecorder) Flush() {
 	if !w.flushed {
 		w.flushed = true
+		w.bodyOnFirstFlush = w.Body.String()
 		w.onFirstFlush()
 	}
 	w.ResponseRecorder.Flush()

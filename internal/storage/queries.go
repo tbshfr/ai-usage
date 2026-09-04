@@ -113,21 +113,13 @@ type Breakdown struct {
 
 // CacheHitRate returns the fraction of prompt tokens served from cache.
 //
-// The two token conventions in docs/telemetry.md (open question 1) are
-// handled per aggregate: when the prompt sum includes cached tokens
-// (input >= cacheRead + cacheCreation) the denominator is the prompt sum;
-// when it excludes them (the opencode anomaly, cache_read > prompt) the
-// denominator is input + cache tokens. Mixed-convention aggregates are
-// approximated; per-model rows in the breakdowns are exact because one
-// model consistently uses one convention. Nil means no prompt tokens were
-// reported at all (denominator zero); prompts with zero cache reads report
-// an honest 0.0%.
+// Input must be the canonical uncached prompt (see uncachedInputSQL):
+// the full prompt is input + cacheRead + cacheCreation under both token
+// conventions, so one formula serves every aggregate, mixed sources
+// included. Nil means no prompt tokens were reported at all (denominator
+// zero); prompts with zero cache reads report an honest 0.0%.
 func CacheHitRate(input, cacheRead, cacheCreation int64) *float64 {
-	cached := cacheRead + cacheCreation
-	denom := input
-	if input < cached {
-		denom = input + cached
-	}
+	denom := input + cacheRead + cacheCreation
 	if denom <= 0 {
 		return nil
 	}
@@ -141,6 +133,16 @@ func CacheHitRate(input, cacheRead, cacheCreation int64) *float64 {
 	}
 	return &rate
 }
+
+// uncachedInputSQL is the canonical prompt input as a per-row SQL
+// expression, summed by every aggregate query. Copilot reports the prompt
+// count including cached tokens (OpenAI-style), so the cached part is
+// subtracted there; opencode's prompt count already excludes cache. Stored
+// rows keep the raw as-reported values.
+const uncachedInputSQL = `CASE WHEN source = '` + normalize.SourceCopilot + `'
+	THEN MAX(COALESCE(input_tokens, 0) - COALESCE(cache_read_tokens, 0)
+		- COALESCE(cache_creation_tokens, 0), 0)
+	ELSE COALESCE(input_tokens, 0) END`
 
 // CacheHitRate applies CacheHitRate to the aggregate sums; nil when no
 // cache/prompt activity was reported.
@@ -172,7 +174,7 @@ func Summary(ctx context.Context, db *sql.DB, f Filter) (SummaryResult, error) {
 	where, args := f.whereSQL()
 	q := `SELECT
 	COUNT(*),
-	COALESCE(SUM(input_tokens), 0),
+	COALESCE(SUM(` + uncachedInputSQL + `), 0),
 	COALESCE(SUM(output_tokens), 0),
 	COALESCE(SUM(cache_read_tokens), 0),
 	COALESCE(SUM(cache_creation_tokens), 0),
@@ -244,7 +246,7 @@ func Timeseries(ctx context.Context, db *sql.DB, f Filter, bucket Bucket) ([]Tim
 	q := `SELECT
 	` + expr + `,
 	COUNT(*),
-	COALESCE(SUM(input_tokens), 0),
+	COALESCE(SUM(` + uncachedInputSQL + `), 0),
 	COALESCE(SUM(output_tokens), 0),
 	COALESCE(SUM(cache_read_tokens), 0),
 	COALESCE(SUM(cache_creation_tokens), 0),
@@ -372,7 +374,7 @@ func breakdown(ctx context.Context, db *sql.DB, f Filter, column string) ([]Brea
 	q := `SELECT
 	COALESCE(` + column + `, ''),
 	COUNT(*),
-	COALESCE(SUM(input_tokens), 0),
+	COALESCE(SUM(` + uncachedInputSQL + `), 0),
 	COALESCE(SUM(output_tokens), 0),
 	COALESCE(SUM(cache_read_tokens), 0),
 	COALESCE(SUM(cache_creation_tokens), 0),
@@ -382,7 +384,7 @@ func breakdown(ctx context.Context, db *sql.DB, f Filter, column string) ([]Brea
 	SUM(cost)
 FROM generations WHERE ` + where + ` GROUP BY ` + column
 	if column == "model" {
-		q += ` ORDER BY COALESCE(SUM(input_tokens), 0) + COALESCE(SUM(output_tokens), 0)
+		q += ` ORDER BY COALESCE(SUM(` + uncachedInputSQL + `), 0) + COALESCE(SUM(output_tokens), 0)
 			+ COALESCE(SUM(cache_read_tokens), 0) + COALESCE(SUM(cache_creation_tokens), 0)
 			+ COALESCE(SUM(reasoning_tokens), 0) DESC`
 	} else {

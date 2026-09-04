@@ -205,13 +205,18 @@ logs) is dropped before normalization.
 ## 5. Open questions for Phase 3 (with proposed defaults)
 
 1. **Cache accounting anomaly**: several opencode spans report
-   `cache_read` > `prompt` (e.g. prompt 136, cache_read 6912), suggesting
-   the plugin's prompt count excludes cached tokens for some providers while
-   others include them. Default: store both as reported; do not attempt to
-   reconcile in SQL. *Resolved for display:* the cache hit rate
-   (`storage.CacheHitRate`) picks the denominator per aggregate — prompt
-   sum when it includes cached tokens, prompt sum + cache tokens when it
-   excludes them.
+   `cache_read` > `prompt` (e.g. prompt 136, cache_read 6912), confirming
+   the plugin's prompt count excludes cached tokens while Copilot's
+   (OpenAI-style) includes them. Default: store both as reported; do not
+   attempt to reconcile at ingest. *Resolved for display:* every aggregate
+   sums `storage.uncachedInputSQL` — copilot input minus cache tokens
+   (clamped at 0), other sources as stored — so `InputTokens` is the
+   uncached prompt under one convention everywhere, `TotalTokens` no longer
+   double-counts Copilot cache, and the cache hit rate
+   (`storage.CacheHitRate`) is a single formula
+   (`cache_read / (input + cache_read + cache_creation)`) that is exact for
+   mixed aggregates too. Single records expose the same value via
+   `normalize.Generation.UncachedInput`.
 2. **Legacy + new reasoning attributes present simultaneously** with equal
    values in capture. Default: prefer `gen_ai.usage.reasoning.output_tokens`,
    fall back to the legacy alias; if both present they are equal, so either

@@ -36,7 +36,7 @@ func TestSummaryMixedCost(t *testing.T) {
 	}
 	want := storage.SummaryResult{
 		Requests:            20,
-		InputTokens:         1987,
+		InputTokens:         1677, // copilot uncached: 1585 (c5 300→0, c12 40→30) + opencode 92
 		OutputTokens:        1239,
 		CacheReadTokens:     410,
 		CacheCreationTokens: 56,
@@ -133,12 +133,12 @@ func TestFilterNormalization(t *testing.T) {
 }
 
 func TestCacheHitRate(t *testing.T) {
-	// prompt count includes cached tokens (OpenAI-style): denom = input
-	if r := storage.CacheHitRate(1000, 800, 100); r == nil || !almostEqual(*r, 0.8) {
-		t.Errorf("CacheHitRate(1000, 800, 100) = %v, want 0.8", r)
+	// input is the canonical uncached prompt (telemetry.md Q1): the full
+	// prompt is input + cache tokens under every source's convention.
+	// 800 cached of 1000+800+100 prompt tokens:
+	if r := storage.CacheHitRate(1000, 800, 100); r == nil || !almostEqual(*r, 800.0/1900.0) {
+		t.Errorf("CacheHitRate(1000, 800, 100) = %v, want %v", r, 800.0/1900.0)
 	}
-	// prompt count excludes cached tokens (opencode anomaly, telemetry.md Q1):
-	// denom = input + cache read
 	r := storage.CacheHitRate(3425, 3520, 0)
 	if r == nil || !almostEqual(*r, 3520.0/6945.0) {
 		t.Errorf("CacheHitRate(3425, 3520, 0) = %v, want %v", r, 3520.0/6945.0)
@@ -159,9 +159,9 @@ func TestSummaryCacheHitRate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// 1987 input, 410 read, 56 creation → denom = 410+56+max(0, 1987-466) = 1987
-	if r := s.CacheHitRate(); r == nil || !almostEqual(*r, 410.0/1987.0) {
-		t.Errorf("summary hit rate = %v, want %v", r, 410.0/1987.0)
+	// 1677 uncached input, 410 read, 56 creation → full prompt 2143
+	if r := s.CacheHitRate(); r == nil || !almostEqual(*r, 410.0/2143.0) {
+		t.Errorf("summary hit rate = %v, want %v", r, 410.0/2143.0)
 	}
 }
 
@@ -234,8 +234,8 @@ func TestTimeseriesDayBuckets(t *testing.T) {
 		{BucketStart: mid(2024, 2, 29), Requests: 2, InputTokens: 1016, OutputTokens: 532, CacheCreationTokens: 11, CostKnownCount: 1},
 		{BucketStart: mid(2026, 1, 31), Requests: 4, InputTokens: 311, OutputTokens: 172, CacheCreationTokens: 5, ReasoningTokens: 30, CostKnownCount: 2},
 		{BucketStart: mid(2026, 2, 1), Requests: 4, InputTokens: 183, OutputTokens: 121, CacheCreationTokens: 13, CostKnownCount: 2},
-		{BucketStart: mid(2026, 2, 28), Requests: 3, InputTokens: 313, OutputTokens: 226, CacheReadTokens: 400, CacheCreationTokens: 8, CostKnownCount: 1},
-		{BucketStart: mid(2026, 3, 1), Requests: 3, InputTokens: 104, OutputTokens: 133, CacheReadTokens: 10, CacheCreationTokens: 9, ReasoningTokens: 5, CostKnownCount: 1},
+		{BucketStart: mid(2026, 2, 28), Requests: 3, InputTokens: 13, OutputTokens: 226, CacheReadTokens: 400, CacheCreationTokens: 8, CostKnownCount: 1},                   // c5 cache folded out of input: 300→0
+		{BucketStart: mid(2026, 3, 1), Requests: 3, InputTokens: 94, OutputTokens: 133, CacheReadTokens: 10, CacheCreationTokens: 9, ReasoningTokens: 5, CostKnownCount: 1}, // c12 40→30
 		{BucketStart: mid(2026, 3, 2), Requests: 4, InputTokens: 60, OutputTokens: 55, CacheCreationTokens: 10, CostKnownCount: 1},
 	}
 	if len(pts) != len(want) {
@@ -270,7 +270,7 @@ func TestTimeseriesWeekBuckets(t *testing.T) {
 	want := []storage.TimeseriesPoint{
 		{BucketStart: mid(2024, 2, 26), Requests: 2, InputTokens: 1016, OutputTokens: 532, CacheCreationTokens: 11, CostKnownCount: 1},
 		{BucketStart: mid(2026, 1, 26), Requests: 8, InputTokens: 494, OutputTokens: 293, CacheCreationTokens: 18, ReasoningTokens: 30, CostKnownCount: 4},
-		{BucketStart: mid(2026, 2, 23), Requests: 6, InputTokens: 417, OutputTokens: 359, CacheReadTokens: 410, CacheCreationTokens: 17, ReasoningTokens: 5, CostKnownCount: 2},
+		{BucketStart: mid(2026, 2, 23), Requests: 6, InputTokens: 107, OutputTokens: 359, CacheReadTokens: 410, CacheCreationTokens: 17, ReasoningTokens: 5, CostKnownCount: 2},
 		{BucketStart: mid(2026, 3, 2), Requests: 4, InputTokens: 60, OutputTokens: 55, CacheCreationTokens: 10, CostKnownCount: 1},
 	}
 	if len(pts) != len(want) {
@@ -303,8 +303,8 @@ func TestTimeseriesMonthBuckets(t *testing.T) {
 	want := []storage.TimeseriesPoint{
 		{BucketStart: mid(2024, 2, 1), Requests: 2, InputTokens: 1016, OutputTokens: 532, CacheCreationTokens: 11, CostKnownCount: 1},
 		{BucketStart: mid(2026, 1, 1), Requests: 4, InputTokens: 311, OutputTokens: 172, CacheCreationTokens: 5, ReasoningTokens: 30, CostKnownCount: 2},
-		{BucketStart: mid(2026, 2, 1), Requests: 7, InputTokens: 496, OutputTokens: 347, CacheReadTokens: 400, CacheCreationTokens: 21, CostKnownCount: 3},
-		{BucketStart: mid(2026, 3, 1), Requests: 7, InputTokens: 164, OutputTokens: 188, CacheReadTokens: 10, CacheCreationTokens: 19, ReasoningTokens: 5, CostKnownCount: 2},
+		{BucketStart: mid(2026, 2, 1), Requests: 7, InputTokens: 196, OutputTokens: 347, CacheReadTokens: 400, CacheCreationTokens: 21, CostKnownCount: 3},
+		{BucketStart: mid(2026, 3, 1), Requests: 7, InputTokens: 154, OutputTokens: 188, CacheReadTokens: 10, CacheCreationTokens: 19, ReasoningTokens: 5, CostKnownCount: 2},
 	}
 	if len(pts) != len(want) {
 		t.Fatalf("got %d month buckets, want %d: %+v", len(pts), len(want), pts)
@@ -357,7 +357,7 @@ func TestBySourceAndProvider(t *testing.T) {
 		t.Fatal("missing copilot breakdown")
 	}
 	wantCopilot := storage.Breakdown{
-		Key: "copilot", Requests: 12, InputTokens: 1895, OutputTokens: 1055,
+		Key: "copilot", Requests: 12, InputTokens: 1585, OutputTokens: 1055,
 		CacheReadTokens: 410, ReasoningTokens: 35, CostUnknownCount: 12,
 	}
 	if copilot != wantCopilot {
@@ -388,7 +388,7 @@ func TestByModelOrderingAndSparseSums(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// ordered by total tokens desc: 1970, 1345, 332, 80
+	// ordered by total tokens desc: 1960, 1045, 332, 80
 	wantKeys := []string{"gpt-5.6-luna", "gpt-4.1", "claude-haiku-4-5-20251001", "claude-sonnet-4-5"}
 	if len(rows) != len(wantKeys) {
 		t.Fatalf("got %d models, want %d: %+v", len(rows), len(wantKeys), rows)

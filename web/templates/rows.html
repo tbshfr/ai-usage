@@ -24,7 +24,7 @@
       {{if not $.F.Selected.Conversation}}<td>{{conversationLink $.F.Selected .ConversationID}}</td>{{end}}
       <td>{{or .Provider "—"}}</td>
       <td>{{or .Model "—"}}</td>
-      <td>{{tokens .InputTokens}}</td>
+      <td>{{tokens .UncachedInput}}</td>
       <td>{{tokens .OutputTokens}}</td>
       <td>{{tokens .CacheReadTokens}}</td>
       <td>{{tokens .CacheCreationTokens}}</td>

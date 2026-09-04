@@ -484,7 +484,7 @@ func generationJSON(g normalize.Generation) generation {
 		ServiceName:         g.ServiceName,
 		Provider:            g.Provider,
 		Model:               g.Model,
-		InputTokens:         g.InputTokens,
+		InputTokens:         g.UncachedInput(),
 		OutputTokens:        g.OutputTokens,
 		CacheReadTokens:     g.CacheReadTokens,
 		CacheCreationTokens: g.CacheCreationTokens,

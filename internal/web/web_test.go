@@ -71,8 +71,8 @@ func TestDashboardPageRenders(t *testing.T) {
 		`/static/vendor/htmx.min.js?v=4.0.0`,
 		`/static/vendor/hx-sse.min.js?v=4.0.0`,
 		"Today", "This week", "This month", "All time",
-		"hit 20.6%",
-		"3,727",       // all-time total tokens
+		"hit 19.1%",
+		"3,417",       // all-time total tokens (copilot cache no longer double-counted)
 		"20 requests", // all-time requests
 		"period=today", "period=week", "period=month", "period=all",
 		"All sources", "All providers", "All models",
@@ -99,7 +99,7 @@ func TestPeriodDetailFragmentHasCost(t *testing.T) {
 	if status != http.StatusOK {
 		t.Fatalf("status %d", status)
 	}
-	wantContains(t, body, "All time &mdash; details", "$2.8500 (8 known, 12 without cost data)", "Cache hit rate", "20.6%")
+	wantContains(t, body, "All time &mdash; details", "$2.8500 (8 known, 12 without cost data)", "Cache hit rate", "19.1%")
 
 	// unknown cost must stay "—", never $0.00
 	_, body = get(t, srv.URL+"/fragments/period-detail?period=all&"+fullRangeQuery+"&source=copilot")
@@ -187,8 +187,8 @@ func TestSessionsPageConversations(t *testing.T) {
 		`href="/sessions?conversation=conv-copilot"`,
 		`href="/sessions?conversation=conv-opencode"`,
 		"<b>12</b> requests",  // conv-copilot
-		"<b>3,395</b> tokens", // conv-copilot total tokens
-		"cache hit 21.6%",
+		"<b>3,085</b> tokens", // conv-copilot total tokens (uncached input 1585 + cache 410)
+		"cache hit 20.6%",
 		"$2.8500", // opencode session reports cost
 		"2 sessions",
 		"sort=asc", "sort=desc", "Sort by date",

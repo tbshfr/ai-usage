@@ -13,6 +13,7 @@ const (
 	sseKeepalive  = 20 * time.Second
 	sseEventFrame = "event: " + sseEventName + "\ndata: 1\n\n"
 	ssePingFrame  = ": keepalive\n\n"
+	sseHelloFrame = ": connected\n\n"
 )
 
 // serveEvents streams the dashboard's Server-Sent Events feed. The stream
@@ -55,6 +56,14 @@ func (s *server) serveEvents(w http.ResponseWriter, r *http.Request) {
 		slog.Error("sse flush unsupported", "error", err.Error())
 		return
 	}
+	// First body bytes go on the wire immediately: an all-headers stream
+	// looks dead to intermediaries with short idle timeouts until either a
+	// real event or the 20s keepalive arrives. htmx's SSE parser ignores
+	// comment frames, so this is invisible to the client logic.
+	if _, err := io.WriteString(w, sseHelloFrame); err != nil {
+		return
+	}
+	_ = rc.Flush()
 
 	var events <-chan struct{}
 	if s.hub != nil {

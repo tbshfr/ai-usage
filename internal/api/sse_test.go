@@ -66,8 +66,9 @@ func TestEventsThroughAccessLog(t *testing.T) {
 	for sc.Scan() {
 		line := sc.Text()
 		if line == "" {
-			if len(lines) == 0 {
-				continue // keepalive comment frame
+			if len(lines) == 0 || strings.HasPrefix(lines[0], ":") {
+				lines = lines[:0] // comment frame (hello/keepalive): skip it
+				continue
 			}
 			break
 		}

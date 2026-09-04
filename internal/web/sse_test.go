@@ -72,8 +72,56 @@ func TestEventsSignalsDataChanged(t *testing.T) {
 	}
 }
 
+// Regression: intermediaries with short idle timeouts treat a stream that
+// only has headers as dead; the first body bytes must go on the wire
+// immediately, before any event fires and before the 20s keepalive tick.
+func TestEventsSendsHelloFrameImmediately(t *testing.T) {
+	hub := live.New()
+	srv := httptestServer(t, hub)
+
+	req, err := http.NewRequest("GET", srv.URL+"/events", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	// Read the first bytes with a deadline far below sseKeepalive: the
+	// hello frame must already be buffered, not arrive on the tick.
+	type result struct {
+		n   int
+		err error
+	}
+	done := make(chan result, 1)
+	go func() {
+		buf := make([]byte, len(sseHelloFrame))
+		n, err := io.ReadFull(resp.Body, buf)
+		done <- result{n, err}
+	}()
+	select {
+	case r := <-done:
+		if r.err != nil {
+			t.Fatalf("reading hello frame: %v", r.err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("no hello frame within 2s; first bytes not sent immediately")
+	}
+
+	// The hello frame must not surface as an event: it is a comment, and
+	// the next real frame still needs a hub notification.
+	hub.Notify()
+	frame := readEventFrame(t, resp.Body)
+	if frame != "event: data-changed\ndata: 1" {
+		t.Errorf("event frame %q, want data-changed signal", frame)
+	}
+}
+
 // readEventFrame reads one complete SSE frame (up to the blank line that
-// terminates it) and returns the frame without the blank line.
+// terminates it) and returns the frame without the blank line. Comment
+// frames (": ..." — hello and keepalive pings) are skipped.
 func readEventFrame(t *testing.T, r io.Reader) string {
 	t.Helper()
 	sc := bufio.NewScanner(r)
@@ -81,8 +129,9 @@ func readEventFrame(t *testing.T, r io.Reader) string {
 	for sc.Scan() {
 		line := sc.Text()
 		if line == "" {
-			if len(lines) == 0 {
-				continue // keepalive comment frame: ": keepalive" then blank
+			if len(lines) == 0 || strings.HasPrefix(lines[0], ":") {
+				lines = lines[:0] // comment frame: skip it
+				continue
 			}
 			return strings.Join(lines, "\n")
 		}
@@ -109,8 +158,10 @@ func TestEventsClientDisconnectCleansUp(t *testing.T) {
 
 	// Disconnecting must end the handler (its unsubscribe runs via defer);
 	// after the client goes away the connection read fails server-side.
+	// The hello frame may already be buffered client-side, so reads drain
+	// it first — but they must eventually fail, never end cleanly at EOF.
 	cancel()
-	if _, err := resp.Body.Read(make([]byte, 16)); err == nil {
+	if _, err := io.ReadAll(resp.Body); err == nil {
 		t.Error("read after cancel succeeded, want error")
 	}
 

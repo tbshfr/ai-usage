@@ -4,16 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{.Title}} · AI Usage</title>
-<link rel="stylesheet" href="/static/vendor/uplot.min.css">
+<link rel="stylesheet" href="/static/vendor/uplot.min.css?v=1.6.32">
 <link rel="stylesheet" href="/static/app.css">
 <!-- htmx 4 injects indicator styles through a CSSStyleSheet, which the
      CSP (style-src 'self') blocks too; the rules live in app.css instead. -->
 <meta name="htmx-config" content='{"includeIndicatorCSS":false}'>
 <!-- Loaded blocking (no defer) in the head: chart JSON blocks rendered in
      the body need renderDataCharts() registered before first paint. -->
-<script src="/static/vendor/htmx.min.js"></script>
-<script src="/static/vendor/hx-sse.min.js"></script>
-<script src="/static/vendor/uplot.min.js"></script>
+<script src="/static/vendor/htmx.min.js?v=4.0.0"></script>
+<script src="/static/vendor/hx-sse.min.js?v=4.0.0"></script>
+<script src="/static/vendor/uplot.min.js?v=1.6.32"></script>
 <script src="/static/app.js"></script>
 </head>
 <body>

@@ -68,6 +68,8 @@ func TestDashboardPageRenders(t *testing.T) {
 	}
 	wantContains(t, body,
 		"OpenCode", "VS Code Copilot",
+		`/static/vendor/htmx.min.js?v=4.0.0`,
+		`/static/vendor/hx-sse.min.js?v=4.0.0`,
 		"Today", "This week", "This month", "All time",
 		"hit 20.6%",
 		"3,727",       // all-time total tokens
@@ -319,9 +321,10 @@ func TestStaticAssets(t *testing.T) {
 	}{
 		{"/static/app.css", "text/css", "no-cache"},
 		{"/static/app.js", "text/javascript", "no-cache"},
-		{"/static/vendor/htmx.min.js", "text/javascript", "public, max-age=31536000, immutable"},
-		{"/static/vendor/uplot.min.js", "text/javascript", "public, max-age=31536000, immutable"},
-		{"/static/vendor/uplot.min.css", "text/css", "public, max-age=31536000, immutable"},
+		{"/static/vendor/htmx.min.js", "text/javascript", "no-cache"},
+		{"/static/vendor/hx-sse.min.js", "text/javascript", "no-cache"},
+		{"/static/vendor/uplot.min.js", "text/javascript", "no-cache"},
+		{"/static/vendor/uplot.min.css", "text/css", "no-cache"},
 		{"/robots.txt", "text/plain", ""},
 	} {
 		resp, err := http.Get(srv.URL + tc.path)

@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/tbshfr/ai-usage"
@@ -35,18 +34,13 @@ var staticFS = func() fs.FS {
 	return sub
 }()
 
-// staticHandler serves the embedded static files with cache headers:
-// vendored libraries are immutable (they only change with a binary
-// deploy), while first-party assets are unversioned, so they use
-// no-cache to force revalidation instead of risking stale CSS/JS.
+// staticHandler serves embedded assets from stable, unversioned URLs, so
+// browsers must revalidate them after a binary upgrade. In particular,
+// vendored libraries can change between releases without their path changing.
 func staticHandler() http.Handler {
 	files := http.StripPrefix("/static/", http.FileServerFS(staticFS))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, "/static/vendor/") {
-			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
-		} else {
-			w.Header().Set("Cache-Control", "no-cache")
-		}
+		w.Header().Set("Cache-Control", "no-cache")
 		files.ServeHTTP(w, r)
 	})
 }

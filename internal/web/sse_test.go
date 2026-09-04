@@ -48,29 +48,57 @@ func TestEventsSignalsDataChanged(t *testing.T) {
 		t.Errorf("Cache-Control %q, want no-cache", cc)
 	}
 
-	// Notify on a ticker: the handler subscribes asynchronously, so an
-	// immediate fire could land before it is listening. Extra signals are
-	// coalesced, and later ones just repeat the same frame.
-	stop := make(chan struct{})
-	defer close(stop)
-	go func() {
-		tick := time.NewTicker(25 * time.Millisecond)
-		defer tick.Stop()
-		for {
-			select {
-			case <-stop:
-				return
-			case <-tick.C:
-				hub.Notify()
-			}
-		}
-	}()
-
+	hub.Notify()
 	frame := readEventFrame(t, resp.Body)
 	if frame != "event: data-changed\ndata: 1" {
 		t.Errorf("event frame %q, want data-changed signal", frame)
 	}
 }
+
+// Regression: once response headers expose the stream to the browser, the
+// hub subscription must already exist. Otherwise an ingest notification that
+// races with connection startup is dropped until some later ingest arrives.
+func TestEventsSubscribesBeforeFirstFlush(t *testing.T) {
+	hub := live.New()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	recorder := &notifyOnFirstFlushRecorder{
+		ResponseRecorder: httptest.NewRecorder(),
+		onFirstFlush:     hub.Notify,
+	}
+	recorder.afterFlush = func() {
+		if strings.Contains(recorder.Body.String(), sseEventFrame) {
+			cancel()
+		}
+	}
+	req := httptest.NewRequestWithContext(ctx, http.MethodGet, "/events", nil)
+	(&server{hub: hub}).serveEvents(recorder, req)
+
+	if !strings.Contains(recorder.Body.String(), sseEventFrame) {
+		t.Fatalf("response %q does not contain notification fired on first flush", recorder.Body.String())
+	}
+}
+
+type notifyOnFirstFlushRecorder struct {
+	*httptest.ResponseRecorder
+	onFirstFlush func()
+	afterFlush   func()
+	flushed      bool
+}
+
+func (w *notifyOnFirstFlushRecorder) Flush() {
+	if !w.flushed {
+		w.flushed = true
+		w.onFirstFlush()
+	}
+	w.ResponseRecorder.Flush()
+	if w.afterFlush != nil {
+		w.afterFlush()
+	}
+}
+
+func (w *notifyOnFirstFlushRecorder) SetWriteDeadline(time.Time) error { return nil }
 
 // Regression: intermediaries with short idle timeouts treat a stream that
 // only has headers as dead; the first body bytes must go on the wire

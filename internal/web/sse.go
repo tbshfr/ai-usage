@@ -45,6 +45,13 @@ func (s *server) serveEvents(w http.ResponseWriter, r *http.Request) {
 	}
 	defer untrack()
 
+	var events <-chan struct{}
+	if s.hub != nil {
+		var subCancel func()
+		events, subCancel = s.hub.Subscribe()
+		defer subCancel()
+	}
+
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("X-Accel-Buffering", "no")
@@ -65,12 +72,6 @@ func (s *server) serveEvents(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = rc.Flush()
 
-	var events <-chan struct{}
-	if s.hub != nil {
-		var subCancel func()
-		events, subCancel = s.hub.Subscribe()
-		defer subCancel()
-	}
 	keepalive := time.NewTicker(sseKeepalive)
 	defer keepalive.Stop()
 

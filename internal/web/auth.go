@@ -2,6 +2,7 @@ package web
 
 import (
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"strings"
@@ -128,6 +129,7 @@ func (s *server) loginSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 	ip := clientIP(r)
 	if retry, blocked := s.limiter.blocked(ip); blocked {
+		slog.Warn("login rate limited", "ip", ip, "retry_after", retry.String())
 		w.Header().Set("Retry-After", fmt.Sprintf("%.0f", retry.Seconds()))
 		s.renderLoginError(w, http.StatusTooManyRequests, "Too many failed attempts. Try again later.")
 		return
@@ -137,6 +139,7 @@ func (s *server) loginSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.dash.Check(r.PostFormValue("username"), r.PostFormValue("password")) {
+		slog.Info("login successful", "ip", ip)
 		s.limiter.reset(ip)
 		s.dash.Sessions().Issue(w)
 		http.Redirect(w, r, "/", http.StatusSeeOther)

@@ -1,5 +1,5 @@
 {{define "content"}}
-<div id="stats-reasons"></div>
+<dialog id="stats-reasons" class="detail-dialog"></dialog>
 <div id="stats" hx-get="/fragments/stats" hx-trigger="data-changed from:body delay:2s">
 {{template "stats" .}}
 </div>

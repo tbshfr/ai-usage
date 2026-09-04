@@ -60,23 +60,93 @@ code.copy:hover { color: var(--accent); }
   font-weight: 600;
   background: var(--accent-soft);
 }
+/* Sign out sits at the far right edge; the duplicate link inside the nav
+   only shows in the mobile drawer. */
+.topbar > .logout-link { margin-left: auto; color: var(--muted); }
+.topbar > .logout-link:hover { color: var(--accent); text-decoration: none; }
+.logout-link.drawer-only { display: none; }
+.nav-close { display: none; }
+.menu-toggle { display: none; }
 
 main { max-width: 1200px; margin: 0 auto; padding: 1.4rem; }
 
-/* Narrow viewports: stack the topbar, shrink gutters. */
+/* Narrow viewports: nav becomes a slide-over drawer from the right. */
 @media (max-width: 640px) {
   main { padding: 0.8rem; }
   .topbar {
-    flex-wrap: wrap;
-    gap: 0.3rem 1rem;
+    gap: 1rem;
     padding: 0.55rem 0.9rem;
   }
-  .topbar nav {
-    width: 100%;
-    overflow-x: auto;
-    white-space: nowrap;
-    padding-bottom: 0.15rem;
+  .topbar > .logout-link { display: none; }
+  .menu-toggle {
+    display: inline-flex;
+    margin-left: auto;
+    align-items: center;
+    background: transparent;
+    border: 0;
+    color: var(--muted);
+    padding: 0.35rem;
+    border-radius: 8px;
+    cursor: pointer;
   }
+  .menu-toggle:hover { color: var(--accent); }
+  .nav-close {
+    display: inline-flex;
+    align-self: flex-end;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 0;
+    color: var(--muted);
+    padding: 0.35rem;
+    margin: -0.35rem -0.7rem 0.35rem auto;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .nav-close:hover { color: var(--accent); }
+  .topbar nav {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(16rem, 80vw);
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.25rem;
+    padding: 1rem 1.2rem;
+    background: var(--panel);
+    border-left: 1px solid var(--border);
+    box-shadow: -8px 0 24px rgba(96, 64, 32, 0.14);
+    transform: translateX(100%);
+    visibility: hidden;
+    /* Keep the drawer visible until the slide-out finishes; delay is the
+       transform duration so the closing animation still plays. */
+    transition: transform 0.2s ease, visibility 0s linear 0.2s;
+    overflow-y: auto;
+    z-index: 30;
+  }
+  .topbar nav.open {
+    transform: translateX(0);
+    visibility: visible;
+    transition: transform 0.2s ease;
+  }
+  .topbar nav a { padding: 0.55rem 0.7rem; font-size: 1rem; }
+  .logout-link.drawer-only {
+    display: block;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border);
+  }
+  .nav-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(61, 50, 41, 0.4);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    z-index: 20;
+  }
+  .nav-overlay.open { opacity: 1; pointer-events: auto; }
   .filterbar select { flex: 1 1 45%; }
   .stat-card.hero { padding: 1.1rem 1.2rem; }
   .stat-big { font-size: 2.3rem; }
@@ -258,6 +328,40 @@ dl.detail-grid dd {
   margin: 0.15rem 0 0;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+}
+
+/* Detail popovers: native <dialog> centered over a dimmed backdrop; content
+   is swapped in by htmx. On phones they dock to the bottom as a sheet. */
+dialog.detail-dialog {
+  width: min(680px, calc(100vw - 2rem));
+  max-width: calc(100vw - 2rem);
+  max-height: calc(100dvh - 4rem);
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: 0 2px 6px rgba(96, 64, 32, 0.1), 0 8px 22px rgba(96, 64, 32, 0.08);
+  padding: 1rem 1.3rem 1.2rem;
+}
+dialog.detail-dialog::backdrop { background: rgba(61, 50, 41, 0.4); }
+dialog.detail-dialog .period-detail {
+  margin-top: 0;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+  padding: 0;
+}
+@media (max-width: 640px) {
+  dialog.detail-dialog {
+    margin: auto auto 0;
+    width: 100%;
+    max-width: 100%;
+    border-radius: 14px 14px 0 0;
+    border-left: 0;
+    border-right: 0;
+    border-bottom: 0;
+  }
 }
 
 /* Panels and charts */

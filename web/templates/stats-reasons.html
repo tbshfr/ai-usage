@@ -3,7 +3,7 @@
 <section class="period-detail">
   <div class="detail-head">
     <h2>Ingestion details &mdash; {{.Reasons.Day}}{{if .Reasons.Live}} <span class="muted">(live)</span>{{end}}</h2>
-    <button class="close" hx-get="/fragments/stats-reasons" hx-target="#stats-reasons" aria-label="Close details">&times;</button>
+    <button class="close" data-close-dialog aria-label="Close details">&times;</button>
   </div>
   {{range .Reasons.Groups}}
   <div class="reason-group">

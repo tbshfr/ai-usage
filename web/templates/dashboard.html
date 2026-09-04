@@ -3,7 +3,5 @@
 <div id="dashboard-stats" hx-get="/fragments/dashboard-stats" hx-trigger="change from:#filter-bar, data-changed from:body delay:2s" hx-include="#filter-bar">
 {{template "dashboard-stats" .}}
 </div>
-<div id="period-detail">
-{{if .Detail}}{{template "period-detail" .}}{{end}}
-</div>
+<dialog id="period-detail" class="detail-dialog"></dialog>
 {{end}}

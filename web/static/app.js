@@ -30,6 +30,56 @@ function renderDataCharts() {
 document.addEventListener('DOMContentLoaded', renderDataCharts);
 document.addEventListener('htmx:after:settle', renderDataCharts);
 
+// Slide-over menu (mobile): the topbar nav turns into a right-hand drawer,
+// toggled by the hamburger and closed by the backdrop, any nav link, or Esc.
+function setNavOpen(open) {
+  const nav = document.getElementById('site-nav');
+  if (!nav) return;
+  nav.classList.toggle('open', open);
+  const overlay = document.querySelector('.nav-overlay');
+  if (overlay) overlay.classList.toggle('open', open);
+  const toggle = document.querySelector('.menu-toggle');
+  if (toggle) toggle.setAttribute('aria-expanded', String(open));
+}
+
+// Detail popovers: htmx swaps fragment content into an empty <dialog>; open
+// it once content has settled. Closing (button, backdrop, Esc) is native.
+function openSwappedDialog(target) {
+  if (!(target instanceof HTMLDialogElement)) return;
+  if (target.childElementCount && !target.open) target.showModal();
+}
+
+document.addEventListener('click', e => {
+  const toggle = e.target.closest('.menu-toggle');
+  if (toggle) {
+    setNavOpen(toggle.getAttribute('aria-expanded') !== 'true');
+    return;
+  }
+  if (e.target.classList && e.target.classList.contains('nav-overlay')) {
+    setNavOpen(false);
+    return;
+  }
+  if (e.target.closest('#site-nav a')) setNavOpen(false);
+  if (e.target.closest('.nav-close')) setNavOpen(false);
+  const closer = e.target.closest('[data-close-dialog]');
+  if (closer) closer.closest('dialog')?.close();
+  // Clicks land on the <dialog> element itself when the backdrop is hit,
+  // but also when its own padding band is clicked. Treat a click as a
+  // backdrop close only if it falls outside the content's bounding box.
+  if (e.target instanceof HTMLDialogElement && e.target.classList.contains('detail-dialog')) {
+    const r = (e.target.firstElementChild || e.target).getBoundingClientRect();
+    const inContent = e.clientX >= r.left && e.clientX <= r.right &&
+      e.clientY >= r.top && e.clientY <= r.bottom;
+    if (!inContent) e.target.close();
+  }
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') setNavOpen(false);
+});
+
+document.addEventListener('htmx:after:settle', e => openSwappedDialog(e.target));
+
 function renderChart(id, d) {
   const el = document.getElementById(id);
   if (!el || !window.uPlot || !d || !d.labels || !d.labels.length) return;

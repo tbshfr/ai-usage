@@ -31,7 +31,8 @@ var rangeKeys = []struct{ key, label string }{
 }
 
 // parseFilter reads range/source/provider/model plus the API's from/to
-// params. Explicit from/to win over the range preset.
+// params. Explicit from/to win over the range preset. An empty range
+// defaults to today; "all" removes the time bound.
 func parseFilter(r *http.Request) (storage.Filter, uiFilter, error) {
 	q := r.URL.Query()
 	u := uiFilter{
@@ -52,8 +53,8 @@ func parseFilter(r *http.Request) (storage.Filter, uiFilter, error) {
 	if f.From.IsZero() && f.To.IsZero() {
 		now := time.Now().UTC()
 		switch u.Range {
-		case "", "all":
-		case "today":
+		case "all":
+		case "", "today":
 			f.From = startOfDay(now)
 		case "7d":
 			f.From = now.Add(-7 * 24 * time.Hour)
@@ -123,7 +124,12 @@ func presetViews(action string, u uiFilter) []presetView {
 	out := make([]presetView, 0, len(rangeKeys))
 	for _, k := range rangeKeys {
 		q := url.Values{}
-		q.Set("range", k.key)
+		// The today pill links to the bare action: an empty range already
+		// means today, so the default state keeps a canonical URL instead
+		// of growing a redundant ?range=today on first click.
+		if k.key != "today" {
+			q.Set("range", k.key)
+		}
 		if u.Source != "" {
 			q.Set("source", u.Source)
 		}
@@ -136,10 +142,14 @@ func presetViews(action string, u uiFilter) []presetView {
 		if u.Conversation != "" {
 			q.Set("conversation", u.Conversation)
 		}
-		active := u.Range == k.key || (k.key == "all" && (u.Range == "" || u.Range == "all"))
+		active := u.Range == k.key || (k.key == "today" && u.Range == "")
+		link := action
+		if enc := q.Encode(); enc != "" {
+			link += "?" + enc
+		}
 		out = append(out, presetView{
 			Label:  k.label,
-			URL:    action + "?" + q.Encode(),
+			URL:    link,
 			Active: active,
 		})
 	}
@@ -148,10 +158,12 @@ func presetViews(action string, u uiFilter) []presetView {
 
 // conversationURL builds a /sessions link that keeps the current filters
 // but switches the conversation filter to conv (storage.ConversationNone for
-// rows without a conversation ID).
+// rows without a conversation ID). The range is carried over verbatim,
+// including "all": since an empty range now means "today", dropping it
+// would silently narrow the result.
 func conversationURL(u uiFilter, conv string) string {
 	q := url.Values{}
-	if u.Range != "" && u.Range != "all" {
+	if u.Range != "" {
 		q.Set("range", u.Range)
 	}
 	if u.Source != "" {

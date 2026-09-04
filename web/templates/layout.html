@@ -19,15 +19,23 @@
 <body>
 <header class="topbar">
   <a class="brand" href="/">AI Usage</a>
-  <nav>
+  <nav id="site-nav">
+    <button class="nav-close" type="button" aria-controls="site-nav" aria-label="Close menu">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15"/></svg>
+    </button>
     <a href="/"{{if eq .Active "dashboard"}} class="active"{{end}}>Dashboard</a>
     <a href="/trends"{{if eq .Active "trends"}} class="active"{{end}}>Trends</a>
     <a href="/breakdowns"{{if eq .Active "breakdowns"}} class="active"{{end}}>Breakdowns</a>
     <a href="/sessions"{{if eq .Active "sessions"}} class="active"{{end}}>Sessions</a>
     <a href="/stats"{{if eq .Active "stats"}} class="active"{{end}}>Stats</a>
-    {{if .ShowLogout}}<a href="/logout" class="logout-link">Sign out</a>{{end}}
+    {{if .ShowLogout}}<a href="/logout" class="logout-link drawer-only">Sign out</a>{{end}}
   </nav>
+  {{if .ShowLogout}}<a href="/logout" class="logout-link">Sign out</a>{{end}}
+  <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Menu">
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14"/></svg>
+  </button>
 </header>
+<div class="nav-overlay"></div>
 <!-- Live updates ride one SSE stream per page (hx-sse:connect defaults to
      hx-trigger="load" and to pauseOnBackground, which closes the stream
      while the page is hidden — so background tabs never hold one of the

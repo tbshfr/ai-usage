@@ -36,7 +36,7 @@
 <section class="period-detail">
   <div class="detail-head">
     <h2>{{.Detail.Label}} &mdash; details</h2>
-    <button class="close" hx-get="/fragments/period-detail" hx-target="#period-detail" aria-label="Close details">&times;</button>
+    <button class="close" data-close-dialog aria-label="Close details">&times;</button>
   </div>
   <dl class="detail-grid">
     <div><dt>Requests</dt><dd>{{commas .Detail.S.Requests}}</dd></div>

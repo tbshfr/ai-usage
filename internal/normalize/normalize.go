@@ -10,12 +10,14 @@ import (
 	"unicode/utf8"
 
 	"go.opentelemetry.io/collector/pdata/pcommon"
+	"go.opentelemetry.io/collector/pdata/plog"
 	"go.opentelemetry.io/collector/pdata/ptrace"
 )
 
 const (
 	SourceCopilot  = "copilot"
 	SourceOpenCode = "opencode"
+	SourceCodex    = "codex"
 )
 
 // Generation is the canonical usage record (single source of truth, see
@@ -53,7 +55,7 @@ func (g Generation) UncachedInput() *int64 {
 	if g.InputTokens == nil {
 		return nil
 	}
-	if g.Source != SourceCopilot {
+	if g.Source != SourceCopilot && g.Source != SourceCodex {
 		v := *g.InputTokens
 		return &v
 	}
@@ -71,6 +73,23 @@ func (g Generation) UncachedInput() *int64 {
 	return &u
 }
 
+// NonReasoningOutput returns the mutually exclusive output-token bucket used
+// for totals. Codex reports reasoning tokens as a subset of output tokens.
+// The stored OutputTokens value remains exactly as reported by the source.
+func (g Generation) NonReasoningOutput() *int64 {
+	if g.OutputTokens == nil {
+		return nil
+	}
+	v := *g.OutputTokens
+	if g.Source == SourceCodex && g.ReasoningTokens != nil {
+		v -= *g.ReasoningTokens
+		if v < 0 {
+			v = 0
+		}
+	}
+	return &v
+}
+
 // FromSpan normalizes a span for the given source. Returns ok=false for
 // spans that are legitimately not generation records (aggregates, tool
 // calls), and an error for malformed generation spans.
@@ -80,6 +99,21 @@ func FromSpan(source string, resource pcommon.Map, span ptrace.Span) (Generation
 		return FromCopilotSpan(resource, span)
 	case SourceOpenCode:
 		return FromOpenCodeSpan(resource, span)
+	case SourceCodex:
+		// Codex traces include aggregate/session and transport spans, but the
+		// authoritative per-response token counts are emitted as logs.
+		return Generation{}, false, nil
+	default:
+		return Generation{}, false, fmt.Errorf("unknown source %q", source)
+	}
+}
+
+// FromLog normalizes one OTLP log record for the given source. Returns
+// ok=false for records that are not terminal generation usage events.
+func FromLog(source string, resource pcommon.Map, lr plog.LogRecord) (Generation, bool, error) {
+	switch source {
+	case SourceCodex:
+		return FromCodexLog(resource, lr)
 	default:
 		return Generation{}, false, fmt.Errorf("unknown source %q", source)
 	}
@@ -95,10 +129,27 @@ func DetectSource(resource, spanAttrs pcommon.Map) string {
 			return SourceCopilot
 		case "opencode":
 			return SourceOpenCode
+		case "codex_cli_rs":
+			return SourceCodex
+		}
+		if strings.HasPrefix(strings.ToLower(sn), "codex") {
+			return SourceCodex
 		}
 	}
 	if hasPrefixKey(spanAttrs, "github.copilot.") {
 		return SourceCopilot
+	}
+	if hasPrefixKey(spanAttrs, "codex.") {
+		return SourceCodex
+	}
+	return ""
+}
+
+// DetectLogSource classifies supported log producers from resource metadata.
+func DetectLogSource(resource pcommon.Map) string {
+	service := strings.ToLower(firstString(resource, "service.name"))
+	if service == "codex_cli_rs" || strings.HasPrefix(service, "codex") {
+		return SourceCodex
 	}
 	return ""
 }

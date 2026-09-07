@@ -1,0 +1,330 @@
+{
+  "resourceSpans": [
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "telemetry.sdk.version",
+            "value": {
+              "stringValue": "0.31.0"
+            }
+          },
+          {
+            "key": "telemetry.sdk.name",
+            "value": {
+              "stringValue": "opentelemetry"
+            }
+          },
+          {
+            "key": "service.version",
+            "value": {
+              "stringValue": "0.153.4"
+            }
+          },
+          {
+            "key": "env",
+            "value": {
+              "stringValue": "capture"
+            }
+          },
+          {
+            "key": "service.name",
+            "value": {
+              "stringValue": "codex_cli_rs"
+            }
+          },
+          {
+            "key": "telemetry.sdk.language",
+            "value": {
+              "stringValue": "rust"
+            }
+          }
+        ]
+      },
+      "scopeSpans": [
+        {
+          "scope": {
+            "name": "codex_cli_rs"
+          },
+          "spans": [
+            {
+              "traceId": "df52c62bb67879e85ec437e7abe0e3c1",
+              "spanId": "885dd4e1bf0a2908",
+              "parentSpanId": "9ea6d2205f8ed2e1",
+              "flags": 257,
+              "name": "handle_responses",
+              "kind": 1,
+              "startTimeUnixNano": "1788766570099736298",
+              "endTimeUnixNano": "1788766570111248873",
+              "attributes": [
+                {
+                  "key": "thread.id",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "code.module.name",
+                  "value": {
+                    "stringValue": "codex_core::session::turn"
+                  }
+                },
+                {
+                  "key": "code.line.number",
+                  "value": {
+                    "intValue": "2303"
+                  }
+                },
+                {
+                  "key": "idle_ns",
+                  "value": {
+                    "intValue": "0"
+                  }
+                },
+                {
+                  "key": "thread.name",
+                  "value": {
+                    "stringValue": "tokio-rt-worker"
+                  }
+                },
+                {
+                  "key": "target",
+                  "value": {
+                    "stringValue": "codex_core::session::turn"
+                  }
+                },
+                {
+                  "key": "codex.request.reasoning_effort",
+                  "value": {
+                    "stringValue": "medium"
+                  }
+                },
+                {
+                  "key": "gen_ai.usage.input_tokens",
+                  "value": {
+                    "intValue": "32278"
+                  }
+                },
+                {
+                  "key": "gen_ai.usage.cache_read.input_tokens",
+                  "value": {
+                    "intValue": "28416"
+                  }
+                },
+                {
+                  "key": "gen_ai.usage.cache_write.input_tokens",
+                  "value": {
+                    "intValue": "0"
+                  }
+                },
+                {
+                  "key": "gen_ai.usage.output_tokens",
+                  "value": {
+                    "intValue": "159"
+                  }
+                },
+                {
+                  "key": "codex.usage.reasoning_output_tokens",
+                  "value": {
+                    "intValue": "0"
+                  }
+                },
+                {
+                  "key": "codex.usage.total_tokens",
+                  "value": {
+                    "intValue": "32437"
+                  }
+                },
+                {
+                  "key": "busy_ns",
+                  "value": {
+                    "intValue": "0"
+                  }
+                },
+                {
+                  "key": "code.file.path",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                }
+              ],
+              "status": {}
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "telemetry.sdk.version",
+            "value": {
+              "stringValue": "0.31.0"
+            }
+          },
+          {
+            "key": "telemetry.sdk.name",
+            "value": {
+              "stringValue": "opentelemetry"
+            }
+          },
+          {
+            "key": "service.version",
+            "value": {
+              "stringValue": "0.153.4"
+            }
+          },
+          {
+            "key": "env",
+            "value": {
+              "stringValue": "capture"
+            }
+          },
+          {
+            "key": "service.name",
+            "value": {
+              "stringValue": "codex_cli_rs"
+            }
+          },
+          {
+            "key": "telemetry.sdk.language",
+            "value": {
+              "stringValue": "rust"
+            }
+          }
+        ]
+      },
+      "scopeSpans": [
+        {
+          "scope": {
+            "name": "codex_cli_rs"
+          },
+          "spans": [
+            {
+              "traceId": "df52c62bb67879e85ec437e7abe0e3c1",
+              "spanId": "0823427fc1ca8a46",
+              "parentSpanId": "3841daba5fb2f478",
+              "flags": 257,
+              "name": "session_task.turn",
+              "kind": 1,
+              "startTimeUnixNano": "1788766552392445086",
+              "endTimeUnixNano": "1788766570121899532",
+              "attributes": [
+                {
+                  "key": "idle_ns",
+                  "value": {
+                    "intValue": "17582462267"
+                  }
+                },
+                {
+                  "key": "code.module.name",
+                  "value": {
+                    "stringValue": "codex_core::tasks"
+                  }
+                },
+                {
+                  "key": "code.line.number",
+                  "value": {
+                    "intValue": "347"
+                  }
+                },
+                {
+                  "key": "turn.id",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "thread.name",
+                  "value": {
+                    "stringValue": "tokio-rt-worker"
+                  }
+                },
+                {
+                  "key": "target",
+                  "value": {
+                    "stringValue": "codex_core::tasks"
+                  }
+                },
+                {
+                  "key": "thread.id",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "busy_ns",
+                  "value": {
+                    "intValue": "146992375"
+                  }
+                },
+                {
+                  "key": "model",
+                  "value": {
+                    "stringValue": "gpt-5.6-luna"
+                  }
+                },
+                {
+                  "key": "codex.turn.reasoning_effort",
+                  "value": {
+                    "stringValue": "medium"
+                  }
+                },
+                {
+                  "key": "codex.turn.token_usage.input_tokens",
+                  "value": {
+                    "intValue": "85584"
+                  }
+                },
+                {
+                  "key": "codex.turn.token_usage.cached_input_tokens",
+                  "value": {
+                    "intValue": "75008"
+                  }
+                },
+                {
+                  "key": "codex.turn.token_usage.cache_write_input_tokens",
+                  "value": {
+                    "intValue": "0"
+                  }
+                },
+                {
+                  "key": "codex.turn.token_usage.non_cached_input_tokens",
+                  "value": {
+                    "intValue": "10576"
+                  }
+                },
+                {
+                  "key": "codex.turn.token_usage.output_tokens",
+                  "value": {
+                    "intValue": "482"
+                  }
+                },
+                {
+                  "key": "codex.turn.token_usage.reasoning_output_tokens",
+                  "value": {
+                    "intValue": "108"
+                  }
+                },
+                {
+                  "key": "codex.turn.token_usage.total_tokens",
+                  "value": {
+                    "intValue": "86066"
+                  }
+                },
+                {
+                  "key": "code.file.path",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                }
+              ],
+              "status": {}
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

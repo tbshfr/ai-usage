@@ -1,11 +1,12 @@
 # Telemetry ground truth
 
-Captured 2026-08-30 with the Phase 1 capture harness (`cmd/ai-usage`,
+OpenCode and Copilot were captured 2026-08-30 with the Phase 1 capture harness (`cmd/ai-usage`,
 OTLP/HTTP on `:4318`, raw batch dumps). This document is built from real
 payloads; the committed fixtures under `testdata/` derive from the same
 captures. Attribute names here are the authoritative input for Phase 3
 normalizers. Where this document disagrees with `docs/plans/README.md`,
-this document wins.
+this document wins. Codex was captured separately on 2026-09-07 with CLI
+v0.153.4 and the same OTLP/HTTP harness.
 
 ## 1. Sources & versions
 
@@ -13,6 +14,7 @@ this document wins.
 |---|---|---|---|
 | OpenCode (plugin `@devtheops/opencode-plugin-otel`, self-reports `service.version` 1.2.3; opencode `app.version` 1.5.1) | resource `service.name=opencode` | **always protobuf** (`application/x-protobuf`) | `/v1/traces`, `/v1/metrics`, `/v1/logs` |
 | VS Code GitHub Copilot (copilot-chat extension 0.63.0; VS Code version not recorded) | resource `service.name=copilot-chat` | **always JSON** (`application/json`) | `/v1/traces`, `/v1/metrics`, `/v1/logs` |
+| Codex CLI 0.153.4 (Rust OTel SDK 0.31.0) | resource `service.name=codex_cli_rs` | **JSON observed** (`application/json`) | `/v1/logs`, `/v1/traces`, `/v1/metrics` |
 
 Resource attributes:
 
@@ -21,6 +23,8 @@ Resource attributes:
   `deployment.environment=production`
 - copilot-chat: `service.name=copilot-chat`, `service.version=0.63.0`,
   `session.id` (VS Code session; concatenates a GUID and a Unix-ms timestamp)
+- Codex: `service.name=codex_cli_rs`, `service.version=0.153.4`, `env`,
+  `host.name`, and Rust OTel SDK metadata
 
 ## 2. Copilot payloads (traces are the truth signal)
 
@@ -152,7 +156,62 @@ Metrics: `opencode.token.usage` (sum, dim `type`), `opencode.cost.usage`,
 (histograms), `opencode.lines_of_code.total` (gauge). Never generation
 records.
 
-## 4. Decisions
+## 4. Codex payloads (logs are the truth signal)
+
+### Signals compared
+
+| Field | `codex.sse_event` / `response.completed` log | `handle_responses` span | `session_task.turn` span / metrics |
+|---|---|---|---|
+| per-LLM-response granularity | **yes** (12 captured) | transport spans (1009 captured; 10 token-bearing) | per-turn aggregates (5 captured) |
+| model + conversation | **both present** | absent on token-bearing spans | present on turn spans |
+| all token buckets | **yes** | yes on some spans | yes, but aggregated |
+| stable trace/span IDs | empty | present | present |
+| chosen | **yes** | no | no |
+
+The selected log has `event.name=codex.sse_event` and
+`event.kind=response.completed`. Its mapping is:
+
+| Generation field | Codex attribute / value |
+|---|---|
+| Timestamp | `event.timestamp` (RFC3339; OTLP record timestamp is zero in captures) |
+| Source / ServiceName | `"codex"` / resource `service.name` |
+| Model | `model` |
+| Provider | absent → empty |
+| InputTokens | `input_token_count` (Str observed) |
+| OutputTokens | `output_token_count` (Str observed; raw value includes reasoning) |
+| CacheReadTokens | `cached_token_count` (Int observed) |
+| CacheCreationTokens | `cache_write_token_count` (Int observed) |
+| ReasoningTokens | `reasoning_token_count` (Int observed; subset of output) |
+| ConversationID | `conversation.id` |
+| Cost / Duration / trace IDs | absent → nil / zero / empty |
+
+Numeric parsing accepts compatible int/double/string encodings. Longer
+cache/reasoning attribute spellings from an earlier draft are accepted as
+fallbacks, but the names above are what CLI 0.153.4 actually emitted.
+
+Codex uses OpenAI-style inclusive buckets. Canonical input is
+`input - cached - cache_write`, clamped at zero. Canonical output is
+`output - reasoning`, also clamped at zero. The captured row
+`input=24276, cached=23296, output=132, reasoning=19` therefore becomes
+`input=980, cache=23296, output=113, reasoning=19`; its canonical total is
+24408, exactly the captured `tool_token_count`. Turn-span totals likewise
+show that reasoning is already included in output. Raw database columns remain
+as emitted; SQL aggregates and individual API/UI records apply the mirrors
+`UncachedInput` and `NonReasoningOutput`.
+
+No per-response cost exists. A provider name appears on a separate
+conversation-start event, but correlating mutable session state would make
+ingestion order-dependent, so the response row keeps provider empty. Metrics
+are aggregate histograms and Codex spans are rejected as non-generation spans.
+
+Other Codex log types are privacy-sensitive even with
+`log_user_prompt=false`: tool results can contain `arguments` and `output`, and
+identity metadata includes `user.email`, `user.account_id`, and `host.name`.
+The normalizer only reads the whitelisted response metadata above. Fixture
+sanitization additionally removes those fields plus paths and conversation,
+thread, turn, and call identifiers.
+
+## 5. Decisions
 
 ### D1 — opencode truth signal: `opencode.llm` spans
 
@@ -162,21 +221,32 @@ token types (yes), cost (yes), stable dedup IDs (yes — traceID+spanID;
 are cumulative and would double count; `opencode.session` spans are
 aggregates. **Ingest only `opencode.llm` spans; ignore session spans, logs,
 and metrics.** Copilot truth signal is its `chat` spans, for the same
-reasons.
+reasons. Codex uses its terminal `response.completed` log because the span and
+metric alternatives either aggregate a turn or lack model/conversation
+identity. Exactly one authoritative signal is ingested per source.
 
 ### D2 — dedup keys
 
 - Copilot: `sha256("copilot|" + traceID + "|" + spanID)`
 - opencode: `sha256("opencode|" + traceID + "|" + spanID)`
+- Codex: SHA-256 over length-prefixed source/conversation/full-precision UTC
+  event timestamp/model fields plus explicit nil-or-value encodings for the
+  five token buckets
 
 Trace/span IDs are stable across export batches: one Copilot agent turn was
 exported in four separate `traces` batches reusing the same traceID and span
 IDs, so `INSERT ... ON CONFLICT DO NOTHING` (with non-nil-merge upsert, see
 `docs/plans/README.md` rule 3) deduplicates correctly.
 
+Codex log records have empty trace/span IDs. Its content-derived key is stable
+across exporter retries and distinguishes missing tokens from explicit zero.
+Two genuinely separate responses with the same conversation, timestamp,
+model, and all token values remain a residual collision risk because Codex
+emits no response ID.
+
 ### D3 — attribute → `Generation` mapping
 
-Both sources: `Timestamp` = span start (UTC), `Duration` = end − start,
+For the two span-based sources, `Timestamp` = span start (UTC), `Duration` = end − start,
 `TraceID`/`SpanID` = OTLP IDs, missing values stay nil (never coerce to zero).
 
 | Generation field | Copilot `chat` span | opencode `opencode.llm` span |
@@ -200,17 +270,18 @@ Both sources: `Timestamp` = span start (UTC), `Duration` = end − start,
 Filter rules: ingest only spans with `gen_ai.operation.name=chat` (Copilot)
 or `openinference.span.kind=LLM` / span name `opencode.llm` (opencode).
 Everything else (`invoke_agent`, `execute_tool`, `opencode.session`, metrics,
-logs) is dropped before normalization.
+and non-authoritative logs) is dropped before normalization. Codex is the one
+log-based source described above; all Codex spans are rejected.
 
-## 5. Open questions for Phase 3 (with proposed defaults)
+## 6. Open questions and resolved accounting choices
 
 1. **Cache accounting anomaly**: several opencode spans report
    `cache_read` > `prompt` (e.g. prompt 136, cache_read 6912), confirming
    the plugin's prompt count excludes cached tokens while Copilot's
    (OpenAI-style) includes them. Default: store both as reported; do not
    attempt to reconcile at ingest. *Resolved for display:* every aggregate
-   sums `storage.uncachedInputSQL` — copilot input minus cache tokens
-   (clamped at 0), other sources as stored — so `InputTokens` is the
+   sums `storage.uncachedInputSQL` — Copilot/Codex input minus cache tokens
+   (clamped at 0), OpenCode as stored — so `InputTokens` is the
    uncached prompt under one convention everywhere, `TotalTokens` no longer
    double-counts Copilot cache, and the cache hit rate
    (`storage.CacheHitRate`) is a single formula
@@ -234,6 +305,9 @@ logs) is dropped before normalization.
 8. **Copilot duration units**: `copilot_chat.time_to_first_token` is ms,
    `gen_ai.response.time_to_first_chunk` is seconds; span start/end is the
    only duration source for `Generation`.
+9. **Codex reasoning is a subset of output.** Resolved for display: subtract
+   reasoning from Codex output in every aggregate and single-record response,
+   while preserving raw storage. OpenCode and Copilot remain passthrough.
 
 ## Fixture provenance
 
@@ -250,6 +324,10 @@ logs) is dropped before normalization.
 | `testdata/opencode/traces-llm-multiturn.json` | multi-turn, `cache_read=3520`, `finish_reason=tool-calls` |
 | `testdata/opencode/logs.json` | `session.created`, `user_prompt`, `api_request`, `session.idle` |
 | `testdata/opencode/metrics.json` | one metrics batch (all `opencode.*` metrics) |
+| `testdata/codex/logs-sse-events.json` | two real terminal response logs, including nonzero cache + reasoning |
+| `testdata/codex/logs-other.json` | one `codex.user_prompt` and one `codex.tool_result`, sensitive values redacted |
+| `testdata/codex/traces-codex.json` | one token-bearing `handle_responses` and one aggregate `session_task.turn` span |
+| `testdata/codex/metrics-codex.json` | one `codex.turn.token_usage` metric |
 
 Privacy audit: all fixtures redact content-bearing attributes and span status
 messages to `"[REDACTED]"` (`cmd/sanitize`); the `.pb` fixture is a re-marshal

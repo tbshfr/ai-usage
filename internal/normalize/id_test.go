@@ -67,6 +67,9 @@ func TestDetectSource(t *testing.T) {
 	if got := DetectSource(resource("opencode"), span); got != SourceOpenCode {
 		t.Errorf("opencode → %q", got)
 	}
+	if got := DetectSource(resource("codex_cli_rs"), span); got != SourceCodex {
+		t.Errorf("codex_cli_rs → %q", got)
+	}
 	if got := DetectSource(resource(""), span); got != "" {
 		t.Errorf("unknown → %q, want empty", got)
 	}
@@ -75,5 +78,10 @@ func TestDetectSource(t *testing.T) {
 	fallback.PutStr("github.copilot.git.branch", "main")
 	if got := DetectSource(resource("something-else"), fallback); got != SourceCopilot {
 		t.Errorf("github.copilot.* fallback → %q, want copilot", got)
+	}
+	codexFallback := pcommon.NewMap()
+	codexFallback.PutInt("codex.turn.token_usage.input_tokens", 1)
+	if got := DetectSource(resource("something-else"), codexFallback); got != SourceCodex {
+		t.Errorf("codex.* fallback → %q, want codex", got)
 	}
 }

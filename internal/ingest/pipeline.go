@@ -36,7 +36,7 @@ const (
 const (
 	ReasonNoSource      = "no_source"        // span carries no known source's markers
 	ReasonNotGeneration = "not_a_generation" // healthy span, but never a generation record
-	ReasonLogs          = "logs"             // log records are ignored (see Stats.IgnoredNotUsed)
+	ReasonLogs          = "logs"             // healthy logs that are not supported generation events
 	ReasonMetrics       = "metrics"          // metric datapoints are ignored (see Stats.IgnoredNotUsed)
 	ReasonBadAttrs      = "bad_attributes"   // known attribute present with a non-string value
 	ReasonBadIDs        = "bad_ids"          // empty trace/span ID, no dedup key derivable
@@ -113,9 +113,9 @@ type Stats struct {
 	Deduplicated uint64
 	Rejected     uint64
 	// IgnoredNotUsed counts records that arrived and were healthy but can
-	// never become generations: log records (no source exports generations
-	// via logs) and metric datapoints (aggregates that would double count
-	// tokens already captured by spans). Not an error and not a rejection.
+	// never become generations: unsupported/non-terminal log records and
+	// metric datapoints (aggregates that would double count tokens already
+	// captured by a source's authoritative signal). Not an error/rejection.
 	IgnoredNotUsed      uint64
 	NormalizationErrors uint64
 	IngestionErrors     uint64
@@ -502,9 +502,12 @@ func (p *Pipeline) ConsumeTraces(ctx context.Context, td ptrace.Traces) error {
 			}
 		}
 	}
-	// One transaction per batch: a single commit instead of one per span
-	// keeps the write lock held once and briefly, so dashboard reads never
-	// queue behind a long series of writes.
+	return p.storeGenerations(ctx, gens)
+}
+
+// storeGenerations commits one signal batch and updates the shared storage,
+// dedup, and live-notification counters.
+func (p *Pipeline) storeGenerations(ctx context.Context, gens []normalize.Generation) error {
 	storedBySource, err := storage.InsertGenerations(ctx, p.db, gens)
 	if err != nil {
 		p.ingErrors.Add(1)
@@ -544,14 +547,42 @@ func countBySource(gens []normalize.Generation) map[string]int {
 	return out
 }
 
-// ConsumeLogs counts log records only; no source's logs become generations,
-// so they are ignored (see Stats.IgnoredNotUsed).
-func (p *Pipeline) ConsumeLogs(_ context.Context, ld plog.Logs) error {
-	n := ld.LogRecordCount()
-	p.received.Add(uint64(n))
-	p.ignored.Add(uint64(n))
-	p.bumpReason(ReasonKindIgnored, ReasonLogs, uint64(n))
-	return nil
+// ConsumeLogs normalizes supported log-based generations. Other logs remain
+// healthy ignored records rather than rejections.
+func (p *Pipeline) ConsumeLogs(ctx context.Context, ld plog.Logs) error {
+	ctx, cancel := context.WithTimeout(ctx, batchTimeout)
+	defer cancel()
+
+	var gens []normalize.Generation
+	for _, rl := range ld.ResourceLogs().All() {
+		resource := rl.Resource().Attributes()
+		source := normalize.DetectLogSource(resource)
+		for _, sl := range rl.ScopeLogs().All() {
+			for _, record := range sl.LogRecords().All() {
+				p.received.Add(1)
+				if source == "" {
+					p.ignored.Add(1)
+					p.bumpReason(ReasonKindIgnored, ReasonLogs, 1)
+					continue
+				}
+				gen, ok, err := normalize.FromLog(source, resource, record)
+				if err != nil {
+					p.normErrors.Add(1)
+					p.bumpReason(ReasonKindNormError, normErrorReason(err), 1)
+					p.logger.Debug("log normalization failed", "source", source, "error", err.Error())
+					continue
+				}
+				if !ok {
+					p.ignored.Add(1)
+					p.bumpReason(ReasonKindIgnored, ReasonLogs, 1)
+					continue
+				}
+				p.normalized.Add(1)
+				gens = append(gens, gen)
+			}
+		}
+	}
+	return p.storeGenerations(ctx, gens)
 }
 
 // ConsumeMetrics counts metrics only; they are aggregates and would double

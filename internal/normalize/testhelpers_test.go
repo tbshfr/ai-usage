@@ -6,12 +6,18 @@ import (
 	"time"
 
 	"go.opentelemetry.io/collector/pdata/pcommon"
+	"go.opentelemetry.io/collector/pdata/plog"
 	"go.opentelemetry.io/collector/pdata/ptrace"
 )
 
 type namedSpan struct {
 	resource pcommon.Map
 	span     ptrace.Span
+}
+
+type namedLog struct {
+	resource pcommon.Map
+	record   plog.LogRecord
 }
 
 // syntheticSpan builds a single-span trace with the given attributes and
@@ -30,6 +36,27 @@ func syntheticSpan(attrs map[string]any, serviceName string) namedSpan {
 		panic(err)
 	}
 	return namedSpan{resource: rss.Resource().Attributes(), span: span}
+}
+
+func loadLogs(t *testing.T, path string) []namedLog {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	logs, err := (&plog.JSONUnmarshaler{}).UnmarshalLogs(data)
+	if err != nil {
+		t.Fatalf("decode %s: %v", path, err)
+	}
+	var records []namedLog
+	for _, rl := range logs.ResourceLogs().All() {
+		for _, sl := range rl.ScopeLogs().All() {
+			for _, record := range sl.LogRecords().All() {
+				records = append(records, namedLog{resource: rl.Resource().Attributes(), record: record})
+			}
+		}
+	}
+	return records
 }
 
 func loadSpans(t *testing.T, path string) []namedSpan {

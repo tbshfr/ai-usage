@@ -184,6 +184,8 @@ func friendlySource(s string) string {
 		return "OpenCode"
 	case "copilot":
 		return "VS Code Copilot"
+	case "codex":
+		return "Codex"
 	default:
 		return s
 	}

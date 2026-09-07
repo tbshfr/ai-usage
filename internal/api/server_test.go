@@ -13,9 +13,24 @@ import (
 	"testing"
 
 	"github.com/tbshfr/ai-usage/internal/ingest"
+	"github.com/tbshfr/ai-usage/internal/normalize"
 	"github.com/tbshfr/ai-usage/internal/storage"
 	"github.com/tbshfr/ai-usage/internal/storage/seedtest"
 )
+
+func TestGenerationJSONUsesCanonicalCodexBuckets(t *testing.T) {
+	input, output, cache, reasoning := int64(24276), int64(132), int64(23296), int64(19)
+	got := generationJSON(normalize.Generation{
+		Source:          normalize.SourceCodex,
+		InputTokens:     &input,
+		OutputTokens:    &output,
+		CacheReadTokens: &cache,
+		ReasoningTokens: &reasoning,
+	})
+	if got.InputTokens == nil || *got.InputTokens != 980 || got.OutputTokens == nil || *got.OutputTokens != 113 {
+		t.Errorf("JSON input/output = %v/%v, want 980/113", got.InputTokens, got.OutputTokens)
+	}
+}
 
 func testLogger(t *testing.T) *slog.Logger {
 	t.Helper()

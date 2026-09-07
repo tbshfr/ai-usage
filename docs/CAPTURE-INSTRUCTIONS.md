@@ -1,8 +1,8 @@
 # Telemetry capture instructions (fixture refresh)
 
 This is the single source of truth for refreshing the sanitized fixtures
-under `testdata/opencode/` and `testdata/copilot/`. Run it when a source
-tool or plugin changes its telemetry.
+under `testdata/opencode/`, `testdata/copilot/`, and `testdata/codex/`. Run it
+when a source tool or plugin changes its telemetry.
 
 The current app does not persist raw payloads, so capture into a small
 throwaway receiver first, then sanitize. **Never commit unsanitized
@@ -53,7 +53,7 @@ func encoding(r *http.Request) string {
 ```
 
 ```bash
-mkdir -p /tmp/ai-usage-capture/opencode /tmp/ai-usage-capture/copilot
+mkdir -p /tmp/ai-usage-capture/opencode /tmp/ai-usage-capture/copilot /tmp/ai-usage-capture/codex
 go mod init capture && go mod tidy && go run . /tmp/ai-usage-capture
 ```
 
@@ -84,24 +84,37 @@ stays false), restart VS Code, and use it:
 
 ## 4. Sanitize into fixtures
 
+Before sanitizing, generate representative Codex traffic with the user-level
+`[otel]` configuration from [`source-setup.md`](source-setup.md): one plain
+prompt, a tool-using turn, and a multi-response turn. Keep
+`log_user_prompt=false`. Preserve a terminal `codex.sse_event` /
+`response.completed` record with nonzero cache and reasoning, plus examples of
+`codex.user_prompt`, `codex.tool_result`, `handle_responses`,
+`session_task.turn`, and `codex.turn.token_usage`.
+
 Check the capture directories are non-empty, then sanitize each payload
 and write it to `testdata/`:
 
 ```bash
 go run ./cmd/sanitize traces /tmp/ai-usage-capture/copilot/traces-123.pb > testdata/copilot/traces-chat-simple.json
 go run ./cmd/sanitize metrics /tmp/ai-usage-capture/opencode/metrics-123.pb > testdata/opencode/metrics.json
+go run ./cmd/sanitize logs /tmp/ai-usage-capture/codex/logs-123.json > testdata/codex/logs-sse-events.json
 ```
 
 `cmd/sanitize` accepts both OTLP/JSON and OTLP/protobuf input and redacts
 content-bearing attributes (`input.value`, `gen_ai.output.messages`,
-`copilot_chat.user_request`, …) and span status messages to
-`"[REDACTED]"`.
+`copilot_chat.user_request`, …), Codex content and identity fields (`prompt`,
+`arguments`, `output`, `user.email`, `user.account_id`, `host.name`, `cwd`,
+`code.file.path`, conversation/thread/turn/call IDs), and span status messages
+to `"[REDACTED]"`. It removes duplicate sensitive attributes before adding one
+redacted replacement, because malformed/quirky OTLP maps can contain the same
+key more than once.
 
 Verify no content leaked:
 
 ```bash
 grep -rn "REDACTED" testdata/ | wc -l   # redactions present
-grep -rniE "prompt|completion" --include=*.json testdata/ | grep -v REDACTED
+grep -rniE "@|/home/|/Users/|workdir|tbshfr" testdata/codex/
 ```
 
 Finally, update the "Fixture provenance" table in

@@ -1,0 +1,358 @@
+{
+  "resourceLogs": [
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "env",
+            "value": {
+              "stringValue": "capture"
+            }
+          },
+          {
+            "key": "telemetry.sdk.language",
+            "value": {
+              "stringValue": "rust"
+            }
+          },
+          {
+            "key": "service.version",
+            "value": {
+              "stringValue": "0.153.4"
+            }
+          },
+          {
+            "key": "service.name",
+            "value": {
+              "stringValue": "codex_cli_rs"
+            }
+          },
+          {
+            "key": "telemetry.sdk.version",
+            "value": {
+              "stringValue": "0.31.0"
+            }
+          },
+          {
+            "key": "telemetry.sdk.name",
+            "value": {
+              "stringValue": "opentelemetry"
+            }
+          },
+          {
+            "key": "host.name",
+            "value": {
+              "stringValue": "[REDACTED]"
+            }
+          }
+        ]
+      },
+      "scopeLogs": [
+        {
+          "scope": {
+            "name": "codex_otel.log_only"
+          },
+          "logRecords": [
+            {
+              "observedTimeUnixNano": "1788766557413193142",
+              "severityNumber": 9,
+              "severityText": "INFO",
+              "body": {},
+              "attributes": [
+                {
+                  "key": "event.name",
+                  "value": {
+                    "stringValue": "codex.tool_result"
+                  }
+                },
+                {
+                  "key": "tool_result_seq",
+                  "value": {
+                    "intValue": "7"
+                  }
+                },
+                {
+                  "key": "tool_name",
+                  "value": {
+                    "stringValue": "exec_command"
+                  }
+                },
+                {
+                  "key": "tool_namespace",
+                  "value": {
+                    "stringValue": "functions"
+                  }
+                },
+                {
+                  "key": "user.account_id",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "duration_ms",
+                  "value": {
+                    "stringValue": "73"
+                  }
+                },
+                {
+                  "key": "success",
+                  "value": {
+                    "stringValue": "true"
+                  }
+                },
+                {
+                  "key": "output_truncated",
+                  "value": {
+                    "boolValue": true
+                  }
+                },
+                {
+                  "key": "agent_name",
+                  "value": {
+                    "stringValue": "/root"
+                  }
+                },
+                {
+                  "key": "user.email",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "call_id",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "mcp_server",
+                  "value": {
+                    "stringValue": ""
+                  }
+                },
+                {
+                  "key": "mcp_server_origin",
+                  "value": {
+                    "stringValue": ""
+                  }
+                },
+                {
+                  "key": "event.timestamp",
+                  "value": {
+                    "stringValue": "2026-09-07T07:35:57.413Z"
+                  }
+                },
+                {
+                  "key": "slug",
+                  "value": {
+                    "stringValue": "gpt-5.6-luna"
+                  }
+                },
+                {
+                  "key": "app.version",
+                  "value": {
+                    "stringValue": "0.153.4"
+                  }
+                },
+                {
+                  "key": "auth_mode",
+                  "value": {
+                    "stringValue": "Chatgpt"
+                  }
+                },
+                {
+                  "key": "originator",
+                  "value": {
+                    "stringValue": "codex-tui"
+                  }
+                },
+                {
+                  "key": "arguments",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "conversation.id",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "terminal.type",
+                  "value": {
+                    "stringValue": "WindowsTerminal"
+                  }
+                },
+                {
+                  "key": "model",
+                  "value": {
+                    "stringValue": "gpt-5.6-luna"
+                  }
+                },
+                {
+                  "key": "output",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                }
+              ],
+              "flags": 1,
+              "traceId": "99e6221fa7c064d3d573e5327d71e729",
+              "spanId": "5a36b4eb71368de2",
+              "eventName": "event otel/src/tool_result.rs:54"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "env",
+            "value": {
+              "stringValue": "capture"
+            }
+          },
+          {
+            "key": "telemetry.sdk.language",
+            "value": {
+              "stringValue": "rust"
+            }
+          },
+          {
+            "key": "service.version",
+            "value": {
+              "stringValue": "0.153.4"
+            }
+          },
+          {
+            "key": "service.name",
+            "value": {
+              "stringValue": "codex_cli_rs"
+            }
+          },
+          {
+            "key": "telemetry.sdk.version",
+            "value": {
+              "stringValue": "0.31.0"
+            }
+          },
+          {
+            "key": "telemetry.sdk.name",
+            "value": {
+              "stringValue": "opentelemetry"
+            }
+          },
+          {
+            "key": "host.name",
+            "value": {
+              "stringValue": "[REDACTED]"
+            }
+          }
+        ]
+      },
+      "scopeLogs": [
+        {
+          "scope": {
+            "name": "codex_otel.log_only"
+          },
+          "logRecords": [
+            {
+              "observedTimeUnixNano": "1788766506485850814",
+              "severityNumber": 9,
+              "severityText": "INFO",
+              "body": {},
+              "attributes": [
+                {
+                  "key": "event.name",
+                  "value": {
+                    "stringValue": "codex.user_prompt"
+                  }
+                },
+                {
+                  "key": "prompt_length",
+                  "value": {
+                    "stringValue": "434"
+                  }
+                },
+                {
+                  "key": "slug",
+                  "value": {
+                    "stringValue": "gpt-5.6-luna"
+                  }
+                },
+                {
+                  "key": "event.timestamp",
+                  "value": {
+                    "stringValue": "2026-09-07T07:35:06.485Z"
+                  }
+                },
+                {
+                  "key": "user.account_id",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "app.version",
+                  "value": {
+                    "stringValue": "0.153.4"
+                  }
+                },
+                {
+                  "key": "auth_mode",
+                  "value": {
+                    "stringValue": "Chatgpt"
+                  }
+                },
+                {
+                  "key": "originator",
+                  "value": {
+                    "stringValue": "codex-tui"
+                  }
+                },
+                {
+                  "key": "prompt",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "conversation.id",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "terminal.type",
+                  "value": {
+                    "stringValue": "WindowsTerminal"
+                  }
+                },
+                {
+                  "key": "model",
+                  "value": {
+                    "stringValue": "gpt-5.6-luna"
+                  }
+                },
+                {
+                  "key": "user.email",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                }
+              ],
+              "flags": 1,
+              "traceId": "8a67d1dbbd597fb0b845485a7bd5f107",
+              "spanId": "46cb610c0ba491ad",
+              "eventName": "event otel/src/events/session_telemetry.rs:1059"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

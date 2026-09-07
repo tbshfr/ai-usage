@@ -9,17 +9,18 @@ first — it contains shared context that the phase plans do not repeat.
 A single self-contained Go binary (`ai-usage`) that:
 
 1. Receives GenAI usage telemetry via OTLP (HTTP on `:4318`, gRPC on `:4317`)
-   from two sources:
+   from three sources:
    - **OpenCode** (terminal AI agent) via the community plugin
      `@devtheops/opencode-plugin-otel`
    - **VS Code GitHub Copilot** via its native, built-in OTel support
+   - **Codex CLI** via its native OTel log exporter
 2. Normalizes usage to a canonical `Generation` record (GenAI semantic
    conventions).
 3. Stores records in SQLite (WAL mode) under the OS user-data directory.
 4. Serves a local web dashboard + JSON API on `:8080` (html/template + HTMX,
    all assets embedded).
 5. Displays cost **only when the source reports it** (opencode reports USD
-   cost; Copilot reports none). There is **no pricing subsystem** and never
+   cost; Copilot and Codex report none). There is **no pricing subsystem** and never
    will be — no price files, no manual price entry, no cost calculation.
 
 One executable + one SQLite database. No external collector, no Node, no
@@ -58,7 +59,8 @@ ai-usage/
 ├── migrations/        # .sql files, embedded
 ├── testdata/
 │   ├── opencode/     # sanitized real OTLP payloads (from Phase 1)
-│   └── copilot/
+│   ├── copilot/
+│   └── codex/
 ├── docs/
 │   ├── plans/        # these plans
 │   ├── telemetry.md  # written in Phase 1
@@ -74,7 +76,7 @@ ai-usage/
 type Generation struct {
     ID                 string        // deterministic dedup key, see below
     Timestamp          time.Time     // span start time (UTC)
-    Source             string        // "opencode" | "copilot"
+    Source             string        // "opencode" | "copilot" | "codex"
     ServiceName        string        // resource service.name attribute
     Provider           string        // gen_ai.provider.name (raw, e.g. "github")
     Model              string        // gen_ai.response.model, fallback gen_ai.request.model
@@ -98,7 +100,7 @@ Rules:
 - Nullable fields stay nil when telemetry lacks the value. Never coerce
   missing to zero. Zero is only stored when the source explicitly reported 0.
 - `Cost` is never computed. It exists in the DB only if a span/log carried it
-  (opencode's `api_request` log events and plugin cost signals).
+  (OpenCode's selected span cost signals).
 
 ## Telemetry reference (verified facts — do not re-research)
 
@@ -153,6 +155,8 @@ counters), and log events (`api_request` with tokens/cost/duration,
    - Copilot: `sha256("copilot|" + traceID + "|" + spanID)`
    - opencode: `sha256("opencode|" + traceID + "|" + spanID)` (or
      `sessionID|messageID` if the truth signal is logs — decided in Phase 1)
+   - Codex: content hash of conversation ID, full event timestamp, model, and
+     the five nullable token buckets (its terminal logs have no trace/span IDs)
 2. `INSERT ... ON CONFLICT(id) DO NOTHING` — retried OTLP batches must never
    produce duplicates.
 3. One LLM request can span multiple OTLP exports (e.g. streaming spans with
@@ -202,6 +206,7 @@ gofmt -l .
 | 7 | `phase-7-hardening.md` | Phases 1–6 | done |
 | 8 | `phase-8-distribution.md` | Phase 7 | done |
 | 9 | `phase-9-auth.md` | Phases 1–8 | done |
+| 10 | `phase-10-codex.md` | Phases 1–9 merged | done |
 
 Each phase plan is self-contained: an agent that has read this README plus its
 phase file can execute it. Do not start a phase before its prerequisites are

@@ -9,7 +9,7 @@ get `401` with `{"error":"unauthorized","status":401}` instead of data.
 
 All responses are `application/json`, UTF-8, lowerCamelCase. Nullable
 numerics serialize as JSON `null` when unknown — never `0`. Cost is
-passthrough only: it appears only when the source reported it (opencode),
+passthrough only: it appears only when the source reported it (OpenCode),
 never computed.
 
 ## Shared filter parameters
@@ -20,7 +20,7 @@ All list/aggregate endpoints accept:
 |---------------|------------------------------------------------------------------------------|
 | `from`        | RFC3339 or `YYYY-MM-DD` (date-only = UTC midnight); optional                 |
 | `to`          | RFC3339 or `YYYY-MM-DD`; optional, defaults to now                           |
-| `source`      | exact match (`opencode`, `copilot`); optional                                |
+| `source`      | exact match (`opencode`, `copilot`, `codex`); optional                       |
 | `provider`    | exact match on raw stored provider; optional                                 |
 | `model`       | exact match on raw stored model; optional                                    |
 | `conversation`| exact match on conversation/session ID; the sentinel `none` selects requests without a conversation ID (e.g. Copilot title generations); optional |
@@ -51,9 +51,12 @@ Totals for the filter range, plus the filter echo.
 }
 ```
 
-`inputTokens` is the canonical uncached prompt: Copilot's reported prompt
-count includes cached tokens, so the cached part is subtracted before
-aggregation (clamped at 0); other sources are stored uncached already.
+`inputTokens` is the canonical uncached prompt: Copilot and Codex report
+prompt input including cached tokens, so cached parts are subtracted before
+aggregation (clamped at 0); OpenCode is stored uncached already. Codex also
+reports reasoning as a subset of output; `outputTokens` excludes that subset
+so `outputTokens + reasoningTokens` never double-counts it. Raw reported
+values remain unchanged in SQLite.
 
 `cacheHitRate` is the fraction of prompt tokens served from cache:
 `cacheReadTokens / (inputTokens + cacheReadTokens + cacheCreationTokens)`.
@@ -179,10 +182,9 @@ Ingestion counters since process start — useful when "nothing shows up".
 
 `rejected` counts spans that were detected as belonging to a source but
 could not become a generation (e.g. non-`chat` Copilot spans), or spans from
-an unknown source. `ignoredNotUsed` counts log records and metric datapoints:
-they arrive healthy but can never become generations (only spans do), so they
-are counted and dropped by design — exporters like VS Code Copilot send these
-continuously. Both counters are part of the invariant
+an unknown source. `ignoredNotUsed` counts non-terminal/unsupported log records
+and metric datapoints. Codex `response.completed` logs are the exception: they
+are generation records. Both counters are part of the invariant
 `received == normalized + rejected + ignoredNotUsed + normalizationErrors`.
 
 ### `GET /api/stats/reasons?day=YYYY-MM-DD`
@@ -199,8 +201,8 @@ persisted rows.
 ]
 ```
 
-Kinds: `rejected` (spans that can never become records), `ignored` (log
-records and metric datapoints), `norm_error` (malformed generation spans),
+Kinds: `rejected` (spans that can never become records), `ignored` (unused log
+records and metric datapoints), `norm_error` (malformed generation spans/logs),
 `dedup` (duplicate records, broken down by source), and `http_reject`
 (requests rejected before the pipeline — auth failures, malformed
 requests — counted per request, not per record). Today's row serves the

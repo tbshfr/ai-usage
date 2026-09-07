@@ -10,11 +10,9 @@ import (
 	"github.com/tbshfr/ai-usage/internal/normalize"
 )
 
-// TestUncachedInputSQLParity feeds fixed rows through both implementations of
-// the uncached-input rule: the SQL expression used by every aggregate and the
-// Go mirror (normalize.Generation.UncachedInput) used for single records. If
-// they drift, single-record views and aggregates disagree.
-func TestUncachedInputSQLParity(t *testing.T) {
+// TestCanonicalTokenSQLParity feeds fixed rows through the SQL expressions
+// used by aggregates and their Go mirrors used for individual records.
+func TestCanonicalTokenSQLParity(t *testing.T) {
 	ctx := context.Background()
 	db, err := Open(ctx, filepath.Join(t.TempDir(), "usage.db"))
 	if err != nil {
@@ -42,6 +40,13 @@ func TestUncachedInputSQLParity(t *testing.T) {
 		// nil input: Go returns nil; SQL counts it as 0 in aggregates.
 		{ID: "p5", Timestamp: ts, Source: normalize.SourceCopilot, OutputTokens: i64(10)},
 		{ID: "p6", Timestamp: ts, Source: normalize.SourceOpenCode, InputTokens: i64(7)},
+		// Codex includes cache in input and reasoning in output.
+		{ID: "p7", Timestamp: ts, Source: normalize.SourceCodex,
+			InputTokens: i64(1000), OutputTokens: i64(132), CacheReadTokens: i64(800),
+			CacheCreationTokens: i64(100), ReasoningTokens: i64(19)},
+		// Defensive output clamp for inconsistent producer data.
+		{ID: "p8", Timestamp: ts, Source: normalize.SourceCodex,
+			OutputTokens: i64(10), ReasoningTokens: i64(20)},
 	}
 	for _, g := range rows {
 		if _, err := InsertGeneration(ctx, db, g); err != nil {
@@ -50,8 +55,8 @@ func TestUncachedInputSQLParity(t *testing.T) {
 	}
 
 	rs, err := db.QueryContext(ctx,
-		`SELECT id, source, input_tokens, cache_read_tokens, cache_creation_tokens,
-		`+uncachedInputSQL+` FROM generations ORDER BY id`)
+		`SELECT id, source, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens,
+		reasoning_tokens, `+uncachedInputSQL+`, `+outputTokensSQL+` FROM generations ORDER BY id`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,23 +64,32 @@ func TestUncachedInputSQLParity(t *testing.T) {
 
 	for rs.Next() {
 		var id, source string
-		var input, cacheRead, cacheCreate, gotSQL sql.NullInt64
-		if err := rs.Scan(&id, &source, &input, &cacheRead, &cacheCreate, &gotSQL); err != nil {
+		var input, output, cacheRead, cacheCreate, reasoning, gotInputSQL, gotOutputSQL sql.NullInt64
+		if err := rs.Scan(&id, &source, &input, &output, &cacheRead, &cacheCreate, &reasoning, &gotInputSQL, &gotOutputSQL); err != nil {
 			t.Fatal(err)
 		}
 		g := normalize.Generation{
 			ID:                  id,
 			Source:              source,
 			InputTokens:         nullInt64(input),
+			OutputTokens:        nullInt64(output),
 			CacheReadTokens:     nullInt64(cacheRead),
 			CacheCreationTokens: nullInt64(cacheCreate),
+			ReasoningTokens:     nullInt64(reasoning),
 		}
-		want := g.UncachedInput()
+		wantInput := g.UncachedInput()
 		switch {
-		case want == nil && gotSQL.Int64 != 0:
-			t.Errorf("%s: SQL uncached input = %v, want 0 (unreported input counts as 0)", id, gotSQL.Int64)
-		case want != nil && (!gotSQL.Valid || gotSQL.Int64 != *want):
-			t.Errorf("%s: SQL uncached input = %v, want %d (Go mirror)", id, gotSQL.Int64, *want)
+		case wantInput == nil && gotInputSQL.Int64 != 0:
+			t.Errorf("%s: SQL uncached input = %v, want 0 (unreported input counts as 0)", id, gotInputSQL.Int64)
+		case wantInput != nil && (!gotInputSQL.Valid || gotInputSQL.Int64 != *wantInput):
+			t.Errorf("%s: SQL uncached input = %v, want %d (Go mirror)", id, gotInputSQL.Int64, *wantInput)
+		}
+		wantOutput := g.NonReasoningOutput()
+		switch {
+		case wantOutput == nil && gotOutputSQL.Int64 != 0:
+			t.Errorf("%s: SQL output = %v, want 0 (unreported output counts as 0)", id, gotOutputSQL.Int64)
+		case wantOutput != nil && (!gotOutputSQL.Valid || gotOutputSQL.Int64 != *wantOutput):
+			t.Errorf("%s: SQL output = %v, want %d (Go mirror)", id, gotOutputSQL.Int64, *wantOutput)
 		}
 	}
 	if err := rs.Err(); err != nil {

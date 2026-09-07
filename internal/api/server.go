@@ -485,7 +485,7 @@ func generationJSON(g normalize.Generation) generation {
 		Provider:            g.Provider,
 		Model:               g.Model,
 		InputTokens:         g.UncachedInput(),
-		OutputTokens:        g.OutputTokens,
+		OutputTokens:        g.NonReasoningOutput(),
 		CacheReadTokens:     g.CacheReadTokens,
 		CacheCreationTokens: g.CacheCreationTokens,
 		ReasoningTokens:     g.ReasoningTokens,
@@ -506,8 +506,8 @@ type statsResponse struct {
 	Stored       uint64 `json:"stored"`
 	Deduplicated uint64 `json:"deduplicated"`
 	Rejected     uint64 `json:"rejected"`
-	// IgnoredNotUsed: log records and metric datapoints that can never
-	// become generations (spans only) — expected traffic, not an error.
+	// IgnoredNotUsed: unsupported/non-terminal logs and aggregate metrics
+	// that do not become generations — expected traffic, not an error.
 	IgnoredNotUsed      uint64 `json:"ignoredNotUsed"`
 	NormalizationErrors uint64 `json:"normalizationErrors"`
 	IngestionErrors     uint64 `json:"ingestionErrors"`

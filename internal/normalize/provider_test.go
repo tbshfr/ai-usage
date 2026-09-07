@@ -4,7 +4,7 @@ import "testing"
 
 // Phase 7 item 7: model strings that match no display-provider prefix fall
 // back to "unknown"; the raw model/provider stays in the row.
-func TestUnderlyingProviderFallback(t *testing.T) {
+func TestModelCreatorFallback(t *testing.T) {
 	cases := []struct {
 		model string
 		want  string
@@ -19,8 +19,8 @@ func TestUnderlyingProviderFallback(t *testing.T) {
 		{"", "unknown"},
 	}
 	for _, c := range cases {
-		if got := UnderlyingProvider(c.model); got != c.want {
-			t.Errorf("UnderlyingProvider(%q) = %q, want %q", c.model, got, c.want)
+		if got := ModelCreator(c.model); got != c.want {
+			t.Errorf("ModelCreator(%q) = %q, want %q", c.model, got, c.want)
 		}
 	}
 }

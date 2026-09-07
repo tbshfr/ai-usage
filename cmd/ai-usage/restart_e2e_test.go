@@ -104,8 +104,8 @@ func TestRestartPersistence(t *testing.T) {
 	if err := db.QueryRow(`SELECT COUNT(*) FROM schema_migrations`).Scan(&versions); err != nil {
 		t.Fatal(err)
 	}
-	if versions != 3 {
-		t.Errorf("schema_migrations rows = %d, want 3", versions)
+	if versions != 4 {
+		t.Errorf("schema_migrations rows = %d, want 4", versions)
 	}
 	var rows int
 	if err := db.QueryRow(`SELECT COUNT(*) FROM generations`).Scan(&rows); err != nil {

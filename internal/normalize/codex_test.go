@@ -26,7 +26,7 @@ func TestFromCodexLogFixture(t *testing.T) {
 		if gen.Source != SourceCodex || gen.ServiceName != "codex_cli_rs" || gen.Model != "gpt-5.6-luna" {
 			t.Errorf("identity = source %q service %q model %q", gen.Source, gen.ServiceName, gen.Model)
 		}
-		if gen.Provider != "" || gen.Cost != nil || gen.TraceID != "" || gen.SpanID != "" || gen.Duration != 0 {
+		if gen.Provider != "openai" || gen.Cost != nil || gen.TraceID != "" || gen.SpanID != "" || gen.Duration != 0 {
 			t.Errorf("unsupported metadata was fabricated: %+v", gen)
 		}
 		if gen.ReasoningTokens != nil && *gen.ReasoningTokens > 0 {

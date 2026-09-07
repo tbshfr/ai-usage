@@ -27,7 +27,7 @@ var funcs = template.FuncMap{
 	"utcTime":          utcTime,
 	"utcDate":          utcDate,
 	"friendlySource":   friendlySource,
-	"underlying":       normalize.UnderlyingProvider,
+	"creator":          normalize.ModelCreator,
 	"copyID":           copyID,
 	"toJSON":           toJSON,
 	"pct":              pct,

@@ -63,11 +63,16 @@ func FromCodexLog(resource pcommon.Map, lr plog.LogRecord) (Generation, bool, er
 	if err != nil {
 		return Generation{}, true, err
 	}
+	// Codex only reports the provider on a separate conversation-start
+	// event, but the Codex CLI always talks to OpenAI, so derive it here
+	// instead of keeping an order-dependent session state (the one source
+	// where provider is not a raw reported attribute).
 	return Generation{
 		ID:                  id,
 		Timestamp:           timestamp.UTC(),
 		Source:              SourceCodex,
 		ServiceName:         serviceName(resource),
+		Provider:            "openai",
 		Model:               model,
 		ConversationID:      conversationID,
 		InputTokens:         input,

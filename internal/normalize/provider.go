@@ -2,10 +2,10 @@ package normalize
 
 import "strings"
 
-// UnderlyingProvider derives a friendly provider label from the model ID
-// prefix. Display-only (Phase 6 UI); the stored `provider` column always
-// keeps the raw source attribute.
-func UnderlyingProvider(model string) string {
+// ModelCreator derives a friendly creator (vendor) label from the
+// model ID prefix. Display-only; the stored `provider` column always keeps
+// the raw source attribute (with Codex as the one derived exception).
+func ModelCreator(model string) string {
 	m := strings.ToLower(model)
 	switch {
 	case strings.HasPrefix(m, "claude"):

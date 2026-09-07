@@ -56,8 +56,8 @@ func TestDetailRendersUnknownModel(t *testing.T) {
 	)
 	wantNotContains(t, body, "anthropic", "openai", "$")
 
-	// breakdown table shows the unknown underlying provider (range=all: the
-	// seed predates the today default)
+	// breakdown table shows the unknown creator for the unknown model
+	// (range=all: the seed predates the today default)
 	status, body = get(t, srv.URL+"/breakdowns?range=all")
 	if status != http.StatusOK {
 		t.Fatalf("breakdowns status %d", status)

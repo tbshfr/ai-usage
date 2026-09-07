@@ -137,7 +137,7 @@ func TestFromOpenCodeSpanProviderFallback(t *testing.T) {
 	}
 }
 
-func TestUnderlyingProvider(t *testing.T) {
+func TestModelCreator(t *testing.T) {
 	cases := map[string]string{
 		"claude-haiku-4.5":   "anthropic",
 		"gpt-5.6-luna":       "openai",
@@ -149,8 +149,8 @@ func TestUnderlyingProvider(t *testing.T) {
 		"":                   "unknown",
 	}
 	for model, want := range cases {
-		if got := UnderlyingProvider(model); got != want {
-			t.Errorf("UnderlyingProvider(%q) = %q, want %q", model, got, want)
+		if got := ModelCreator(model); got != want {
+			t.Errorf("ModelCreator(%q) = %q, want %q", model, got, want)
 		}
 	}
 }

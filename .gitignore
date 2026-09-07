@@ -1,7 +1,6 @@
 *.pb.tmp
 temp/*
 temp/
-sanitize
 /ai-usage
 dist/
 *.db

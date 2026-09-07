@@ -86,9 +86,9 @@ func (f Filter) whereSQL() (string, []any) {
 // titleprogress select the per-day copilot agent groups behind the
 // Autocomplete and Title/progress session cards.
 const (
-	ConversationNone           = "none"
-	ConversationAutocomplete   = "autocomplete"
-	ConversationTitleProgress  = "titleprogress"
+	ConversationNone          = "none"
+	ConversationAutocomplete  = "autocomplete"
+	ConversationTitleProgress = "titleprogress"
 )
 
 // InsertGeneration stores one record, returning true when a new row was

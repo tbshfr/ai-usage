@@ -41,6 +41,7 @@ func ParseOrder(s string) (Order, error) {
 //     Key "titleprogress:<day-ms>"
 //   - anything else without a conversation ID: Key "" ("other" group) with
 //     Day holding the group's UTC date.
+//
 // Source/Model/Agent/Repo come from the group's most recent request.
 // CostTotal is nil when no row in the group reported cost.
 type ConversationSummary struct {

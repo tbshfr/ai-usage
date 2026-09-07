@@ -14,7 +14,7 @@
 <div class="table-scroll">
   <table class="rows">
   <thead><tr>
-    <th>Time</th><th>Source</th>{{if not .F.Selected.Conversation}}<th>Conversation</th>{{end}}<th>Provider</th><th>Model</th><th>Input</th><th>Output</th><th>Cache read</th><th>Cache creation</th><th>Reasoning</th><th>Cost</th><th>Duration</th>
+    <th>Time</th><th>Source</th>{{if not .F.Selected.Conversation}}<th>Conversation</th>{{end}}<th>Provider</th><th>Model</th><th>Input</th><th>Output</th><th>Reasoning</th><th>Cache read</th><th>Cache creation</th><th>Cost</th><th>Duration</th>
   </tr></thead>
   <tbody>
     {{range .Recent.Rows}}
@@ -26,9 +26,9 @@
       <td>{{or .Model "—"}}</td>
       <td>{{tokens .UncachedInput}}</td>
       <td>{{tokens .NonReasoningOutput}}</td>
+      <td>{{tokens .ReasoningTokens}}</td>
       <td>{{tokens .CacheReadTokens}}</td>
       <td>{{tokens .CacheCreationTokens}}</td>
-      <td>{{tokens .ReasoningTokens}}</td>
       <td>{{cost .Cost}}</td>
       <td>{{dur .Duration}}</td>
     </tr>

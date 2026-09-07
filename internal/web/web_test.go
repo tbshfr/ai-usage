@@ -100,6 +100,9 @@ func TestPeriodDetailFragmentHasCost(t *testing.T) {
 		t.Fatalf("status %d", status)
 	}
 	wantContains(t, body, "All time &mdash; details", "$2.8500 (8 known, 12 without cost data)", "Cache hit rate", "16.8%")
+	if i, j := strings.Index(body, "<dt>Output</dt>"), strings.Index(body, "<dt>Reasoning</dt>"); i == -1 || j == -1 || j < i {
+		t.Errorf("period detail: Reasoning must follow Output (i=%d, j=%d)", i, j)
+	}
 
 	// unknown cost must stay "—", never $0.00
 	_, body = get(t, srv.URL+"/fragments/period-detail?period=all&"+fullRangeQuery+"&source=copilot")
@@ -166,6 +169,7 @@ func TestBreakdownsFragment(t *testing.T) {
 		"github", "openai",
 		"$2.8500",
 		"Cache hit", "Total tokens",
+		"<th>Output</th><th>Reasoning</th><th>Cache read</th>",
 		"<tr class=\"totals\">",
 	)
 
@@ -231,6 +235,7 @@ func TestSessionRequestsView(t *testing.T) {
 	}
 	wantContains(t, body,
 		"<th>Conversation</th>",
+		"<th>Output</th><th>Reasoning</th><th>Cache read</th>",
 		"gpt-4.1", "claude-haiku-4-5-20251001", "2026-03-01 00:19 UTC", "—",
 		`title="Show this conversation's requests" href="/sessions?conversation=conv-copilot`,
 		`<input type="hidden" name="view" value="requests">`,
@@ -279,6 +284,9 @@ func TestDetailPage(t *testing.T) {
 		`href="/sessions?conversation=conv-copilot"`,
 		"Back to sessions",
 	)
+	if i, j := strings.Index(body, "<dt>Output tokens</dt>"), strings.Index(body, "<dt>Reasoning tokens</dt>"); i == -1 || j == -1 || j < i {
+		t.Errorf("detail page: Reasoning tokens must follow Output tokens (i=%d, j=%d)", i, j)
+	}
 
 	status, body = get(t, srv.URL+"/generations/o1")
 	if status != http.StatusOK {

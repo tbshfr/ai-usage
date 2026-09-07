@@ -43,9 +43,9 @@
     <div><dt>Total tokens</dt><dd>{{commas .Detail.S.TotalTokens}}</dd></div>
     <div><dt>Input</dt><dd>{{tokens .Detail.S.InputTokens}}</dd></div>
     <div><dt>Output</dt><dd>{{tokens .Detail.S.OutputTokens}}</dd></div>
+    <div><dt>Reasoning</dt><dd>{{tokens .Detail.S.ReasoningTokens}}</dd></div>
     <div><dt>Cache read</dt><dd>{{tokens .Detail.S.CacheReadTokens}}</dd></div>
     <div><dt>Cache creation</dt><dd>{{tokens .Detail.S.CacheCreationTokens}}</dd></div>
-    <div><dt>Reasoning</dt><dd>{{tokens .Detail.S.ReasoningTokens}}</dd></div>
     <div><dt>Cache hit rate</dt><dd>{{pct .Detail.S.CacheHitRate}}</dd></div>
     {{if .Detail.Since}}<div><dt>Since</dt><dd>{{utcDate .Detail.Since}}</dd></div>{{end}}
     <div><dt>Cost</dt><dd>{{costLine .Detail.S.CostKnownCount .Detail.S.CostUnknownCount .Detail.S.CostTotal}}</dd></div>

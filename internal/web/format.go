@@ -247,33 +247,21 @@ func convHref(u uiFilter, key string) string {
 	return conversationURL(u, key)
 }
 
-// convTitle picks the conversation card's headline: agent, repo, or model.
+// convTitle is the conversation card's headline: the friendly source name.
+// Agent/repo stay in the detail view; they are unreliable on cards
+// (repo never observed, agent is "title" or "tool/..." on Copilot spans).
 func convTitle(c storage.ConversationSummary) string {
-	if c.AgentName != "" {
-		return c.AgentName
-	}
-	if c.GitRepo != "" {
-		return c.GitRepo
-	}
-	if c.Model != "" {
-		return c.Model
+	if c.Source != "" {
+		return friendlySource(c.Source)
 	}
 	return "Session"
 }
 
-// convSub is the conversation card's muted second line, skipping anything
-// already shown as the title.
+// convSub is the conversation card's muted second line: the latest model,
+// falling back to the truncated conversation key when model is empty.
 func convSub(c storage.ConversationSummary) string {
-	title := convTitle(c)
-	parts := []string{}
-	if c.GitRepo != "" && c.GitRepo != title {
-		parts = append(parts, c.GitRepo)
+	if c.Model != "" {
+		return c.Model
 	}
-	if c.Model != "" && c.Model != title {
-		parts = append(parts, c.Model)
-	}
-	if len(parts) == 0 {
-		parts = append(parts, shortConv(c.Key))
-	}
-	return strings.Join(parts, " · ")
+	return shortConv(c.Key)
 }

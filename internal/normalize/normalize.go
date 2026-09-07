@@ -46,9 +46,9 @@ type Generation struct {
 }
 
 // UncachedInput returns the canonical prompt input with cached tokens
-// removed: Copilot reports the prompt count including cached tokens
-// (OpenAI-style), so the cached part is subtracted; other sources' prompt
-// counts already exclude cache. Nil stays nil when input was not reported.
+// removed: Copilot and Codex report the prompt count including cached tokens
+// (OpenAI-style), so the cached parts are subtracted there; OpenCode's prompt
+// count already excludes cache. Nil stays nil when input was not reported.
 // This mirrors the storage layer's uncachedInputSQL so single records and
 // aggregates agree; the stored value stays as reported.
 func (g Generation) UncachedInput() *int64 {

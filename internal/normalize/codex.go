@@ -88,6 +88,8 @@ func checkedTokenAttr(attrs pcommon.Map, key string) (*int64, error) {
 	return nil, fmt.Errorf("%s: %w", key, ErrInvalidTokenAttr)
 }
 
+// checkedFirstTokenAttr returns the first present alias. The first key is
+// authoritative when an exporter sends both names with divergent values.
 func checkedFirstTokenAttr(attrs pcommon.Map, keys ...string) (*int64, error) {
 	for _, key := range keys {
 		if _, ok := attrs.Get(key); ok {
@@ -102,9 +104,14 @@ func codexLogTimestamp(lr plog.LogRecord) (time.Time, error) {
 		if value.Type() != pcommon.ValueTypeStr {
 			return time.Time{}, fmt.Errorf("event.timestamp: %w", ErrNonStringAttrs)
 		}
-		if timestamp, err := time.Parse(time.RFC3339Nano, value.Str()); err == nil {
-			return timestamp, nil
+		// Strict when present: a corrupt timestamp must error rather than
+		// fall back to observed time, or retries would store a different
+		// time and DedupLogID and duplicate the row.
+		timestamp, err := time.Parse(time.RFC3339Nano, value.Str())
+		if err != nil {
+			return time.Time{}, fmt.Errorf("event.timestamp %q: %v: %w", value.Str(), err, ErrInvalidLogTimestamp)
 		}
+		return timestamp, nil
 	}
 	if lr.Timestamp() != 0 {
 		return lr.Timestamp().AsTime(), nil

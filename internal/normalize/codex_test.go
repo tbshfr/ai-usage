@@ -91,6 +91,18 @@ func TestFromCodexLogValidationAndTimestampFallback(t *testing.T) {
 	if _, ok, err := FromCodexLog(resource, fallback); !ok || !errors.Is(err, ErrInvalidLogTimestamp) {
 		t.Fatalf("missing timestamp: ok=%v err=%v", ok, err)
 	}
+
+	invalidTS := codexRecord(map[string]any{
+		"event.name":      "codex.sse_event",
+		"event.kind":      "response.completed",
+		"event.timestamp": "not-a-timestamp",
+		"conversation.id": "conversation",
+		"model":           "model",
+	})
+	invalidTS.SetObservedTimestamp(pcommon.NewTimestampFromTime(time.Unix(123, 456)))
+	if _, ok, err := FromCodexLog(resource, invalidTS); !ok || !errors.Is(err, ErrInvalidLogTimestamp) {
+		t.Fatalf("present-but-invalid timestamp: ok=%v err=%v", ok, err)
+	}
 }
 
 func TestDedupLogIDCanonicalAndSensitive(t *testing.T) {

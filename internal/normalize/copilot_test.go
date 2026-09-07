@@ -160,3 +160,52 @@ func TestFromCopilotSpanLegacyOnlyReasoning(t *testing.T) {
 		t.Errorf("reasoning = %v, want legacy alias value 15", gen.ReasoningTokens)
 	}
 }
+
+func TestFromCopilotSpanXtabClearsConversation(t *testing.T) {
+	ns := syntheticSpan(map[string]any{
+		"gen_ai.operation.name":  "chat",
+		"gen_ai.provider.name":   "github",
+		"gen_ai.request.model":   "copilot-nes-lysithea-14",
+		"gen_ai.response.model":  "copilot-nes-lysithea-14",
+		"gen_ai.conversation.id": "conv-xtab-1",
+		"gen_ai.agent.name":      AgentXtabProvider,
+	}, "copilot-chat")
+
+	gen, ok, err := FromCopilotSpan(ns.resource, ns.span)
+	if err != nil || !ok {
+		t.Fatalf("ok=%v err=%v", ok, err)
+	}
+	if gen.AgentName != AgentXtabProvider {
+		t.Errorf("agent = %q, want %q", gen.AgentName, AgentXtabProvider)
+	}
+	if gen.ConversationID != "" {
+		t.Errorf("xtab conversation = %q, want empty (per-day Autocomplete group)", gen.ConversationID)
+	}
+}
+
+func TestFromCopilotSpanSessionlessAgentsClearConversation(t *testing.T) {
+	for _, agent := range []string{AgentTitle, AgentProgressMessages} {
+		ns := syntheticSpan(map[string]any{
+			"gen_ai.operation.name":  "chat",
+			"gen_ai.provider.name":   "github",
+			"gen_ai.request.model":   "gpt-4o-mini-2024-07-18",
+			"gen_ai.response.model":  "gpt-4o-mini-2024-07-18",
+			"gen_ai.conversation.id": "conv-parent",
+			"gen_ai.agent.name":      agent,
+		}, "copilot-chat")
+
+		gen, ok, err := FromCopilotSpan(ns.resource, ns.span)
+		if err != nil || !ok {
+			t.Fatalf("agent %q: ok=%v err=%v", agent, ok, err)
+		}
+		if gen.ConversationID != "" {
+			t.Errorf("agent %q conversation = %q, want empty (per-day Title/progress group)", agent, gen.ConversationID)
+		}
+		if !IsSessionlessAgent(agent) {
+			t.Errorf("IsSessionlessAgent(%q) = false, want true", agent)
+		}
+	}
+	if IsSessionlessAgent("panel/editAgent") {
+		t.Error(`IsSessionlessAgent("panel/editAgent") = true, want false`)
+	}
+}

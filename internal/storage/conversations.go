@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strconv"
 	"time"
+
+	"github.com/tbshfr/ai-usage/internal/normalize"
 )
 
 // Order is a sort direction for list queries.
@@ -33,10 +35,14 @@ func ParseOrder(s string) (Order, error) {
 }
 
 // ConversationSummary aggregates all requests sharing one conversation ID.
-// Rows without a conversation ID are lumped into per-UTC-day "other" groups:
-// Key is "" and Day holds the group's UTC date. Source/Model/Agent/Repo come
-// from the group's most recent request. CostTotal is nil when no row in the
-// group reported cost.
+// Session-less VS Code activity groups per UTC day instead:
+//   - autocomplete (agent XtabProvider): Key "autocomplete:<day-ms>"
+//   - title/progress helpers (agents title, progressMessages):
+//     Key "titleprogress:<day-ms>"
+//   - anything else without a conversation ID: Key "" ("other" group) with
+//     Day holding the group's UTC date.
+// Source/Model/Agent/Repo come from the group's most recent request.
+// CostTotal is nil when no row in the group reported cost.
 type ConversationSummary struct {
 	Key                 string
 	Day                 string
@@ -62,8 +68,53 @@ func (c ConversationSummary) CacheHitRate() *float64 {
 	return CacheHitRate(c.InputTokens, c.CacheReadTokens, c.CacheCreationTokens)
 }
 
-// Other is true for the per-day groups of rows without a conversation ID.
+// Other is true for the generic per-day groups of rows without a
+// conversation ID (excluding the Autocomplete and Title/progress groups,
+// which have their own per-day cards).
 func (c ConversationSummary) Other() bool { return c.Key == "" }
+
+// IsAutocomplete is true for per-day VS Code autocomplete groups.
+func (c ConversationSummary) IsAutocomplete() bool {
+	_, ok := cutPrefix(c.Key, convKeyAutocompletePrefix)
+	return ok
+}
+
+// IsTitleProgress is true for per-day title/progress helper groups.
+func (c ConversationSummary) IsTitleProgress() bool {
+	_, ok := cutPrefix(c.Key, convKeyTitleProgressPrefix)
+	return ok
+}
+
+// Internal group-key prefixes. The autocomplete/titleprogress prefixes match
+// their Filter.Conversation sentinels (prefix = sentinel + ":"); "other:"
+// maps to the historic "none" sentinel with Key "".
+const (
+	convKeyOtherPrefix         = "other:"
+	convKeyAutocompletePrefix  = "autocomplete:"
+	convKeyTitleProgressPrefix = "titleprogress:"
+)
+
+// ConversationFilterForKey maps a Conversations group Key to the
+// Filter.Conversation value selecting its rows: synthetic per-day keys map
+// to their sentinels, "" maps to none, anything else is a real
+// conversation ID.
+func ConversationFilterForKey(key string) string {
+	switch {
+	case key == "":
+		return ConversationNone
+	case hasKeyPrefix(key, convKeyAutocompletePrefix):
+		return ConversationAutocomplete
+	case hasKeyPrefix(key, convKeyTitleProgressPrefix):
+		return ConversationTitleProgress
+	default:
+		return key
+	}
+}
+
+func hasKeyPrefix(s, prefix string) bool {
+	_, ok := cutPrefix(s, prefix)
+	return ok
+}
 
 // TotalTokens is the sum of all five token columns.
 func (c ConversationSummary) TotalTokens() int64 {
@@ -90,7 +141,18 @@ func Conversations(ctx context.Context, db *sql.DB, f Filter, order Order, limit
 	}
 	where, args := f.whereSQL()
 
-	const convExpr = `COALESCE(conversation_id, 'other:' || (timestamp / 86400000 * 86400000))`
+	// Session-less VS Code agents have no meaningful session, so they group
+	// per UTC day under their own agent headers (even when a conversation
+	// ID was stored, e.g. rows ingested before normalization started
+	// clearing it). The agent match is scoped to source='copilot' because
+	// other sources (e.g. opencode) use free-form agent names that may
+	// collide with these VS Code values. Everything else without a
+	// conversation ID lumps into the generic per-day "other" groups.
+	convExpr := `CASE` +
+		` WHEN source = '` + normalize.SourceCopilot + `' AND agent_name = '` + normalize.AgentXtabProvider + `' THEN '` + convKeyAutocompletePrefix + `' || (timestamp / 86400000 * 86400000)` +
+		` WHEN source = '` + normalize.SourceCopilot + `' AND agent_name IN ('` + normalize.AgentTitle + `', '` + normalize.AgentProgressMessages + `') THEN '` + convKeyTitleProgressPrefix + `' || (timestamp / 86400000 * 86400000)` +
+		` WHEN conversation_id IS NULL THEN '` + convKeyOtherPrefix + `' || (timestamp / 86400000 * 86400000)` +
+		` ELSE conversation_id END`
 	q := `WITH w AS (
 	SELECT ` + convExpr + ` AS k,
 		ROW_NUMBER() OVER (PARTITION BY ` + convExpr + ` ORDER BY timestamp DESC) AS rn,
@@ -157,13 +219,20 @@ GROUP BY k ORDER BY MAX(timestamp) ` + string(dir) + ` LIMIT ? OFFSET ?`
 			return nil, 0, fmt.Errorf("conversations scan: %w", err)
 		}
 		c.Key = key.String
-		if after, ok := cutPrefix(c.Key, "other:"); ok {
+		// Synthetic per-day keys carry the UTC day start; generic Other
+		// collapses to Key "" while agent groups keep their prefixed key
+		// so cards stay distinct and drill down to their own filter.
+		switch {
+		case hasKeyPrefix(c.Key, convKeyOtherPrefix):
+			after, _ := cutPrefix(c.Key, convKeyOtherPrefix)
 			c.Key = ""
-			if ms, err := strconv.ParseInt(after, 10, 64); err == nil {
-				c.Day = time.UnixMilli(ms).UTC().Format("2006-01-02")
-			} else {
-				c.Day = after
-			}
+			c.Day = dayString(after)
+		case hasKeyPrefix(c.Key, convKeyAutocompletePrefix):
+			after, _ := cutPrefix(c.Key, convKeyAutocompletePrefix)
+			c.Day = dayString(after)
+		case hasKeyPrefix(c.Key, convKeyTitleProgressPrefix):
+			after, _ := cutPrefix(c.Key, convKeyTitleProgressPrefix)
+			c.Day = dayString(after)
 		}
 		c.CostTotal = nullFloat(costTotal)
 		c.FirstTimestamp = time.UnixMilli(first).UTC()
@@ -279,6 +348,15 @@ func cutPrefix(s, prefix string) (string, bool) {
 		return s[len(prefix):], true
 	}
 	return s, false
+}
+
+// dayString renders a group-key day suffix (UTC millis, with a raw fallback
+// for unexpected values) as YYYY-MM-DD.
+func dayString(after string) string {
+	if ms, err := strconv.ParseInt(after, 10, 64); err == nil {
+		return time.UnixMilli(ms).UTC().Format("2006-01-02")
+	}
+	return after
 }
 
 func nullFloat(v sql.NullFloat64) *float64 {

@@ -225,7 +225,8 @@ func shortConv(s string) string {
 }
 
 // conversationLink renders an anchor filtering Sessions by conversation; conv
-// "" becomes the "none" filter (title generations and similar).
+// "" becomes the "none" filter (session-less rows: title/progress helpers,
+// autocomplete, and anything else without a conversation ID).
 func conversationLink(u uiFilter, conv string) template.HTML {
 	href := convHref(u, conv)
 	if conv == "" {
@@ -238,13 +239,12 @@ func conversationLink(u uiFilter, conv string) template.HTML {
 	return template.HTML(`<a class="conv" title="Show this conversation's requests" href="` + href + `">` + label + `</a>`)
 }
 
-// convHref builds the /sessions drill-down URL for a conversation key; ""
-// (the other-groups) becomes the "none" sentinel filter.
+// convHref builds the /sessions drill-down URL for a conversation group
+// key. Synthetic per-day keys map to their conversation sentinels
+// (autocomplete/titleprogress/none); anything else is a real conversation
+// ID.
 func convHref(u uiFilter, key string) string {
-	if key == "" {
-		key = storage.ConversationNone
-	}
-	return conversationURL(u, key)
+	return conversationURL(u, storage.ConversationFilterForKey(key))
 }
 
 // convTitle is the conversation card's headline: the friendly source name.

@@ -7,6 +7,25 @@ import (
 	"go.opentelemetry.io/collector/pdata/ptrace"
 )
 
+// Session-less VS Code agents: no meaningful conversation, grouped per day
+// in the sessions overview. XtabProvider is inline autocomplete (Next Edit
+// Suggestions); title and progressMessages are chat helper generations.
+const (
+	AgentXtabProvider     = "XtabProvider"
+	AgentTitle            = "title"
+	AgentProgressMessages = "progressMessages"
+)
+
+// IsSessionlessAgent reports whether a Copilot agent name carries no
+// meaningful session (autocomplete plus title/progress helpers).
+func IsSessionlessAgent(agent string) bool {
+	switch agent {
+	case AgentXtabProvider, AgentTitle, AgentProgressMessages:
+		return true
+	}
+	return false
+}
+
 // FromCopilotSpan maps a Copilot span to a Generation.
 //
 // Spans with gen_ai.operation.name "chat" are the only generation records:
@@ -56,5 +75,10 @@ func FromCopilotSpan(resource pcommon.Map, span ptrace.Span) (Generation, bool, 
 	}
 	// Copilot telemetry carries no cost attribute; Cost is never computed.
 	gen.Cost = nil
+	if IsSessionlessAgent(gen.AgentName) {
+		// Autocomplete and title/progress helpers have no session: ignore
+		// any reported conversation so they group per day.
+		gen.ConversationID = ""
+	}
 	return gen, true, nil
 }

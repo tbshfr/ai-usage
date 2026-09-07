@@ -14,8 +14,11 @@ import (
 // Filter is the single filter type used by every query method. Zero From
 // means no lower bound; zero To means now. Source/Provider/Model match raw
 // stored values exactly ("" = all). Conversation matches conversation_id
-// exactly; the sentinel value "none" selects rows with no conversation ID
-// (e.g. Copilot title-generation requests).
+// exactly, except for the sentinels below: "none" selects every session-less
+// row (no conversation ID, or a session-less copilot agent),
+// "autocomplete" selects copilot autocomplete, and "titleprogress" selects
+// the copilot title/progress helpers. Agent matches are always scoped to
+// source='copilot' because other sources use free-form agent names.
 type Filter struct {
 	From         time.Time
 	To           time.Time
@@ -63,17 +66,30 @@ func (f Filter) whereSQL() (string, []any) {
 	}
 	switch {
 	case f.Conversation == ConversationNone:
-		conds = append(conds, "conversation_id IS NULL")
+		conds = append(conds, "(conversation_id IS NULL OR (source = ? AND agent_name IN (?, ?, ?)))")
+		args = append(args, normalize.SourceCopilot, normalize.AgentXtabProvider, normalize.AgentTitle, normalize.AgentProgressMessages)
+	case f.Conversation == ConversationAutocomplete:
+		conds = append(conds, "(source = ? AND agent_name = ?)")
+		args = append(args, normalize.SourceCopilot, normalize.AgentXtabProvider)
+	case f.Conversation == ConversationTitleProgress:
+		conds = append(conds, "(source = ? AND agent_name IN (?, ?))")
+		args = append(args, normalize.SourceCopilot, normalize.AgentTitle, normalize.AgentProgressMessages)
 	case f.Conversation != "":
-		conds = append(conds, "conversation_id = ?")
-		args = append(args, f.Conversation)
+		conds = append(conds, "conversation_id = ? AND (source != ? OR COALESCE(agent_name, '') NOT IN (?, ?, ?))")
+		args = append(args, f.Conversation, normalize.SourceCopilot, normalize.AgentXtabProvider, normalize.AgentTitle, normalize.AgentProgressMessages)
 	}
 	return strings.Join(conds, " AND "), args
 }
 
-// ConversationNone is the Filter.Conversation sentinel that selects rows
-// without a conversation ID (title generations and similar).
-const ConversationNone = "none"
+// Conversation filter sentinels: none selects every session-less row (no
+// conversation ID, or a session-less copilot agent); autocomplete and
+// titleprogress select the per-day copilot agent groups behind the
+// Autocomplete and Title/progress session cards.
+const (
+	ConversationNone           = "none"
+	ConversationAutocomplete   = "autocomplete"
+	ConversationTitleProgress  = "titleprogress"
+)
 
 // InsertGeneration stores one record, returning true when a new row was
 // inserted. On ID conflict it merges: NULL columns are filled from the new

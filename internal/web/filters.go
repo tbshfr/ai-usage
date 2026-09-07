@@ -12,8 +12,9 @@ import (
 
 // uiFilter is the filter state echoed back to the templates: the selected
 // range preset plus the dropdown values (same query params as the JSON API).
-// Conversation mirrors the storage filter; the "none" sentinel selects
-// requests without a conversation ID (title generations).
+// Conversation mirrors the storage filter; besides real conversation IDs it
+// accepts the sentinels none (every session-less row), autocomplete (VS Code
+// autocomplete), and titleprogress (title/progress helpers).
 type uiFilter struct {
 	Range        string
 	Source       string

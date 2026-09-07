@@ -257,3 +257,308 @@ func TestTimeseriesBySource(t *testing.T) {
 		t.Error("invalid bucket must error")
 	}
 }
+
+func TestConversationsXtabGroupsPerDay(t *testing.T) {
+	db := seedtest.EmptyDB(t)
+	ctx := context.Background()
+	day := func(id, s string, minutes int, conv, agent string) normalize.Generation {
+		d, err := time.Parse("2006-01-02", s)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return normalize.Generation{
+			ID:             id,
+			Timestamp:      d.Add(time.Duration(minutes) * time.Minute),
+			Source:         "copilot",
+			Model:          "copilot-nes-lysithea-14",
+			InputTokens:    seedtest.IP(5),
+			ConversationID: conv,
+			AgentName:      agent,
+		}
+	}
+	rows := []normalize.Generation{
+		// XtabProvider autocomplete with distinct conversation IDs on the
+		// same day must merge into one per-day Autocomplete group, not one
+		// session per conversation.
+		day("x1", "2026-03-01", 0, "conv-xtab-1", normalize.AgentXtabProvider),
+		day("x2", "2026-03-01", 1, "conv-xtab-2", normalize.AgentXtabProvider),
+		// Same agent on another day is a separate group.
+		day("x3", "2026-03-02", 0, "conv-xtab-3", normalize.AgentXtabProvider),
+		// A regular conversation on the same day stays its own session.
+		day("c1", "2026-03-01", 2, "conv-regular", "panel/editAgent"),
+	}
+	for _, g := range rows {
+		if _, err := storage.InsertGeneration(ctx, db, g); err != nil {
+			t.Fatal(err)
+		}
+	}
+	convos, total, err := storage.Conversations(ctx, db, seedtest.FullRange(), storage.OrderDesc, 10, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if total != 3 {
+		t.Fatalf("total = %d, want 3 (2 autocomplete days + 1 regular session)", total)
+	}
+	var autos, regular int
+	for _, c := range convos {
+		switch {
+		case c.IsAutocomplete():
+			autos++
+			if c.Day == "2026-03-01" && c.Requests != 2 {
+				t.Errorf("2026-03-01 Autocomplete requests = %d, want 2 (xtab merges)", c.Requests)
+			}
+			if c.Other() {
+				t.Errorf("autocomplete group must not be generic Other: %+v", c)
+			}
+			if got := storage.ConversationFilterForKey(c.Key); got != storage.ConversationAutocomplete {
+				t.Errorf("autocomplete key %q maps to filter %q, want autocomplete", c.Key, got)
+			}
+		case c.Key == "conv-regular":
+			regular++
+		default:
+			t.Errorf("unexpected group key %q (xtab must not surface as session)", c.Key)
+		}
+	}
+	if autos != 2 || regular != 1 {
+		t.Errorf("autocomplete = %d regular = %d, want 2/1", autos, regular)
+	}
+
+	// The none filter selects Xtab rows even when they carry a conversation ID.
+	f := seedtest.FullRange()
+	f.Conversation = storage.ConversationNone
+	none, total, err := storage.Conversations(ctx, db, f, storage.OrderDesc, 10, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if total != 2 || len(none) != 2 {
+		t.Errorf("none filter = %d groups (total %d), want 2 per-day autocomplete groups", len(none), total)
+	}
+
+	// The autocomplete sentinel selects exactly the Xtab rows.
+	f = seedtest.FullRange()
+	f.Conversation = storage.ConversationAutocomplete
+	auto, total, err := storage.Conversations(ctx, db, f, storage.OrderDesc, 10, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if total != 2 || len(auto) != 2 {
+		t.Errorf("autocomplete filter = %d groups (total %d), want 2", len(auto), total)
+	}
+	for _, c := range auto {
+		if !c.IsAutocomplete() {
+			t.Errorf("autocomplete filter group = %+v, want IsAutocomplete", c)
+		}
+	}
+
+	// A specific conversation filter excludes Xtab rows with that ID.
+	f = seedtest.FullRange()
+	f.Conversation = "conv-xtab-1"
+	s, err := storage.Summary(ctx, db, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Requests != 0 {
+		t.Errorf("conversation=conv-xtab-1 requests = %d, want 0 (xtab excluded)", s.Requests)
+	}
+}
+
+func TestConversationsTitleProgressGroupsPerDay(t *testing.T) {
+	db := seedtest.EmptyDB(t)
+	ctx := context.Background()
+	day := func(id, s string, minutes int, conv, agent string) normalize.Generation {
+		d, err := time.Parse("2006-01-02", s)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return normalize.Generation{
+			ID:             id,
+			Timestamp:      d.Add(time.Duration(minutes) * time.Minute),
+			Source:         "copilot",
+			Model:          "gpt-4o-mini-2024-07-18",
+			InputTokens:    seedtest.IP(5),
+			ConversationID: conv,
+			AgentName:      agent,
+		}
+	}
+	rows := []normalize.Generation{
+		// title + progressMessages share one per-day card, even across
+		// distinct conversation IDs.
+		day("t1", "2026-03-01", 0, "conv-t-1", normalize.AgentTitle),
+		day("p1", "2026-03-01", 1, "conv-p-1", normalize.AgentProgressMessages),
+		day("t2", "2026-03-02", 0, "", normalize.AgentTitle),
+		// Autocomplete and generic session-less rows stay separate cards.
+		day("x1", "2026-03-01", 2, "", normalize.AgentXtabProvider),
+		day("g1", "2026-03-01", 3, "", "titlegen"),
+	}
+	for _, g := range rows {
+		if _, err := storage.InsertGeneration(ctx, db, g); err != nil {
+			t.Fatal(err)
+		}
+	}
+	convos, total, err := storage.Conversations(ctx, db, seedtest.FullRange(), storage.OrderDesc, 10, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 03-01: titleprogress(2) + autocomplete(1) + other(1); 03-02: titleprogress(1).
+	if total != 4 {
+		t.Fatalf("total = %d, want 4 (titleprogress x2 days + autocomplete + other)", total)
+	}
+	var tp, auto, other int
+	for _, c := range convos {
+		switch {
+		case c.IsTitleProgress():
+			tp++
+			if c.Day == "2026-03-01" && c.Requests != 2 {
+				t.Errorf("2026-03-01 Title/progress requests = %d, want 2 (title+progress merge)", c.Requests)
+			}
+			if got := storage.ConversationFilterForKey(c.Key); got != storage.ConversationTitleProgress {
+				t.Errorf("titleprogress key %q maps to filter %q, want titleprogress", c.Key, got)
+			}
+		case c.IsAutocomplete():
+			auto++
+		case c.Other():
+			other++
+		default:
+			t.Errorf("unexpected group %+v", c)
+		}
+	}
+	if tp != 2 || auto != 1 || other != 1 {
+		t.Errorf("titleprogress = %d autocomplete = %d other = %d, want 2/1/1", tp, auto, other)
+	}
+
+	// The titleprogress sentinel selects exactly title+progress rows.
+	f := seedtest.FullRange()
+	f.Conversation = storage.ConversationTitleProgress
+	s, err := storage.Summary(ctx, db, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Requests != 3 {
+		t.Errorf("titleprogress filter requests = %d, want 3", s.Requests)
+	}
+
+	// none still selects everything session-less.
+	f = seedtest.FullRange()
+	f.Conversation = storage.ConversationNone
+	s, err = storage.Summary(ctx, db, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Requests != 5 {
+		t.Errorf("none filter requests = %d, want 5", s.Requests)
+	}
+
+	// A specific conversation holding only helper rows is excluded.
+	f = seedtest.FullRange()
+	f.Conversation = "conv-t-1"
+	s, err = storage.Summary(ctx, db, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Requests != 0 {
+		t.Errorf("conversation=conv-t-1 requests = %d, want 0 (helpers excluded)", s.Requests)
+	}
+}
+
+func TestConversationsSessionlessAgentsCopilotScoped(t *testing.T) {
+	db := seedtest.EmptyDB(t)
+	ctx := context.Background()
+	day := func(id, source, s string, minutes int, conv, agent string) normalize.Generation {
+		d, err := time.Parse("2006-01-02", s)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return normalize.Generation{
+			ID:             id,
+			Timestamp:      d.Add(time.Duration(minutes) * time.Minute),
+			Source:         source,
+			Model:          "m",
+			InputTokens:    seedtest.IP(5),
+			ConversationID: conv,
+			AgentName:      agent,
+		}
+	}
+	rows := []normalize.Generation{
+		// Free-form opencode agent names collide with the copilot
+		// session-less values but must stay regular sessions.
+		day("o-title", normalize.SourceOpenCode, "2026-03-01", 0, "conv-opencode-title", normalize.AgentTitle),
+		day("o-xtab", normalize.SourceOpenCode, "2026-03-01", 1, "conv-opencode-xtab", normalize.AgentXtabProvider),
+		day("o-prog", normalize.SourceOpenCode, "2026-03-01", 2, "conv-opencode-prog", normalize.AgentProgressMessages),
+		// Copilot rows with the same agent names stay per-day groups.
+		day("c-title", normalize.SourceCopilot, "2026-03-01", 3, "conv-copilot-title", normalize.AgentTitle),
+	}
+	for _, g := range rows {
+		if _, err := storage.InsertGeneration(ctx, db, g); err != nil {
+			t.Fatal(err)
+		}
+	}
+	convos, total, err := storage.Conversations(ctx, db, seedtest.FullRange(), storage.OrderDesc, 10, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 3 opencode sessions + 1 copilot titleprogress day group.
+	if total != 4 {
+		t.Fatalf("total = %d, want 4 (3 opencode sessions + 1 copilot day group): %+v", total, convos)
+	}
+	byKey := map[string]storage.ConversationSummary{}
+	for _, c := range convos {
+		byKey[c.Key] = c
+	}
+	for _, key := range []string{"conv-opencode-title", "conv-opencode-xtab", "conv-opencode-prog"} {
+		c, ok := byKey[key]
+		if !ok {
+			t.Errorf("missing opencode session %q: %+v", key, convos)
+			continue
+		}
+		if c.IsAutocomplete() || c.IsTitleProgress() || c.Other() {
+			t.Errorf("opencode %q must be a regular session, got %+v", key, c)
+		}
+	}
+	if _, ok := byKey["conv-copilot-title"]; ok {
+		t.Errorf("copilot title row must not surface as session conv-copilot-title: %+v", convos)
+	}
+
+	// Opencode conversations remain directly selectable.
+	for _, key := range []string{"conv-opencode-title", "conv-opencode-xtab", "conv-opencode-prog"} {
+		f := seedtest.FullRange()
+		f.Conversation = key
+		s, err := storage.Summary(ctx, db, f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if s.Requests != 1 {
+			t.Errorf("conversation=%s requests = %d, want 1 (opencode agent is regular)", key, s.Requests)
+		}
+	}
+
+	// The copilot-only sentinels select exactly the copilot row.
+	f := seedtest.FullRange()
+	f.Conversation = storage.ConversationTitleProgress
+	s, err := storage.Summary(ctx, db, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Requests != 1 {
+		t.Errorf("titleprogress filter requests = %d, want 1 (copilot only)", s.Requests)
+	}
+	f = seedtest.FullRange()
+	f.Conversation = storage.ConversationAutocomplete
+	s, err = storage.Summary(ctx, db, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Requests != 0 {
+		t.Errorf("autocomplete filter requests = %d, want 0 (opencode xtab excluded)", s.Requests)
+	}
+
+	// none excludes opencode rows that carry a conversation ID.
+	f = seedtest.FullRange()
+	f.Conversation = storage.ConversationNone
+	s, err = storage.Summary(ctx, db, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Requests != 1 {
+		t.Errorf("none filter requests = %d, want 1 (copilot title only)", s.Requests)
+	}
+}

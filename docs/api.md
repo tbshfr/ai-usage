@@ -23,7 +23,7 @@ All list/aggregate endpoints accept:
 | `source`      | exact match (`opencode`, `copilot`, `codex`); optional                       |
 | `provider`    | exact match on raw stored provider; optional                                 |
 | `model`       | exact match on raw stored model; optional                                    |
-| `conversation`| exact match on conversation/session ID; the sentinel `none` selects requests without a conversation ID (e.g. Copilot title generations); optional |
+| `conversation`| exact match on conversation/session ID, or one of the session-less sentinels: `none` (every session-less row), `autocomplete` (VS Code autocomplete), `titleprogress` (title/progress helpers); optional |
 
 Invalid values → `400` with `{"error":"...","status":400}`.
 

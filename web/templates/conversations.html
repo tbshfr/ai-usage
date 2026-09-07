@@ -14,7 +14,13 @@
 <div class="conv-grid">
   {{range .Convs.Rows}}
   <a class="conv-card" href="{{convHref $.F.Selected .Key}}">
-    {{if .Other}}
+    {{if .IsAutocomplete}}
+    <div class="conv-title">{{convTitle .}}</div>
+    <div class="conv-sub muted">Autocomplete - {{.Day}}</div>
+    {{else if .IsTitleProgress}}
+    <div class="conv-title">{{convTitle .}}</div>
+    <div class="conv-sub muted">Title / progress - {{.Day}}</div>
+    {{else if .Other}}
     <div class="conv-title">Other requests</div>
     <div class="conv-sub muted">no conversation &middot; {{.Day}}</div>
     {{else}}

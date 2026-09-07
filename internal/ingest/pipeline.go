@@ -38,8 +38,9 @@ const (
 	ReasonNotGeneration = "not_a_generation" // healthy span, but never a generation record
 	ReasonLogs          = "logs"             // healthy logs that are not supported generation events
 	ReasonMetrics       = "metrics"          // metric datapoints are ignored (see Stats.IgnoredNotUsed)
-	ReasonBadAttrs      = "bad_attributes"   // known attribute present with a non-string value
-	ReasonBadIDs        = "bad_ids"          // empty trace/span ID, no dedup key derivable
+	ReasonBadAttrs      = "bad_attributes"   // known attribute present with an invalid value (non-string or non-integer)
+	ReasonBadIDs        = "bad_ids"          // no dedup key derivable (empty trace/span ID or missing log identity)
+	ReasonBadTimestamp  = "bad_timestamp"    // corrupt or unparseable log event timestamp
 	ReasonNormOther     = "other"            // unclassified normalization error
 )
 
@@ -283,8 +284,14 @@ func normErrorReason(err error) string {
 	switch {
 	case errors.Is(err, normalize.ErrNonStringAttrs):
 		return ReasonBadAttrs
+	case errors.Is(err, normalize.ErrInvalidTokenAttr):
+		return ReasonBadAttrs
 	case errors.Is(err, normalize.ErrMissingSpanIDs):
 		return ReasonBadIDs
+	case errors.Is(err, normalize.ErrMissingLogIdentity):
+		return ReasonBadIDs
+	case errors.Is(err, normalize.ErrInvalidLogTimestamp):
+		return ReasonBadTimestamp
 	default:
 		return ReasonNormOther
 	}

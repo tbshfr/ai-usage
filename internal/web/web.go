@@ -739,9 +739,11 @@ func reasonLabel(kind, reason string) string {
 	case ingest.ReasonMetrics:
 		return "Metric datapoints"
 	case ingest.ReasonBadAttrs:
-		return "Non-string attribute values"
+		return "Invalid attribute values"
 	case ingest.ReasonBadIDs:
-		return "Empty trace/span ID"
+		return "Missing record identity"
+	case ingest.ReasonBadTimestamp:
+		return "Invalid log timestamp"
 	case ingest.ReasonNormOther:
 		return "Other"
 	case ingest.ReasonUnauthorized:

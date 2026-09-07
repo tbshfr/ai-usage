@@ -114,6 +114,28 @@ func TestReasonLabelsCoverHTTPRejectReasons(t *testing.T) {
 	}
 }
 
+func TestReasonLabelsCoverRecordReasons(t *testing.T) {
+	// Same guard for the record-level reasons (rejected/ignored/norm_error
+	// kinds): a new enum entry without a reasonLabel case would render raw.
+	reasons := []string{
+		ingest.ReasonNoSource,
+		ingest.ReasonNotGeneration,
+		ingest.ReasonLogs,
+		ingest.ReasonMetrics,
+		ingest.ReasonBadAttrs,
+		ingest.ReasonBadIDs,
+		ingest.ReasonBadTimestamp,
+		ingest.ReasonNormOther,
+	}
+	for _, reason := range reasons {
+		for _, kind := range []string{ingest.ReasonKindRejected, ingest.ReasonKindIgnored, ingest.ReasonKindNormError} {
+			if got := reasonLabel(kind, reason); got == reason {
+				t.Errorf("reasonLabel(%s, %q) = raw %q, want friendly label", kind, reason, got)
+			}
+		}
+	}
+}
+
 func TestStatsReasonsFragmentRendersUnknownKind(t *testing.T) {
 	db := seedtest.DB(t)
 	day := "2026-08-02"

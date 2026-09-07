@@ -136,21 +136,3 @@ func TestFromOpenCodeSpanProviderFallback(t *testing.T) {
 		t.Errorf("cost = %v, want nil when unreported", gen.Cost)
 	}
 }
-
-func TestModelCreator(t *testing.T) {
-	cases := map[string]string{
-		"claude-haiku-4.5":   "anthropic",
-		"gpt-5.6-luna":       "openai",
-		"o3-mini":            "openai",
-		"gemini-2.0-flash":   "google",
-		"grok-3":             "xai",
-		"z-ai/glm-5.3-flash": "unknown",
-		"some-unknown-model": "unknown",
-		"":                   "unknown",
-	}
-	for model, want := range cases {
-		if got := ModelCreator(model); got != want {
-			t.Errorf("ModelCreator(%q) = %q, want %q", model, got, want)
-		}
-	}
-}

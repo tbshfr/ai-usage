@@ -75,13 +75,13 @@ func TestEndToEndHTTP(t *testing.T) {
 
 	client := srv.Client()
 
-	post := func(file, ctype string) {
+	post := func(file, path, ctype string) {
 		t.Helper()
 		body, err := os.ReadFile(file)
 		if err != nil {
 			t.Fatal(err)
 		}
-		resp, err := client.Post(srv.URL+"/v1/traces", ctype, bytes.NewReader(body))
+		resp, err := client.Post(srv.URL+path, ctype, bytes.NewReader(body))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -108,8 +108,10 @@ func TestEndToEndHTTP(t *testing.T) {
 
 	// first pass: everything stored exactly once
 	for _, tf := range traceFixtures {
-		post(tf.file, tf.ctype)
+		post(tf.file, "/v1/traces", tf.ctype)
 	}
+	post("../../testdata/codex/logs-sse-events.json", "/v1/logs", "application/json")
+	expectedPerSource[normalize.SourceCodex] = 2
 	assertRowCounts(t, db, expectedPerSource)
 
 	// non-trace signals must never produce rows
@@ -118,6 +120,9 @@ func TestEndToEndHTTP(t *testing.T) {
 		{"../../testdata/opencode/metrics.json", "/v1/metrics", "application/json"},
 		{"../../testdata/copilot/logs.json", "/v1/logs", "application/json"},
 		{"../../testdata/opencode/logs.json", "/v1/logs", "application/json"},
+		{"../../testdata/codex/logs-other.json", "/v1/logs", "application/json"},
+		{"../../testdata/codex/metrics-codex.json", "/v1/metrics", "application/json"},
+		{"../../testdata/codex/traces-codex.json", "/v1/traces", "application/json"},
 	} {
 		body, err := os.ReadFile(f.file)
 		if err != nil {
@@ -137,12 +142,13 @@ func TestEndToEndHTTP(t *testing.T) {
 	// second pass: retried batches deduplicate
 	before := pipeline.Stats()
 	for _, tf := range traceFixtures {
-		post(tf.file, tf.ctype)
+		post(tf.file, "/v1/traces", tf.ctype)
 	}
+	post("../../testdata/codex/logs-sse-events.json", "/v1/logs", "application/json")
 	assertRowCounts(t, db, expectedPerSource)
 	after := pipeline.Stats()
-	if after.Deduplicated-before.Deduplicated < uint64(len(expected)) {
-		t.Errorf("second pass dedup = %d, want >= %d", after.Deduplicated-before.Deduplicated, len(expected))
+	if after.Deduplicated-before.Deduplicated < uint64(len(expected)+2) {
+		t.Errorf("second pass dedup = %d, want >= %d", after.Deduplicated-before.Deduplicated, len(expected)+2)
 	}
 	if after.Stored != before.Stored {
 		t.Errorf("second pass stored %d new rows, want 0", after.Stored-before.Stored)

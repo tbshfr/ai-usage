@@ -135,19 +135,23 @@ func CacheHitRate(input, cacheRead, cacheCreation int64) *float64 {
 }
 
 // uncachedInputSQL is the canonical prompt input as a per-row SQL
-// expression, summed by every aggregate query. Copilot reports the prompt
-// count including cached tokens (OpenAI-style), so the cached part is
-// subtracted there; opencode's prompt count already excludes cache. Stored
-// rows keep the raw as-reported values.
-//
-// Closed-world assumption: only copilot/opencode exist today, so ELSE is
-// opencode passthrough. A future source must declare here whether its
+// expression, summed by every aggregate query. Copilot and Codex report the
+// prompt count including cached tokens (OpenAI-style), so cached parts are
+// subtracted there; OpenCode's prompt count already excludes cache. Stored
+// rows keep the raw as-reported values. A future source must declare whether
 // prompt count includes cache; defaulting to passthrough would double-count
 // an OpenAI-style source.
-const uncachedInputSQL = `CASE WHEN source = '` + normalize.SourceCopilot + `'
+const uncachedInputSQL = `CASE WHEN source IN ('` + normalize.SourceCopilot + `', '` + normalize.SourceCodex + `')
 	THEN MAX(COALESCE(input_tokens, 0) - COALESCE(cache_read_tokens, 0)
 		- COALESCE(cache_creation_tokens, 0), 0)
 	ELSE COALESCE(input_tokens, 0) END`
+
+// outputTokensSQL is the mutually exclusive output bucket. Codex's reported
+// output includes its reasoning subset; other sources report separate output
+// and reasoning buckets. Raw rows remain unchanged for provenance.
+const outputTokensSQL = `CASE WHEN source = '` + normalize.SourceCodex + `'
+	THEN MAX(COALESCE(output_tokens, 0) - COALESCE(reasoning_tokens, 0), 0)
+	ELSE COALESCE(output_tokens, 0) END`
 
 // CacheHitRate applies CacheHitRate to the aggregate sums; nil when no
 // cache/prompt activity was reported.
@@ -180,7 +184,7 @@ func Summary(ctx context.Context, db *sql.DB, f Filter) (SummaryResult, error) {
 	q := `SELECT
 	COUNT(*),
 	COALESCE(SUM(` + uncachedInputSQL + `), 0),
-	COALESCE(SUM(output_tokens), 0),
+	COALESCE(SUM(` + outputTokensSQL + `), 0),
 	COALESCE(SUM(cache_read_tokens), 0),
 	COALESCE(SUM(cache_creation_tokens), 0),
 	COALESCE(SUM(reasoning_tokens), 0),
@@ -252,7 +256,7 @@ func Timeseries(ctx context.Context, db *sql.DB, f Filter, bucket Bucket) ([]Tim
 	` + expr + `,
 	COUNT(*),
 	COALESCE(SUM(` + uncachedInputSQL + `), 0),
-	COALESCE(SUM(output_tokens), 0),
+	COALESCE(SUM(` + outputTokensSQL + `), 0),
 	COALESCE(SUM(cache_read_tokens), 0),
 	COALESCE(SUM(cache_creation_tokens), 0),
 	COALESCE(SUM(reasoning_tokens), 0),
@@ -380,7 +384,7 @@ func breakdown(ctx context.Context, db *sql.DB, f Filter, column string) ([]Brea
 	COALESCE(` + column + `, ''),
 	COUNT(*),
 	COALESCE(SUM(` + uncachedInputSQL + `), 0),
-	COALESCE(SUM(output_tokens), 0),
+	COALESCE(SUM(` + outputTokensSQL + `), 0),
 	COALESCE(SUM(cache_read_tokens), 0),
 	COALESCE(SUM(cache_creation_tokens), 0),
 	COALESCE(SUM(reasoning_tokens), 0),
@@ -389,7 +393,7 @@ func breakdown(ctx context.Context, db *sql.DB, f Filter, column string) ([]Brea
 	SUM(cost)
 FROM generations WHERE ` + where + ` GROUP BY ` + column
 	if column == "model" {
-		q += ` ORDER BY COALESCE(SUM(` + uncachedInputSQL + `), 0) + COALESCE(SUM(output_tokens), 0)
+		q += ` ORDER BY COALESCE(SUM(` + uncachedInputSQL + `), 0) + COALESCE(SUM(` + outputTokensSQL + `), 0)
 			+ COALESCE(SUM(cache_read_tokens), 0) + COALESCE(SUM(cache_creation_tokens), 0)
 			+ COALESCE(SUM(reasoning_tokens), 0) DESC`
 	} else {

@@ -1,12 +1,12 @@
-# Sending telemetry from OpenCode and VS Code Copilot
+# Sending telemetry from OpenCode, VS Code Copilot, and Codex
 
-This dashboard consumes standard OTLP. Both sources below are configured
+This dashboard consumes standard OTLP. The sources below are configured
 once and then report usage automatically. After configuring, verify with
 the checks at the end of each section.
 
-Both sources use OTLP/HTTP on `http://localhost:4318` by default. The
-dashboard only listens on the OTLP ports you explicitly enable, so start
-it with:
+OpenCode and Copilot use OTLP/HTTP on `http://localhost:4318` by default;
+Codex needs the full `http://127.0.0.1:4318/v1/logs` path. The dashboard
+only listens on the OTLP ports you explicitly enable, so start it with:
 
 ```bash
 ai-usage --otlp-http :4318
@@ -24,8 +24,7 @@ refuses to start a non-loopback OTLP listener without
 `AI_USAGE_DASHBOARD_USER`/`AI_USAGE_DASHBOARD_PASSWORD`. Pick one long
 random token, e.g. `openssl rand -hex 32`.
 
-Both sources below send `Authorization: Bearer <token>` — the only
-header mechanism each of them supports.
+All three sources can send `Authorization: Bearer <token>`.
 
 ### OpenCode
 
@@ -79,9 +78,21 @@ Set it on windows with
 )
 ```
 
+### Codex
+
+Codex expands environment variables in OTel exporter headers. In the
+`[otel]` block shown below, add this inside the `otlp-http` object:
+
+```toml
+headers = { "authorization" = "Bearer ${AI_USAGE_OTLP_TOKEN}" }
+```
+
+Export `AI_USAGE_OTLP_TOKEN` before starting Codex. Keep the token in the
+environment, not in `config.toml`.
+
 ### Verify
 
-Without the token, both clients get `401` responses (visible as
+Without the token, clients get `401` responses (visible as
 `request rejected` lines in the server log) and nothing is stored. With
 it, the verification checks at the end of each section below work
 unchanged.
@@ -145,6 +156,47 @@ curl -s localhost:8080/api/stats
 ```
 
 (`stored` grows on each export; re-sent batches only bump `deduplicated`.)
+
+## Codex CLI
+
+Codex has native OTel log export. The official
+[observability and telemetry documentation](https://learn.chatgpt.com/docs/config-file/config-advanced#observability-and-telemetry)
+describes the exporter and its event catalog. Add this to the user-level
+`~/.codex/config.toml` (project `.codex/config.toml` files cannot set `otel`):
+
+```toml
+[otel]
+environment = "production"
+log_user_prompt = false
+exporter = { otlp-http = {
+  endpoint = "http://127.0.0.1:4318/v1/logs",
+  protocol = "json"
+} }
+```
+
+For an authenticated remote receiver, use its HTTPS URL ending in `/v1/logs`
+and add the line from [Codex authentication](#codex). Keep
+`log_user_prompt = false`; the dashboard needs token metadata only. Codex may
+still emit tool arguments/results and user identity metadata in other event
+types, but the normalizer only reads terminal token events and stores none of
+those fields.
+
+The authoritative record is the `codex.sse_event` log whose event kind is
+`response.completed`. Codex traces and metrics contain aggregates or lack the
+identity needed for one row per model response, so they are intentionally not
+stored.
+
+### Verification
+
+After completing a Codex prompt:
+
+```bash
+curl -s 'localhost:8080/api/generations?source=codex' | jq '.[0] | {model,inputTokens,outputTokens,reasoningTokens}'
+```
+
+The response should contain the selected model and token counts. If it is
+empty, check `/api/stats`: `normalized` and `stored` should increase when
+Codex flushes its asynchronous OTel batch on shutdown.
 
 ## VS Code GitHub Copilot
 

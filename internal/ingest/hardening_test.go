@@ -376,7 +376,7 @@ func TestNonTruthSignalsYieldZeroRows(t *testing.T) {
 		t.Fatal(err)
 	}
 	if rows != 0 {
-		t.Errorf("rows = %d, want 0 (metrics/logs never become generations)", rows)
+		t.Errorf("rows = %d, want 0 (these non-authoritative metrics/logs are ignored)", rows)
 	}
 	s := pipeline.Stats()
 	if s.Received == 0 {

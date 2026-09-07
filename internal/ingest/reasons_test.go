@@ -2,10 +2,13 @@ package ingest
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net/http"
 	"testing"
 	"time"
 
+	"github.com/tbshfr/ai-usage/internal/normalize"
 	"github.com/tbshfr/ai-usage/internal/storage"
 	"go.opentelemetry.io/collector/pdata/plog"
 	"go.opentelemetry.io/collector/pdata/pmetric"
@@ -103,6 +106,28 @@ func TestReasonCountersFromPipeline(t *testing.T) {
 	}
 	if n := got[ReasonKindHTTPReject][ReasonUnauthorized]; n != 0 {
 		t.Errorf("reasons[http_reject][unauthorized] = %d, want 0", n)
+	}
+}
+
+// TestNormErrorReasonClassification guards the fixed enum: every normalize
+// error sentinel must classify to a named reason, not the generic "other"
+// bucket, and wrapped errors must still match via errors.Is.
+func TestNormErrorReasonClassification(t *testing.T) {
+	cases := []struct {
+		err  error
+		want string
+	}{
+		{fmt.Errorf("event.timestamp: %w", normalize.ErrNonStringAttrs), ReasonBadAttrs},
+		{fmt.Errorf("input_token_count: %w", normalize.ErrInvalidTokenAttr), ReasonBadAttrs},
+		{normalize.ErrMissingSpanIDs, ReasonBadIDs},
+		{normalize.ErrMissingLogIdentity, ReasonBadIDs},
+		{fmt.Errorf("event.timestamp %q: %w", "not-a-time", normalize.ErrInvalidLogTimestamp), ReasonBadTimestamp},
+		{errors.New("unclassified failure"), ReasonNormOther},
+	}
+	for _, tc := range cases {
+		if got := normErrorReason(tc.err); got != tc.want {
+			t.Errorf("normErrorReason(%v) = %q, want %q", tc.err, got, tc.want)
+		}
 	}
 }
 

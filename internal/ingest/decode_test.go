@@ -348,6 +348,70 @@ func TestDecodeOpenCodeFixtures(t *testing.T) {
 	})
 }
 
+func TestDecodeCodexFixtures(t *testing.T) {
+	logs := decodeLogs(t, "../../testdata/codex/logs-sse-events.json")
+	var completed int
+	for _, rl := range logs.ResourceLogs().All() {
+		if v, ok := rl.Resource().Attributes().Get("service.name"); !ok || v.Str() != "codex_cli_rs" {
+			t.Error("Codex logs missing service.name=codex_cli_rs")
+		}
+		for _, sl := range rl.ScopeLogs().All() {
+			for _, record := range sl.LogRecords().All() {
+				attrs := record.Attributes()
+				if v, _ := attrs.Get("event.kind"); v.Str() != "response.completed" {
+					continue
+				}
+				completed++
+				for _, key := range []string{"input_token_count", "output_token_count", "cached_token_count", "cache_write_token_count", "reasoning_token_count", "event.timestamp", "conversation.id", "model"} {
+					if _, ok := attrs.Get(key); !ok {
+						t.Errorf("response.completed missing %s", key)
+					}
+				}
+			}
+		}
+	}
+	if completed != 2 {
+		t.Errorf("response.completed records = %d, want 2", completed)
+	}
+
+	other := decodeLogs(t, "../../testdata/codex/logs-other.json")
+	names := map[string]bool{}
+	for _, rl := range other.ResourceLogs().All() {
+		for _, sl := range rl.ScopeLogs().All() {
+			for _, record := range sl.LogRecords().All() {
+				if v, ok := record.Attributes().Get("event.name"); ok {
+					names[v.Str()] = true
+				}
+			}
+		}
+	}
+	if !names["codex.user_prompt"] || !names["codex.tool_result"] {
+		t.Errorf("non-usage log events = %v", names)
+	}
+
+	spans := allSpans(t, decodeTraces(t, "../../testdata/codex/traces-codex.json"))
+	spanNames := map[string]bool{}
+	for _, span := range spans {
+		spanNames[span.Name()] = true
+	}
+	if !spanNames["handle_responses"] || !spanNames["session_task.turn"] {
+		t.Errorf("Codex trace span names = %v", spanNames)
+	}
+
+	metrics := decodeMetrics(t, "../../testdata/codex/metrics-codex.json")
+	foundMetric := false
+	for _, rm := range metrics.ResourceMetrics().All() {
+		for _, sm := range rm.ScopeMetrics().All() {
+			for _, metric := range sm.Metrics().All() {
+				foundMetric = foundMetric || metric.Name() == "codex.turn.token_usage"
+			}
+		}
+	}
+	if !foundMetric {
+		t.Error("Codex metrics fixture missing codex.turn.token_usage")
+	}
+}
+
 func TestFixturesRedacted(t *testing.T) {
 	contentKeys := []string{
 		"input.value", "output.value", "llm.input_messages", "llm.output_messages",
@@ -355,6 +419,8 @@ func TestFixturesRedacted(t *testing.T) {
 		"gen_ai.system_instructions", "gen_ai.tool.call.arguments", "gen_ai.tool.call.result",
 		"copilot_chat.user_request", "copilot_chat.reasoning_content",
 		"exception.message", "exception.stacktrace", "content",
+		"prompt", "arguments", "output", "user.email", "user.account_id",
+		"host.name", "cwd", "code.file.path", "conversation.id", "thread.id", "turn.id", "call_id",
 	}
 	spanFixtures := []string{
 		"../../testdata/copilot/traces-chat-simple.json",
@@ -362,6 +428,7 @@ func TestFixturesRedacted(t *testing.T) {
 		"../../testdata/copilot/traces-legacy-reasoning.json",
 		"../../testdata/copilot/traces-invoke-agent.json",
 		"../../testdata/opencode/traces-llm.json",
+		"../../testdata/codex/traces-codex.json",
 	}
 	for _, path := range spanFixtures {
 		td := decodeTraces(t, path)
@@ -374,6 +441,26 @@ func TestFixturesRedacted(t *testing.T) {
 			if msg := s.Status().Message(); msg != "" && msg != "[REDACTED]" {
 				t.Errorf("%s: span status message not redacted", path)
 			}
+		}
+	}
+	for _, path := range []string{"../../testdata/codex/logs-sse-events.json", "../../testdata/codex/logs-other.json"} {
+		logs := decodeLogs(t, path)
+		for _, rl := range logs.ResourceLogs().All() {
+			assertRedactedAttrs(t, path, rl.Resource().Attributes(), contentKeys)
+			for _, sl := range rl.ScopeLogs().All() {
+				for _, record := range sl.LogRecords().All() {
+					assertRedactedAttrs(t, path, record.Attributes(), contentKeys)
+				}
+			}
+		}
+	}
+}
+
+func assertRedactedAttrs(t *testing.T, path string, attrs pcommon.Map, keys []string) {
+	t.Helper()
+	for _, key := range keys {
+		if value, ok := attrs.Get(key); ok && (value.Type() != pcommon.ValueTypeStr || value.Str() != "[REDACTED]") {
+			t.Errorf("%s: sensitive attribute %s not redacted", path, key)
 		}
 	}
 }

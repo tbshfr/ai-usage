@@ -1,0 +1,597 @@
+{
+  "resourceMetrics": [
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "telemetry.sdk.version",
+            "value": {
+              "stringValue": "0.31.0"
+            }
+          },
+          {
+            "key": "telemetry.sdk.name",
+            "value": {
+              "stringValue": "opentelemetry"
+            }
+          },
+          {
+            "key": "env",
+            "value": {
+              "stringValue": "capture"
+            }
+          },
+          {
+            "key": "os_version",
+            "value": {
+              "stringValue": "12.0.0"
+            }
+          },
+          {
+            "key": "service.name",
+            "value": {
+              "stringValue": "codex_cli_rs"
+            }
+          },
+          {
+            "key": "os",
+            "value": {
+              "stringValue": "Debian"
+            }
+          },
+          {
+            "key": "service.version",
+            "value": {
+              "stringValue": "0.153.4"
+            }
+          },
+          {
+            "key": "telemetry.sdk.language",
+            "value": {
+              "stringValue": "rust"
+            }
+          }
+        ]
+      },
+      "scopeMetrics": [
+        {
+          "scope": {
+            "name": "codex"
+          },
+          "metrics": [
+            {
+              "name": "codex.turn.token_usage",
+              "histogram": {
+                "dataPoints": [
+                  {
+                    "attributes": [
+                      {
+                        "key": "app.version",
+                        "value": {
+                          "stringValue": "0.153.4"
+                        }
+                      },
+                      {
+                        "key": "auth_mode",
+                        "value": {
+                          "stringValue": "Chatgpt"
+                        }
+                      },
+                      {
+                        "key": "model",
+                        "value": {
+                          "stringValue": "gpt-5.6-luna"
+                        }
+                      },
+                      {
+                        "key": "originator",
+                        "value": {
+                          "stringValue": "codex-tui"
+                        }
+                      },
+                      {
+                        "key": "session_source",
+                        "value": {
+                          "stringValue": "cli"
+                        }
+                      },
+                      {
+                        "key": "tmp_mem_enabled",
+                        "value": {
+                          "stringValue": "false"
+                        }
+                      },
+                      {
+                        "key": "token_type",
+                        "value": {
+                          "stringValue": "output"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788766561360654866",
+                    "timeUnixNano": "1788766583252230516",
+                    "count": "1",
+                    "sum": 482,
+                    "bucketCounts": [
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "1",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0"
+                    ],
+                    "explicitBounds": [
+                      0,
+                      5,
+                      10,
+                      25,
+                      50,
+                      75,
+                      100,
+                      250,
+                      500,
+                      750,
+                      1000,
+                      2500,
+                      5000,
+                      7500,
+                      10000
+                    ],
+                    "min": 482,
+                    "max": 482
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "app.version",
+                        "value": {
+                          "stringValue": "0.153.4"
+                        }
+                      },
+                      {
+                        "key": "auth_mode",
+                        "value": {
+                          "stringValue": "Chatgpt"
+                        }
+                      },
+                      {
+                        "key": "model",
+                        "value": {
+                          "stringValue": "gpt-5.6-luna"
+                        }
+                      },
+                      {
+                        "key": "originator",
+                        "value": {
+                          "stringValue": "codex-tui"
+                        }
+                      },
+                      {
+                        "key": "session_source",
+                        "value": {
+                          "stringValue": "cli"
+                        }
+                      },
+                      {
+                        "key": "tmp_mem_enabled",
+                        "value": {
+                          "stringValue": "false"
+                        }
+                      },
+                      {
+                        "key": "token_type",
+                        "value": {
+                          "stringValue": "cache_write_input"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788766561360654866",
+                    "timeUnixNano": "1788766583252230516",
+                    "count": "1",
+                    "sum": 0,
+                    "bucketCounts": [
+                      "1",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0"
+                    ],
+                    "explicitBounds": [
+                      0,
+                      5,
+                      10,
+                      25,
+                      50,
+                      75,
+                      100,
+                      250,
+                      500,
+                      750,
+                      1000,
+                      2500,
+                      5000,
+                      7500,
+                      10000
+                    ],
+                    "min": 0,
+                    "max": 0
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "app.version",
+                        "value": {
+                          "stringValue": "0.153.4"
+                        }
+                      },
+                      {
+                        "key": "auth_mode",
+                        "value": {
+                          "stringValue": "Chatgpt"
+                        }
+                      },
+                      {
+                        "key": "model",
+                        "value": {
+                          "stringValue": "gpt-5.6-luna"
+                        }
+                      },
+                      {
+                        "key": "originator",
+                        "value": {
+                          "stringValue": "codex-tui"
+                        }
+                      },
+                      {
+                        "key": "session_source",
+                        "value": {
+                          "stringValue": "cli"
+                        }
+                      },
+                      {
+                        "key": "tmp_mem_enabled",
+                        "value": {
+                          "stringValue": "false"
+                        }
+                      },
+                      {
+                        "key": "token_type",
+                        "value": {
+                          "stringValue": "cached_input"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788766561360654866",
+                    "timeUnixNano": "1788766583252230516",
+                    "count": "1",
+                    "sum": 75008,
+                    "bucketCounts": [
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "1"
+                    ],
+                    "explicitBounds": [
+                      0,
+                      5,
+                      10,
+                      25,
+                      50,
+                      75,
+                      100,
+                      250,
+                      500,
+                      750,
+                      1000,
+                      2500,
+                      5000,
+                      7500,
+                      10000
+                    ],
+                    "min": 75008,
+                    "max": 75008
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "app.version",
+                        "value": {
+                          "stringValue": "0.153.4"
+                        }
+                      },
+                      {
+                        "key": "auth_mode",
+                        "value": {
+                          "stringValue": "Chatgpt"
+                        }
+                      },
+                      {
+                        "key": "model",
+                        "value": {
+                          "stringValue": "gpt-5.6-luna"
+                        }
+                      },
+                      {
+                        "key": "originator",
+                        "value": {
+                          "stringValue": "codex-tui"
+                        }
+                      },
+                      {
+                        "key": "session_source",
+                        "value": {
+                          "stringValue": "cli"
+                        }
+                      },
+                      {
+                        "key": "tmp_mem_enabled",
+                        "value": {
+                          "stringValue": "false"
+                        }
+                      },
+                      {
+                        "key": "token_type",
+                        "value": {
+                          "stringValue": "input"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788766561360654866",
+                    "timeUnixNano": "1788766583252230516",
+                    "count": "1",
+                    "sum": 85584,
+                    "bucketCounts": [
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "1"
+                    ],
+                    "explicitBounds": [
+                      0,
+                      5,
+                      10,
+                      25,
+                      50,
+                      75,
+                      100,
+                      250,
+                      500,
+                      750,
+                      1000,
+                      2500,
+                      5000,
+                      7500,
+                      10000
+                    ],
+                    "min": 85584,
+                    "max": 85584
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "app.version",
+                        "value": {
+                          "stringValue": "0.153.4"
+                        }
+                      },
+                      {
+                        "key": "auth_mode",
+                        "value": {
+                          "stringValue": "Chatgpt"
+                        }
+                      },
+                      {
+                        "key": "model",
+                        "value": {
+                          "stringValue": "gpt-5.6-luna"
+                        }
+                      },
+                      {
+                        "key": "originator",
+                        "value": {
+                          "stringValue": "codex-tui"
+                        }
+                      },
+                      {
+                        "key": "session_source",
+                        "value": {
+                          "stringValue": "cli"
+                        }
+                      },
+                      {
+                        "key": "tmp_mem_enabled",
+                        "value": {
+                          "stringValue": "false"
+                        }
+                      },
+                      {
+                        "key": "token_type",
+                        "value": {
+                          "stringValue": "total"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788766561360654866",
+                    "timeUnixNano": "1788766583252230516",
+                    "count": "1",
+                    "sum": 86066,
+                    "bucketCounts": [
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "1"
+                    ],
+                    "explicitBounds": [
+                      0,
+                      5,
+                      10,
+                      25,
+                      50,
+                      75,
+                      100,
+                      250,
+                      500,
+                      750,
+                      1000,
+                      2500,
+                      5000,
+                      7500,
+                      10000
+                    ],
+                    "min": 86066,
+                    "max": 86066
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "app.version",
+                        "value": {
+                          "stringValue": "0.153.4"
+                        }
+                      },
+                      {
+                        "key": "auth_mode",
+                        "value": {
+                          "stringValue": "Chatgpt"
+                        }
+                      },
+                      {
+                        "key": "model",
+                        "value": {
+                          "stringValue": "gpt-5.6-luna"
+                        }
+                      },
+                      {
+                        "key": "originator",
+                        "value": {
+                          "stringValue": "codex-tui"
+                        }
+                      },
+                      {
+                        "key": "session_source",
+                        "value": {
+                          "stringValue": "cli"
+                        }
+                      },
+                      {
+                        "key": "tmp_mem_enabled",
+                        "value": {
+                          "stringValue": "false"
+                        }
+                      },
+                      {
+                        "key": "token_type",
+                        "value": {
+                          "stringValue": "reasoning_output"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1788766561360654866",
+                    "timeUnixNano": "1788766583252230516",
+                    "count": "1",
+                    "sum": 108,
+                    "bucketCounts": [
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "1",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0",
+                      "0"
+                    ],
+                    "explicitBounds": [
+                      0,
+                      5,
+                      10,
+                      25,
+                      50,
+                      75,
+                      100,
+                      250,
+                      500,
+                      750,
+                      1000,
+                      2500,
+                      5000,
+                      7500,
+                      10000
+                    ],
+                    "min": 108,
+                    "max": 108
+                  }
+                ],
+                "aggregationTemporality": 1
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

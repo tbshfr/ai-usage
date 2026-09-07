@@ -1,8 +1,8 @@
 # ai-usage
 
 A local dashboard for your AI usage. It receives OpenTelemetry telemetry
-directly from **OpenCode** (via the community OTel plugin) and **VS Code
-GitHub Copilot** (native OTel support), normalizes every LLM call into one
+directly from **OpenCode** (via the community OTel plugin), **VS Code
+GitHub Copilot**, and **Codex CLI**, normalizes every LLM call into one
 canonical record, and stores it in a single SQLite file — all inside one
 Go binary. A small web dashboard and JSON API on `:8080` show today's
 token usage up front with weekly/monthly/all-time totals beside it (each
@@ -10,12 +10,12 @@ with the cache hit rate; click a card for details), a **Trends** page with
 charts, per-source/provider/model breakdowns, and a **Sessions** view that
 groups requests by conversation with a sortable request list. Cost is
 displayed **only where the source itself reports it** (OpenCode reports a
-USD estimate; Copilot reports none) — this project has no pricing
+USD estimate; Copilot and Codex report none) — this project has no pricing
 subsystem and never computes cost.
 
 ```
-OpenCode / VS Code Copilot ──OTLP──▶ ai-usage ──▶ SQLite ──▶ dashboard + JSON API
-                                      :4318 (HTTP) / :4317 (gRPC)    :8080
+OpenCode / VS Code Copilot / Codex ──OTLP──▶ ai-usage ──▶ SQLite ──▶ dashboard + JSON API
+                                              :4318 / :4317            :8080
 ```
 
 ## Quickstart
@@ -44,7 +44,7 @@ OpenCode / VS Code Copilot ──OTLP──▶ ai-usage ──▶ SQLite ──�
    Only the dashboard starts by default; each OTLP listener starts only
    when its flag (or env var) is set.
 
-3. Point OpenCode and/or VS Code Copilot at it — copy-paste configs are in
+3. Point OpenCode, VS Code Copilot, and/or Codex at it — copy-paste configs are in
    [`docs/source-setup.md`](docs/source-setup.md).
 4. Open <http://localhost:8080> and use your AI tools for a few minutes;
    requests appear as the tools report them.
@@ -142,7 +142,7 @@ connections; it only listens for OTLP and dashboard requests on the
 addresses configured above.
 
 What is collected: **metadata and token counts only** — timestamps,
-source (opencode/copilot), provider, model, input/output/reasoning/cache
+source (opencode/copilot/codex), provider, model, input/output/reasoning/cache
 token counts, duration, conversation/trace IDs, and (from OpenCode) the
 cost the source itself reports.
 

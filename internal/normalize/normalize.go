@@ -43,6 +43,34 @@ type Generation struct {
 	GitBranch           string
 }
 
+// UncachedInput returns the canonical prompt input with cached tokens
+// removed: Copilot reports the prompt count including cached tokens
+// (OpenAI-style), so the cached part is subtracted; other sources' prompt
+// counts already exclude cache. Nil stays nil when input was not reported.
+// This mirrors the storage layer's uncachedInputSQL so single records and
+// aggregates agree; the stored value stays as reported.
+func (g Generation) UncachedInput() *int64 {
+	if g.InputTokens == nil {
+		return nil
+	}
+	if g.Source != SourceCopilot {
+		v := *g.InputTokens
+		return &v
+	}
+	cached := int64(0)
+	if g.CacheReadTokens != nil {
+		cached += *g.CacheReadTokens
+	}
+	if g.CacheCreationTokens != nil {
+		cached += *g.CacheCreationTokens
+	}
+	u := *g.InputTokens - cached
+	if u < 0 {
+		u = 0
+	}
+	return &u
+}
+
 // FromSpan normalizes a span for the given source. Returns ok=false for
 // spans that are legitimately not generation records (aggregates, tool
 // calls), and an error for malformed generation spans.

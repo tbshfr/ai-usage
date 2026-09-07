@@ -39,11 +39,11 @@ Totals for the filter range, plus the filter echo.
 {
   "filter": {"from":"2026-02-01T00:00:00Z","to":"2026-03-01T00:00:00Z","source":"","provider":"","model":"","conversation":""},
   "requests": 7,
-  "inputTokens": 596,
+  "inputTokens": 196,
   "outputTokens": 436,
   "cacheReadTokens": 400,
   "cacheCreationTokens": 21,
-  "cacheHitRate": 0.66,
+  "cacheHitRate": 0.65,
   "reasoningTokens": 0,
   "costKnownCount": 3,
   "costTotal": 0.9,
@@ -51,12 +51,15 @@ Totals for the filter range, plus the filter echo.
 }
 ```
 
+`inputTokens` is the canonical uncached prompt: Copilot's reported prompt
+count includes cached tokens, so the cached part is subtracted before
+aggregation (clamped at 0); other sources are stored uncached already.
+
 `cacheHitRate` is the fraction of prompt tokens served from cache:
-`cacheRead / denominator`, where the denominator is `inputTokens` when the
-source's prompt count includes cached tokens, or `inputTokens +
-cacheReadTokens + cacheCreationTokens` when it excludes them (per-model
-breakdowns are exact; mixed aggregates are approximated). It is `null` when
-no prompt tokens were reported in range.
+`cacheReadTokens / (inputTokens + cacheReadTokens + cacheCreationTokens)`.
+The full prompt has the same shape under every source's convention, so the
+rate is exact for mixed-source aggregates too. It is `null` when no prompt
+tokens were reported in range.
 
 ### `GET /api/timeseries?bucket=hour|day|week|month`
 
@@ -120,7 +123,9 @@ descending.
 
 Full records ordered by timestamp. `limit` defaults to 50, clamped to a
 max of 500; `offset` pages forward; `order` is `desc` (default, newest
-first) or `asc` (oldest first).
+first) or `asc` (oldest first). `inputTokens` is the canonical uncached
+prompt (same rule as the aggregates); the raw as-reported value stays in
+the database.
 
 `/api/generations?limit=1`
 

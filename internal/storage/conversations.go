@@ -95,13 +95,14 @@ func Conversations(ctx context.Context, db *sql.DB, f Filter, order Order, limit
 	SELECT ` + convExpr + ` AS k,
 		ROW_NUMBER() OVER (PARTITION BY ` + convExpr + ` ORDER BY timestamp DESC) AS rn,
 		timestamp, source, model, agent_name, git_repo,
-		input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens, reasoning_tokens, cost
+		` + uncachedInputSQL + ` AS uncached_input,
+		output_tokens, cache_read_tokens, cache_creation_tokens, reasoning_tokens, cost
 	FROM generations WHERE ` + where + `
 )
 SELECT
 	k,
 	COUNT(*),
-	COALESCE(SUM(input_tokens), 0),
+	COALESCE(SUM(uncached_input), 0),
 	COALESCE(SUM(output_tokens), 0),
 	COALESCE(SUM(cache_read_tokens), 0),
 	COALESCE(SUM(cache_creation_tokens), 0),
@@ -212,7 +213,7 @@ func TimeseriesBySource(ctx context.Context, db *sql.DB, f Filter, bucket Bucket
 	` + expr + `,
 	source,
 	COUNT(*),
-	COALESCE(SUM(input_tokens), 0),
+	COALESCE(SUM(` + uncachedInputSQL + `), 0),
 	COALESCE(SUM(output_tokens), 0),
 	COALESCE(SUM(cache_read_tokens), 0),
 	COALESCE(SUM(cache_creation_tokens), 0),

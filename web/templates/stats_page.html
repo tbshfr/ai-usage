@@ -1,6 +1,7 @@
 {{define "content"}}
 <dialog id="stats-reasons" class="detail-dialog"></dialog>
-<div id="stats" hx-get="/fragments/stats" hx-trigger="data-changed from:body delay:2s">
+{{template "filterbar" .}}
+<div id="stats" hx-get="/fragments/stats" hx-trigger="change from:#filter-bar, data-changed from:body delay:2s" hx-include="#filter-bar">
 {{template "stats" .}}
 </div>
 {{end}}

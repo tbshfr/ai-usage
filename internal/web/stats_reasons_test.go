@@ -97,7 +97,7 @@ func TestStatsPageKeepsRejectionOnlyDays(t *testing.T) {
 	srv := httptest.NewServer(New(db, nil, nil, nil, "test"))
 	defer srv.Close()
 
-	status, body := get(t, srv.URL+"/stats")
+	status, body := get(t, srv.URL+"/stats?range=all")
 	if status != http.StatusOK {
 		t.Fatalf("status %d", status)
 	}

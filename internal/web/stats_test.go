@@ -42,7 +42,21 @@ func TestStatsPageShowsTodayWithoutStatsFunc(t *testing.T) {
 		t.Fatalf("status %d", status)
 	}
 	wantContains(t, body, "777", "700", "421", "Total (2 days)")
+	wantContains(t, body, `href="/stats" class="active">7d</a>`, `href="/stats?range=today"`)
+	wantContains(t, body, `<input type="hidden" name="range" value="7d">`)
+	wantContains(t, body, `class="filter-settings"`, `<summary>Filters</summary>`)
+	wantNotContains(t, body, `aria-label="Source"`, `aria-label="Provider"`, `aria-label="Model"`)
 	wantNotContains(t, body, "(live)")
+}
+
+func TestStatsFilterPreservesExplicitRange(t *testing.T) {
+	srv := newServer(t)
+	defer srv.Close()
+	status, body := get(t, srv.URL+"/stats?range=30d")
+	if status != http.StatusOK {
+		t.Fatalf("status %d", status)
+	}
+	wantContains(t, body, `<input type="hidden" name="range" value="30d">`)
 }
 
 func TestStatsPageLiveRowReplacesPersistedToday(t *testing.T) {

@@ -1,4 +1,15 @@
 {{define "dashboard-stats"}}
+<section class="heatmap-panel" aria-labelledby="activity-title">
+  <div class="heatmap-head">
+    <div><h2 id="activity-title">Daily activity</h2><p class="muted">Tokens per UTC day over the last year</p></div>
+  </div>
+  <div class="heatmap-scroll" data-scroll-end tabindex="0" aria-label="Daily token activity heatmap">
+    <div class="heatmap-grid">
+      {{range .Heatmap.Cells}}<span class="heatmap-cell level-{{.Level}}{{if .Future}} future{{end}}" title="{{.Label}}: {{commas .Tokens}} tokens" aria-label="{{.Label}}: {{commas .Tokens}} tokens"></span>{{end}}
+    </div>
+  </div>
+  <div class="heatmap-legend muted" aria-label="Activity scale">Less <i class="level-0"></i><i class="level-1"></i><i class="level-2"></i><i class="level-3"></i><i class="level-4"></i> More</div>
+</section>
 <div class="hero-row">
   {{range .Cards}}{{if .Hero}}
   <button class="stat-card hero" hx-get="/fragments/period-detail?period={{.Period}}" hx-target="#period-detail" hx-include="#filter-bar" title="Show details">

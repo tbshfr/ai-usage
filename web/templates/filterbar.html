@@ -1,9 +1,11 @@
 {{define "filterbar"}}
+{{if .F.Collapsible}}<details class="filter-settings">
+  <summary>Filters{{if .F.ShowPeriodMode}} &amp; period{{end}}</summary>{{end}}
 <form id="filter-bar" method="get" action="{{.F.Action}}" class="filterbar">
   {{if .F.Presets}}<span class="presets">
     {{range .F.Presets}}<a href="{{.URL}}"{{if .Active}} class="active"{{end}}>{{.Label}}</a>{{end}}
   </span>{{end}}
-  <select name="source" aria-label="Source">
+  {{if .F.ShowDimensions}}<select name="source" aria-label="Source">
     <option value="">All sources</option>
     {{range .F.Sources}}<option value="{{.}}"{{if eq . $.F.Selected.Source}} selected{{end}}>{{friendlySource .}}</option>{{end}}
   </select>
@@ -15,9 +17,17 @@
     <option value="">All models</option>
     {{range .F.Models}}<option value="{{.}}"{{if eq . $.F.Selected.Model}} selected{{end}}>{{.}}</option>{{end}}
   </select>
+  {{end}}
+  {{if .F.ShowPeriodMode}}<fieldset class="filter-choice" aria-label="Week and month period type">
+    <legend>Week &amp; month</legend>
+    <label><input type="radio" name="period_mode" value="calendar"{{if not .F.PeriodRolling}} checked{{end}}><span>Calendar</span></label>
+    <label><input type="radio" name="period_mode" value="rolling"{{if .F.PeriodRolling}} checked{{end}}><span>Rolling · 7d / 30d</span></label>
+  </fieldset>{{end}}
+  {{if .F.Selected.Range}}<input type="hidden" name="range" value="{{.F.Selected.Range}}">{{end}}
   <input type="hidden" name="conversation" value="{{.F.Selected.Conversation}}">
   {{range .F.Hidden}}{{if .Value}}<input type="hidden" name="{{.Name}}" value="{{.Value}}">{{end}}{{end}}
   {{if .F.ConversationURL}}<a class="chip" href="{{.F.ConversationURL}}" title="Clear conversation filter">conversation: {{if eq .F.Selected.Conversation "none"}}other{{else}}{{.F.Selected.Conversation}}{{end}} &times;</a>{{end}}
   <noscript><button type="submit">Apply</button></noscript>
 </form>
+{{if .F.Collapsible}}</details>{{end}}
 {{end}}

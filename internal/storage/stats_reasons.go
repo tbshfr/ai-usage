@@ -66,6 +66,31 @@ func RecentReasonDays(ctx context.Context, db *sql.DB, limit int) (map[string]bo
 	return out, nil
 }
 
+// DailyReasonDaysRange returns days in the inclusive date range that have at
+// least one non-zero reason counter.
+func DailyReasonDaysRange(ctx context.Context, db *sql.DB, from, to string, limit int) (map[string]bool, error) {
+	rows, err := db.QueryContext(ctx,
+		`SELECT day FROM stats_daily_reasons
+		 WHERE count > 0 AND (? = '' OR day >= ?) AND (? = '' OR day <= ?)
+		 GROUP BY day ORDER BY day DESC LIMIT ?`, from, from, to, to, limit)
+	if err != nil {
+		return nil, fmt.Errorf("daily reason days range: %w", err)
+	}
+	defer rows.Close()
+	out := map[string]bool{}
+	for rows.Next() {
+		var day string
+		if err := rows.Scan(&day); err != nil {
+			return nil, fmt.Errorf("scan daily reason days range: %w", err)
+		}
+		out[day] = true
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate daily reason days range: %w", err)
+	}
+	return out, nil
+}
+
 // DailyReasonsForDay loads one day's per-reason counters, ordered by kind
 // then reason; found is false when nothing was recorded for that day.
 func DailyReasonsForDay(ctx context.Context, db *sql.DB, day string) ([]ReasonStat, bool, error) {

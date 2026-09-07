@@ -98,6 +98,52 @@ func bucketParam(r *http.Request) (storage.Bucket, error) {
 	}
 }
 
+// trendBucketParam chooses a useful chart resolution when the URL does not
+// specify one. An explicit bucket is still honored so API/fragment behavior
+// remains backwards compatible.
+func trendBucketParam(r *http.Request, f storage.Filter) (storage.Bucket, error) {
+	if r.URL.Query().Get("bucket") != "" {
+		return bucketParam(r)
+	}
+	if f.From.IsZero() {
+		return storage.BucketMonth, nil
+	}
+	to := f.To
+	if to.IsZero() {
+		to = time.Now().UTC()
+	}
+	d := to.Sub(f.From)
+	switch {
+	case d <= 48*time.Hour:
+		return storage.BucketHour, nil
+	case d <= 62*24*time.Hour:
+		return storage.BucketDay, nil
+	case d <= 2*365*24*time.Hour:
+		return storage.BucketWeek, nil
+	default:
+		return storage.BucketMonth, nil
+	}
+}
+
+func trendBucketOptions(f storage.Filter, selected storage.Bucket) []bucketOption {
+	to := f.To
+	if to.IsZero() {
+		to = time.Now().UTC()
+	}
+	d := time.Duration(1<<63 - 1)
+	if !f.From.IsZero() {
+		d = to.Sub(f.From)
+	}
+	return []bucketOption{
+		// Small grace periods avoid disabling an option just because separate
+		// calls to time.Now made a nominal 7-day range a few milliseconds longer.
+		{Value: storage.BucketHour, Label: "Hour", Disabled: d > 7*24*time.Hour+time.Minute && selected != storage.BucketHour},
+		{Value: storage.BucketDay, Label: "Day", Disabled: d > 180*24*time.Hour && selected != storage.BucketDay},
+		{Value: storage.BucketWeek, Label: "Week", Disabled: d > 2*365*24*time.Hour && selected != storage.BucketWeek},
+		{Value: storage.BucketMonth, Label: "Month"},
+	}
+}
+
 // orderParam reads the asc/desc sort direction for list views; empty means
 // newest first.
 func orderParam(r *http.Request) (storage.Order, error) {
@@ -154,6 +200,47 @@ func presetViews(action string, u uiFilter) []presetView {
 		})
 	}
 	return out
+}
+
+func statsPresetViews(u uiFilter) []presetView {
+	out := presetViews("/stats", u)
+	for i := range out {
+		switch out[i].Label {
+		case "Today":
+			out[i].URL = "/stats?range=today"
+		case "7d":
+			out[i].URL = "/stats"
+		}
+	}
+	return out
+}
+
+// statsRangeParam maps the stats page's day presets to inclusive UTC dates.
+// Unlike the shared API filter, its empty UI state intentionally means seven
+// calendar days so /stats opens with a useful operational overview.
+func statsRangeParam(r *http.Request) (uiFilter, string, string, int, error) {
+	rng := r.URL.Query().Get("range")
+	if rng == "" {
+		rng = "7d"
+	}
+	u := uiFilter{Range: rng}
+	today := startOfDay(time.Now().UTC())
+	from := today
+	limit := 1
+	switch rng {
+	case "today":
+	case "7d":
+		from, limit = today.AddDate(0, 0, -6), 7
+	case "30d":
+		from, limit = today.AddDate(0, 0, -29), 30
+	case "month":
+		from, limit = startOfMonth(today), today.Day()
+	case "all":
+		return u, "", today.Format("2006-01-02"), statsDaysLimit, nil
+	default:
+		return u, "", "", 0, badRequest{fmt.Errorf("invalid range %q (want today, 7d, 30d, month, or all)", rng)}
+	}
+	return u, from.Format("2006-01-02"), today.Format("2006-01-02"), limit, nil
 }
 
 // conversationURL builds a /sessions link that keeps the current filters

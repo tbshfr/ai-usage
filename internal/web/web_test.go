@@ -5,7 +5,9 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/tbshfr/ai-usage/internal/storage"
 	"github.com/tbshfr/ai-usage/internal/storage/seedtest"
 )
 
@@ -70,16 +72,41 @@ func TestDashboardPageRenders(t *testing.T) {
 		"OpenCode", "VS Code Copilot",
 		`/static/vendor/htmx.min.js?v=4.0.0`,
 		`/static/vendor/hx-sse.min.js?v=4.0.0`,
-		"Today", "This week", "This month", "All time",
+		"Today", "Last 7 days", "Last 30 days", "All time",
 		"hit 16.8%",
 		"3,717",       // all-time total tokens (copilot cache no longer double-counted)
 		"20 requests", // all-time requests
 		"period=today", "period=week", "period=month", "period=all",
 		"All sources", "All providers", "All models",
 		`<option value="claude-haiku-4-5-20251001"`,
+		"Daily activity", "Tokens per UTC day over the last year",
+		"Calendar", "Rolling", `class="filter-settings"`,
 	)
+	wantContains(t, body, `href="/trends?range=7d"`)
 	// Cost is not on the dashboard cards — only in the detail expansion.
 	wantNotContains(t, body, "$2.8500", "Usage over time")
+}
+
+func TestDashboardRollingPeriodModes(t *testing.T) {
+	srv := newServer(t)
+	defer srv.Close()
+	status, body := get(t, srv.URL+"/?period_mode=rolling")
+	if status != http.StatusOK {
+		t.Fatalf("status %d", status)
+	}
+	wantContains(t, body, `name="period_mode" value="rolling" checked`)
+	wantContains(t, body, `<span class="stat-label">Last 7 days</span>`, `<span class="stat-label">Last 30 days</span>`)
+}
+
+func TestDashboardCalendarPeriodMode(t *testing.T) {
+	srv := newServer(t)
+	defer srv.Close()
+	status, body := get(t, srv.URL+"/?period_mode=calendar")
+	if status != http.StatusOK {
+		t.Fatalf("status %d", status)
+	}
+	wantContains(t, body, `name="period_mode" value="calendar" checked`)
+	wantContains(t, body, `<span class="stat-label">This week</span>`, `<span class="stat-label">This month</span>`)
 }
 
 func TestFooterShowsVersion(t *testing.T) {
@@ -131,16 +158,21 @@ func TestTrendsPageAndFragment(t *testing.T) {
 	wantContains(t, body,
 		"Tokens over time", "Tokens by source", "Cache hit rate",
 		`data-chart="chart-tokens"`, `data-chart="chart-sources"`, `data-chart="chart-cache"`,
+		`class="filter-settings"`, `<summary>Filters</summary>`,
 	)
+
+	_, body = get(t, srv.URL+"/trends?range=30d")
+	wantContains(t, body, `<input type="hidden" name="range" value="30d">`)
 
 	// fragment with month bucket; cost series is gone, pct series is present
 	_, body = get(t, srv.URL+"/fragments/trends?"+fullRangeQuery+"&bucket=month")
-	wantContains(t, body, `"name":"Cache hit rate","fmt":"pct"`, `value="month" selected`)
+	wantContains(t, body, `"name":"Cache hit rate","fmt":"pct"`, `value="month" checked`)
+	wantNotContains(t, body, `<select name="bucket"`)
 	wantNotContains(t, body, "Cost (reported only)", `"scale":"cost"`)
 
 	// hour buckets are valid and carry the bucket span for axis padding
 	_, body = get(t, srv.URL+"/fragments/trends?"+fullRangeQuery+"&bucket=hour")
-	wantContains(t, body, `value="hour" selected`, `"span":3600`)
+	wantContains(t, body, `value="hour" checked`, `"span":3600`)
 
 	// today is always past the fixed seed dates
 	_, body = get(t, srv.URL+"/fragments/trends?range=today")
@@ -153,6 +185,21 @@ func TestTrendsPageAndFragment(t *testing.T) {
 	status, _ = get(t, srv.URL+"/trends?"+fullRangeQuery+"&bucket=year")
 	if status != http.StatusBadRequest {
 		t.Fatalf("invalid bucket: status %d, want 400", status)
+	}
+}
+
+func TestFillTimeseriesAddsZeroHours(t *testing.T) {
+	start := time.Date(2026, 1, 2, 10, 0, 0, 0, time.UTC)
+	pts := []storage.TimeseriesPoint{
+		{BucketStart: start.UnixMilli(), Requests: 1, InputTokens: 10},
+		{BucketStart: start.Add(2 * time.Hour).UnixMilli(), Requests: 1, InputTokens: 20},
+	}
+	got := fillTimeseries(pts, storage.Filter{From: start, To: start.Add(3 * time.Hour)}, storage.BucketHour, start.Add(4*time.Hour))
+	if len(got) != 3 {
+		t.Fatalf("got %d buckets, want 3: %+v", len(got), got)
+	}
+	if got[1].BucketStart != start.Add(time.Hour).UnixMilli() || got[1].Requests != 0 || got[1].InputTokens != 0 {
+		t.Fatalf("missing hour = %+v, want a zero-valued 11:00 bucket", got[1])
 	}
 }
 

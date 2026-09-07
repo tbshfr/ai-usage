@@ -30,6 +30,21 @@ function renderDataCharts() {
 document.addEventListener('DOMContentLoaded', renderDataCharts);
 document.addEventListener('htmx:after:settle', renderDataCharts);
 
+// The heatmap is chronological from left to right. On phones, start at the
+// newest days while leaving the strip freely swipeable toward older history.
+function scrollMobileHeatmapsToEnd(root = document) {
+  if (!window.matchMedia('(max-width: 640px)').matches) return;
+  const heatmaps = [];
+  if (root instanceof Element && root.matches('[data-scroll-end]')) heatmaps.push(root);
+  if (root.querySelectorAll) heatmaps.push(...root.querySelectorAll('[data-scroll-end]'));
+  requestAnimationFrame(() => {
+    for (const el of heatmaps) el.scrollLeft = el.scrollWidth;
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => scrollMobileHeatmapsToEnd());
+document.addEventListener('htmx:after:settle', e => scrollMobileHeatmapsToEnd(e.target));
+
 // Slide-over menu (mobile): the topbar nav turns into a right-hand drawer,
 // toggled by the hamburger and closed by the backdrop, any nav link, or Esc.
 function setNavOpen(open) {
@@ -46,8 +61,30 @@ function setNavOpen(open) {
 // it once content has settled. Closing (button, backdrop, Esc) is native.
 function openSwappedDialog(target) {
   if (!(target instanceof HTMLDialogElement)) return;
-  if (target.childElementCount && !target.open) target.showModal();
+  if (target.childElementCount && !target.open) {
+    target.showModal();
+    lockPageScroll();
+  }
 }
+
+let lockedScrollY = 0;
+function lockPageScroll() {
+  if (document.body.classList.contains('dialog-open')) return;
+  lockedScrollY = window.scrollY;
+  document.documentElement.classList.add('dialog-open');
+  document.body.classList.add('dialog-open');
+}
+
+function unlockPageScroll() {
+  if (document.querySelector('dialog[open]')) return;
+  document.documentElement.classList.remove('dialog-open');
+  document.body.classList.remove('dialog-open');
+  window.scrollTo(0, lockedScrollY);
+}
+
+document.addEventListener('close', e => {
+  if (e.target instanceof HTMLDialogElement) unlockPageScroll();
+}, true);
 
 document.addEventListener('click', e => {
   const toggle = e.target.closest('.menu-toggle');

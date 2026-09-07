@@ -1,6 +1,6 @@
 {{define "content"}}
 {{template "filterbar" .}}
-<div id="trends" hx-get="/fragments/trends" hx-trigger="change from:#filter-bar, data-changed from:body delay:2s" hx-include="#filter-bar, [name=bucket]">
+<div id="trends" hx-get="/fragments/trends" hx-trigger="change from:#filter-bar, data-changed from:body delay:2s" hx-include="#filter-bar, #bucket-form" hx-sync="this:replace">
 {{template "trends" .}}
 </div>
 {{end}}

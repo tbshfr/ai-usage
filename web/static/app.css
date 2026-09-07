@@ -20,6 +20,8 @@ body {
   background: var(--bg);
   color: var(--text);
 }
+html.dialog-open, body.dialog-open { overflow: hidden; overscroll-behavior: none; }
+body.dialog-open { position: fixed; inset: 0; width: 100%; touch-action: none; }
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
 code {
@@ -169,6 +171,32 @@ main { max-width: 1200px; margin: 0 auto; padding: 1.4rem; }
   box-shadow: var(--shadow);
   margin-bottom: 1.3rem;
 }
+.filter-settings {
+  width: fit-content;
+  max-width: 100%;
+  margin-bottom: 1rem;
+}
+.filter-settings summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.34rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  color: var(--muted);
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+.filter-settings summary::-webkit-details-marker { display: none; }
+.filter-settings summary::before { content: "▸"; color: var(--accent); transition: transform 0.15s ease; }
+.filter-settings[open] summary::before { transform: rotate(90deg); }
+.filter-settings summary:hover { color: var(--accent); border-color: var(--accent); }
+.filter-settings[open] { width: 100%; }
+.filter-settings[open] summary { margin-bottom: 0.55rem; }
+.filter-settings .filterbar { margin-bottom: 0; }
 .filterbar .presets { display: flex; gap: 0.25rem; }
 .filterbar .presets a {
   padding: 0.22rem 0.65rem;
@@ -188,6 +216,50 @@ main { max-width: 1200px; margin: 0 auto; padding: 1.4rem; }
   border-radius: 8px;
   padding: 0.28rem 0.45rem;
 }
+.filter-choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  margin: 0;
+  padding: 0.18rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+}
+.filter-choice legend {
+  float: left;
+  margin: 0 0.35rem 0 0.2rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.9;
+}
+.filter-choice label { position: relative; cursor: pointer; }
+.filter-choice input { position: absolute; opacity: 0; pointer-events: none; }
+.filter-choice span {
+  display: block;
+  padding: 0.18rem 0.55rem;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+.filter-choice label:hover span { color: var(--accent); background: var(--panel); }
+.filter-choice input:checked + span {
+  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 1px 2px rgba(96, 64, 32, 0.12);
+}
+.filter-choice input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+.filter-choice label.disabled { cursor: not-allowed; }
+.filter-choice label.disabled span {
+  color: #b9aa99;
+  background: transparent;
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+.filter-choice label.disabled:hover span { color: #b9aa99; background: transparent; }
 .filterbar a.chip {
   background: var(--accent-soft);
   border: 1px solid var(--accent);
@@ -211,6 +283,48 @@ a.conv:hover { color: var(--accent); }
 }
 
 /* Dashboard stat cards */
+.heatmap-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  padding: 0.9rem 1.1rem 1rem;
+  margin-bottom: 0.9rem;
+}
+.heatmap-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.7rem;
+}
+.heatmap-head h2 { margin: 0; }
+.heatmap-head p { margin: 0.1rem 0 0; font-size: 0.84rem; }
+.heatmap-scroll { overflow-x: auto; padding: 0.15rem 0 0.35rem; }
+.heatmap-scroll:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+.heatmap-grid {
+  display: grid;
+  grid-template-rows: repeat(7, 11px);
+  grid-auto-flow: column;
+  grid-auto-columns: 11px;
+  gap: 3px;
+  width: max-content;
+  min-width: 100%;
+  justify-content: center;
+}
+.heatmap-cell, .heatmap-legend i {
+  display: block;
+  border-radius: 2px;
+  background: #efe6da;
+}
+.heatmap-cell { width: 11px; height: 11px; }
+.heatmap-cell.future { opacity: 0.28; }
+.heatmap-cell.level-1, .heatmap-legend .level-1 { background: #d9e3d4; }
+.heatmap-cell.level-2, .heatmap-legend .level-2 { background: #afc3a8; }
+.heatmap-cell.level-3, .heatmap-legend .level-3 { background: #7d9b76; }
+.heatmap-cell.level-4, .heatmap-legend .level-4 { background: #526f4d; }
+.heatmap-legend { display: flex; align-items: center; justify-content: flex-end; gap: 4px; margin-top: 0.45rem; font-size: 0.76rem; white-space: nowrap; }
+.heatmap-legend i { width: 11px; height: 11px; }
 .hero-row { margin-bottom: 0.9rem; }
 .period-cards {
   display: grid;
@@ -344,6 +458,7 @@ dialog.detail-dialog {
   box-shadow: 0 2px 6px rgba(96, 64, 32, 0.1), 0 8px 22px rgba(96, 64, 32, 0.08);
   padding: 1rem 1.3rem 1.2rem;
 }
+body.dialog-open dialog.detail-dialog { touch-action: pan-y; overscroll-behavior: contain; }
 dialog.detail-dialog::backdrop { background: rgba(61, 50, 41, 0.4); }
 dialog.detail-dialog .period-detail {
   margin-top: 0;
@@ -382,12 +497,21 @@ dialog.detail-dialog .period-detail {
   margin-bottom: 0.8rem;
 }
 .chart-head h2 { margin: 0.2rem 0; font-size: 1.15rem; }
+.chart-help { margin: 0.05rem 0 0; font-size: 0.82rem; }
+.bucket-control { display: flex; align-items: center; color: var(--muted); }
 .chart-head select {
   background: var(--panel);
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 0.28rem 0.45rem;
+}
+
+@media (max-width: 640px) {
+  .heatmap-grid { min-width: 0; justify-content: start; }
+  .heatmap-legend { justify-content: flex-start; }
+  .bucket-control { width: 100%; overflow-x: auto; padding-bottom: 0.15rem; }
+  .bucket-control .filter-choice { flex: 0 0 auto; }
 }
 .chart { background: transparent; }
 

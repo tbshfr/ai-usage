@@ -1,6 +1,6 @@
 {{define "content"}}
 {{template "filterbar" .}}
-<div id="dashboard-stats" hx-get="/fragments/dashboard-stats" hx-trigger="change from:#filter-bar, data-changed from:body delay:2s" hx-include="#filter-bar">
+<div id="dashboard-stats" hx-get="/fragments/dashboard-stats" hx-trigger="change from:#filter-bar, data-changed from:body delay:2s" hx-include="#filter-bar" hx-sync="this:replace">
 {{template "dashboard-stats" .}}
 </div>
 <dialog id="period-detail" class="detail-dialog"></dialog>

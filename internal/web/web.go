@@ -5,6 +5,7 @@ package web
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"io/fs"
 	"log/slog"
 	"net/http"
@@ -23,7 +24,7 @@ import (
 const (
 	recentLimit        = 50
 	conversationsLimit = 24
-	statsDaysLimit     = 30
+	statsDaysLimit     = 3660
 )
 
 var staticFS = func() fs.FS {
@@ -126,6 +127,8 @@ type pageData struct {
 	Error       string
 	F           filterView
 	Cards       []cardView
+	Heatmap     heatmapView
+	Periods     periodModes
 	Detail      *periodDetailView
 	Charts      trendsView
 	Convs       convsView
@@ -151,6 +154,10 @@ type linkPair struct {
 
 type filterView struct {
 	Action          string
+	ShowDimensions  bool
+	ShowPeriodMode  bool
+	PeriodRolling   bool
+	Collapsible     bool
 	Presets         []presetView
 	Sources         []string
 	Providers       []string
@@ -182,6 +189,21 @@ type cardView struct {
 	Since  *time.Time
 }
 
+type periodModes struct {
+	Rolling bool
+}
+
+type heatmapView struct {
+	Cells []heatmapCell
+}
+
+type heatmapCell struct {
+	Label  string
+	Tokens int64
+	Level  int
+	Future bool
+}
+
 // periodDetailView is the inline expansion under the dashboard cards.
 // Since mirrors the card's first-data date for the "all" period.
 type periodDetailView struct {
@@ -193,12 +215,19 @@ type periodDetailView struct {
 
 type trendsView struct {
 	Bucket     storage.Bucket
+	Buckets    []bucketOption
 	TokenData  chartJSON
 	HasTokens  bool
 	SourceData chartJSON
 	HasSource  bool
 	CacheData  chartJSON
 	HasCache   bool
+}
+
+type bucketOption struct {
+	Value    storage.Bucket
+	Label    string
+	Disabled bool
 }
 
 type chartJSON struct {
@@ -288,7 +317,19 @@ func (s *server) dashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	d.F.Presets = nil
-	if d.Cards, err = s.cards(r.Context(), u); err != nil {
+	d.Periods, err = parsePeriodModes(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	d.F.ShowPeriodMode = true
+	d.F.PeriodRolling = d.Periods.Rolling
+	d.F.Collapsible = true
+	if d.Cards, err = s.cards(r.Context(), u, d.Periods); err != nil {
+		writeErr(w, err)
+		return
+	}
+	if d.Heatmap, err = s.heatmap(r.Context(), u); err != nil {
 		writeErr(w, err)
 		return
 	}
@@ -307,7 +348,16 @@ func (s *server) fragDashboardStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	d.F.Presets = nil
-	if d.Cards, err = s.cards(r.Context(), u); err != nil {
+	d.Periods, err = parsePeriodModes(r)
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	if d.Cards, err = s.cards(r.Context(), u, d.Periods); err != nil {
+		writeErr(w, err)
+		return
+	}
+	if d.Heatmap, err = s.heatmap(r.Context(), u); err != nil {
 		writeErr(w, err)
 		return
 	}
@@ -327,7 +377,12 @@ func (s *server) fragPeriodDetail(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, err)
 		return
 	}
-	from, label, ok := periodStart(period, time.Now().UTC())
+	modes, err := parsePeriodModes(r)
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	from, label, ok := periodStart(period, time.Now().UTC(), modes)
 	if !ok {
 		http.Error(w, "invalid period "+period+" (want today, week, month, or all)", http.StatusBadRequest)
 		return
@@ -360,13 +415,19 @@ func (s *server) fragPeriodDetail(w http.ResponseWriter, r *http.Request) {
 	s.renderFrag(w, "period-detail", d)
 }
 
-func periodStart(period string, now time.Time) (time.Time, string, bool) {
+func periodStart(period string, now time.Time, modes periodModes) (time.Time, string, bool) {
 	switch period {
 	case "today":
 		return startOfDay(now), "Today", true
 	case "week":
+		if modes.Rolling {
+			return now.Add(-7 * 24 * time.Hour), "Last 7 days", true
+		}
 		return startOfWeek(now), "This week", true
 	case "month":
+		if modes.Rolling {
+			return now.Add(-30 * 24 * time.Hour), "Last 30 days", true
+		}
 		return startOfMonth(now), "This month", true
 	case "all":
 		return time.Time{}, "All time", true
@@ -374,7 +435,19 @@ func periodStart(period string, now time.Time) (time.Time, string, bool) {
 	return time.Time{}, "", false
 }
 
-func (s *server) cards(ctx context.Context, u uiFilter) ([]cardView, error) {
+func parsePeriodModes(r *http.Request) (periodModes, error) {
+	var modes periodModes
+	switch r.URL.Query().Get("period_mode") {
+	case "calendar":
+	case "", "rolling":
+		modes.Rolling = true
+	default:
+		return modes, badRequest{fmt.Errorf("invalid period mode (want calendar or rolling)")}
+	}
+	return modes, nil
+}
+
+func (s *server) cards(ctx context.Context, u uiFilter, modes periodModes) ([]cardView, error) {
 	now := time.Now().UTC()
 	periods := []struct {
 		period, label string
@@ -385,6 +458,10 @@ func (s *server) cards(ctx context.Context, u uiFilter) ([]cardView, error) {
 		{"week", "This week", startOfWeek(now), false},
 		{"month", "This month", startOfMonth(now), false},
 		{"all", "All time", time.Time{}, false},
+	}
+	if modes.Rolling {
+		periods[1].label, periods[1].from = "Last 7 days", now.Add(-7*24*time.Hour)
+		periods[2].label, periods[2].from = "Last 30 days", now.Add(-30*24*time.Hour)
 	}
 	out := make([]cardView, 0, len(periods))
 	for _, p := range periods {
@@ -418,6 +495,47 @@ func (s *server) cards(ctx context.Context, u uiFilter) ([]cardView, error) {
 	return out, nil
 }
 
+// heatmap returns a GitHub-style, Sunday-aligned year of daily token totals.
+// Empty days are deliberately present with zero tokens so activity gaps are
+// visible instead of being compressed out of the calendar.
+func (s *server) heatmap(ctx context.Context, u uiFilter) (heatmapView, error) {
+	now := time.Now().UTC()
+	today := startOfDay(now)
+	start := today.AddDate(0, 0, -364)
+	start = start.AddDate(0, 0, -int(start.Weekday()))
+	end := start.AddDate(0, 0, 371)
+	pts, err := storage.Timeseries(ctx, s.db, storage.Filter{
+		From: start, To: end, Source: u.Source, Provider: u.Provider,
+		Model: u.Model, Conversation: u.Conversation,
+	}, storage.BucketDay)
+	if err != nil {
+		return heatmapView{}, err
+	}
+	byDay := make(map[int64]int64, len(pts))
+	var maxTokens int64
+	for _, p := range pts {
+		total := p.InputTokens + p.OutputTokens + p.CacheReadTokens + p.CacheCreationTokens + p.ReasoningTokens
+		byDay[p.BucketStart] = total
+		if total > maxTokens {
+			maxTokens = total
+		}
+	}
+	v := heatmapView{Cells: make([]heatmapCell, 0, 371)}
+	for day := start; day.Before(end); day = day.AddDate(0, 0, 1) {
+		tokens := byDay[day.UnixMilli()]
+		level := 0
+		if tokens > 0 && maxTokens > 0 {
+			level = int((tokens*4 + maxTokens - 1) / maxTokens)
+			level = min(max(level, 1), 4)
+		}
+		v.Cells = append(v.Cells, heatmapCell{
+			Label:  day.Format("Jan 2, 2006"),
+			Tokens: tokens, Level: level, Future: day.After(today),
+		})
+	}
+	return v, nil
+}
+
 // trends renders the charts page: tokens over time, tokens by source, and
 // the cache hit rate over time.
 func (s *server) trends(w http.ResponseWriter, r *http.Request) {
@@ -443,7 +561,7 @@ func (s *server) trendsData(r *http.Request) (*pageData, error) {
 	if err != nil {
 		return nil, badRequest{err}
 	}
-	bucket, err := bucketParam(r)
+	bucket, err := trendBucketParam(r, f)
 	if err != nil {
 		return nil, err
 	}
@@ -452,16 +570,18 @@ func (s *server) trendsData(r *http.Request) (*pageData, error) {
 		return nil, err
 	}
 	d.Charts.Bucket = bucket
+	d.Charts.Buckets = trendBucketOptions(f, bucket)
 	pts, err := storage.Timeseries(r.Context(), s.db, f, bucket)
 	if err != nil {
 		return nil, err
 	}
+	pts = fillTimeseries(pts, f, bucket, time.Now().UTC())
 	d.Charts.TokenData, d.Charts.HasTokens = buildTokenChart(pts, bucket)
 	spts, err := storage.TimeseriesBySource(r.Context(), s.db, f, bucket)
 	if err != nil {
 		return nil, err
 	}
-	d.Charts.SourceData, d.Charts.HasSource = buildSourceChart(spts, bucket)
+	d.Charts.SourceData, d.Charts.HasSource = buildSourceChart(spts, pts, bucket)
 	d.Charts.CacheData, d.Charts.HasCache = buildCacheChart(pts, bucket)
 	return d, nil
 }
@@ -548,13 +668,17 @@ func (s *server) fragBreakdowns(w http.ResponseWriter, r *http.Request) {
 	s.renderFrag(w, "breakdowns", d)
 }
 
-// statsPage renders the per-day ingestion counters: a chart of rejected /
-// error counters over the last 30 days plus the full daily table. Today's
-// row shows live pipeline counters, so it is current even before the next
-// periodic save.
+// statsPage renders range-selectable per-day ingestion counters. Today's row
+// shows live pipeline counters, so it is current even before the next save.
 func (s *server) statsPage(w http.ResponseWriter, r *http.Request) {
+	u, from, to, limit, err := statsRangeParam(r)
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
 	d := &pageData{Title: "Stats", Active: "stats"}
-	if err := s.loadStats(r.Context(), d); err != nil {
+	d.F = filterView{Action: "/stats", Selected: u, Presets: statsPresetViews(u), Collapsible: true}
+	if err := s.loadStats(r.Context(), d, from, to, limit); err != nil {
 		writeErr(w, err)
 		return
 	}
@@ -563,8 +687,13 @@ func (s *server) statsPage(w http.ResponseWriter, r *http.Request) {
 
 // fragStats is the SSE-refreshable section of the stats page.
 func (s *server) fragStats(w http.ResponseWriter, r *http.Request) {
+	_, from, to, limit, err := statsRangeParam(r)
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
 	d := &pageData{}
-	if err := s.loadStats(r.Context(), d); err != nil {
+	if err := s.loadStats(r.Context(), d, from, to, limit); err != nil {
 		writeErr(w, err)
 		return
 	}
@@ -767,14 +896,14 @@ func reasonLabel(kind, reason string) string {
 	}
 }
 
-func (s *server) loadStats(ctx context.Context, d *pageData) error {
-	rows, err := storage.RecentDailyStats(ctx, s.db, statsDaysLimit)
+func (s *server) loadStats(ctx context.Context, d *pageData, from, to string, limit int) error {
+	rows, err := storage.DailyStatsRange(ctx, s.db, from, to, limit)
 	if err != nil {
 		return err
 	}
 	// Days whose only activity was transport rejections have zero record
 	// counters; they stay visible so attack traffic shows up in the table.
-	reasonDays, err := storage.RecentReasonDays(ctx, s.db, statsDaysLimit)
+	reasonDays, err := storage.DailyReasonDaysRange(ctx, s.db, from, to, limit)
 	if err != nil {
 		return err
 	}
@@ -829,10 +958,10 @@ func (s *server) loadStats(ctx context.Context, d *pageData) error {
 			v.Rows = append([]statsRow{{Day: today, Live: true, Stats: live}}, v.Rows...)
 		}
 	}
-	// Hard cap includes the live today row: without this, a today with no
-	// persisted snapshot yet (or orphan reason days) yields 31 rows.
-	if len(v.Rows) > statsDaysLimit {
-		v.Rows = v.Rows[:statsDaysLimit]
+	// The selected range's cap includes the live today row: without this, a
+	// today without a persisted snapshot can yield one extra row.
+	if len(v.Rows) > limit {
+		v.Rows = v.Rows[:limit]
 	}
 	for _, r := range v.Rows {
 		v.Total = addIngestStats(v.Total, r.Stats)
@@ -1055,6 +1184,8 @@ func (s *server) detail(w http.ResponseWriter, r *http.Request) {
 func (s *server) base(ctx context.Context, title, active, action string, u uiFilter) (*pageData, error) {
 	d := &pageData{Title: title, Active: active}
 	d.F.Action = action
+	d.F.ShowDimensions = true
+	d.F.Collapsible = true
 	d.F.Selected = u
 	d.F.Presets = presetViews(action, u)
 	if u.Conversation != "" {
@@ -1095,19 +1226,17 @@ func buildTokenChart(pts []storage.TimeseriesPoint, bucket storage.Bucket) (char
 }
 
 // buildSourceChart renders one line of total tokens per source per bucket.
-func buildSourceChart(pts []storage.TimeseriesSourcePoint, bucket storage.Bucket) (chartJSON, bool) {
+func buildSourceChart(pts []storage.TimeseriesSourcePoint, totals []storage.TimeseriesPoint, bucket storage.Bucket) (chartJSON, bool) {
 	if len(pts) == 0 {
 		return chartJSON{}, false
 	}
 	c := chartJSON{Span: bucket.SpanSeconds()}
 	bySource := map[string]map[int64]int64{}
-	labels := []int64{}
-	seen := map[int64]bool{}
+	labels := make([]int64, 0, len(totals))
+	for _, p := range totals {
+		labels = append(labels, p.BucketStart)
+	}
 	for _, p := range pts {
-		if !seen[p.BucketStart] {
-			seen[p.BucketStart] = true
-			labels = append(labels, p.BucketStart)
-		}
 		if bySource[p.Source] == nil {
 			bySource[p.Source] = map[int64]int64{}
 		}
@@ -1123,11 +1252,81 @@ func buildSourceChart(pts []storage.TimeseriesSourcePoint, bucket storage.Bucket
 	for _, src := range sources {
 		vals := make([]any, len(labels))
 		for i, l := range labels {
-			vals[i] = bySource[src][l]
+			vals[i] = bySource[src][l] // absent buckets intentionally render as zero
 		}
 		c.Series = append(c.Series, chartSeries{Name: friendlySource(src), Values: vals})
 	}
 	return c, true
+}
+
+// fillTimeseries inserts empty buckets across the selected range. This keeps
+// sparse hourly data honest: an idle hour is zero, not a line drawn directly
+// between two distant requests. Very large explicit ranges are left sparse to
+// keep fragment responses bounded; the UI disables those combinations.
+func fillTimeseries(pts []storage.TimeseriesPoint, f storage.Filter, bucket storage.Bucket, now time.Time) []storage.TimeseriesPoint {
+	if len(pts) == 0 {
+		return pts
+	}
+	from := f.From
+	if from.IsZero() {
+		from = time.UnixMilli(pts[0].BucketStart).UTC()
+	}
+	to := f.To
+	if to.IsZero() || to.After(now) {
+		to = now
+	}
+	start := chartBucketStart(from, bucket)
+	last := chartBucketStart(to.Add(-time.Nanosecond), bucket)
+	if last.Before(start) {
+		return pts
+	}
+	count := 0
+	for t := start; !t.After(last) && count <= 1000; t = nextChartBucket(t, bucket) {
+		count++
+	}
+	if count > 1000 {
+		return pts
+	}
+	byStart := make(map[int64]storage.TimeseriesPoint, len(pts))
+	for _, p := range pts {
+		byStart[p.BucketStart] = p
+	}
+	out := make([]storage.TimeseriesPoint, 0, count)
+	for t := start; !t.After(last); t = nextChartBucket(t, bucket) {
+		if p, ok := byStart[t.UnixMilli()]; ok {
+			out = append(out, p)
+		} else {
+			out = append(out, storage.TimeseriesPoint{BucketStart: t.UnixMilli()})
+		}
+	}
+	return out
+}
+
+func chartBucketStart(t time.Time, bucket storage.Bucket) time.Time {
+	t = t.UTC()
+	switch bucket {
+	case storage.BucketHour:
+		return t.Truncate(time.Hour)
+	case storage.BucketDay:
+		return startOfDay(t)
+	case storage.BucketWeek:
+		return startOfWeek(t)
+	default:
+		return startOfMonth(t)
+	}
+}
+
+func nextChartBucket(t time.Time, bucket storage.Bucket) time.Time {
+	switch bucket {
+	case storage.BucketHour:
+		return t.Add(time.Hour)
+	case storage.BucketDay:
+		return t.AddDate(0, 0, 1)
+	case storage.BucketWeek:
+		return t.AddDate(0, 0, 7)
+	default:
+		return t.AddDate(0, 1, 0)
+	}
 }
 
 // buildCacheChart renders the aggregate cache hit rate per bucket as a

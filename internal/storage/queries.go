@@ -139,6 +139,11 @@ func CacheHitRate(input, cacheRead, cacheCreation int64) *float64 {
 // count including cached tokens (OpenAI-style), so the cached part is
 // subtracted there; opencode's prompt count already excludes cache. Stored
 // rows keep the raw as-reported values.
+//
+// Closed-world assumption: only copilot/opencode exist today, so ELSE is
+// opencode passthrough. A future source must declare here whether its
+// prompt count includes cache; defaulting to passthrough would double-count
+// an OpenAI-style source.
 const uncachedInputSQL = `CASE WHEN source = '` + normalize.SourceCopilot + `'
 	THEN MAX(COALESCE(input_tokens, 0) - COALESCE(cache_read_tokens, 0)
 		- COALESCE(cache_creation_tokens, 0), 0)

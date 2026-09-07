@@ -54,7 +54,8 @@ func (g Generation) UncachedInput() *int64 {
 		return nil
 	}
 	if g.Source != SourceCopilot {
-		return g.InputTokens
+		v := *g.InputTokens
+		return &v
 	}
 	cached := int64(0)
 	if g.CacheReadTokens != nil {

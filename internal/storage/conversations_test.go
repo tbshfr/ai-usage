@@ -15,7 +15,7 @@ func mid(y int, m time.Month, d int) int64 {
 }
 
 // Seed expectations: conv-copilot (12 rows) and conv-opencode (8 rows); see
-// seedtest.Rows. conv-copilot: uncached input 1585 (c5 300→0, c12 40→30),
+// seedtest.Rows. conv-copilot: uncached input 1885 (c5 700→300, c12 40→30),
 // output 1055, cacheRead 410, reasoning 35, no cost. conv-opencode: input
 // 92, output 184, cacheCreation 56, cost 2.85 across 8 known rows. Latest
 // rows: conv-copilot → c12 (2026-03-01, gpt-5.6-luna), conv-opencode → o7
@@ -37,12 +37,12 @@ func TestConversationsSeedGroups(t *testing.T) {
 	if c.Key != "conv-copilot" || c.Other() {
 		t.Errorf("second group key = %q, want conv-copilot", c.Key)
 	}
-	if c.Requests != 12 || c.InputTokens != 1585 || c.OutputTokens != 1055 ||
+	if c.Requests != 12 || c.InputTokens != 1885 || c.OutputTokens != 1055 ||
 		c.CacheReadTokens != 410 || c.CacheCreationTokens != 0 || c.ReasoningTokens != 35 {
 		t.Errorf("conv-copilot sums = %+v", c)
 	}
-	if c.TotalTokens() != 3085 {
-		t.Errorf("conv-copilot TotalTokens = %d, want 3085", c.TotalTokens())
+	if c.TotalTokens() != 3385 {
+		t.Errorf("conv-copilot TotalTokens = %d, want 3385", c.TotalTokens())
 	}
 	if c.CostKnownCount != 0 || c.CostTotal != nil {
 		t.Errorf("conv-copilot cost = %d/%v, want all unknown", c.CostKnownCount, c.CostTotal)
@@ -56,8 +56,8 @@ func TestConversationsSeedGroups(t *testing.T) {
 	if c.Source != "copilot" || c.Model != "gpt-4.1" {
 		t.Errorf("conv-copilot latest row = %s/%s, want copilot/gpt-4.1", c.Source, c.Model)
 	}
-	if rate := c.CacheHitRate(); rate == nil || *rate < 0.2055 || *rate > 0.2056 {
-		t.Errorf("conv-copilot cache hit = %v, want ~0.2055 (410/1995)", rate)
+	if rate := c.CacheHitRate(); rate == nil || *rate < 0.1786 || *rate > 0.1787 {
+		t.Errorf("conv-copilot cache hit = %v, want ~0.1787 (410/2295)", rate)
 	}
 
 	o := convos[0]
@@ -213,7 +213,7 @@ func TestTimeseriesBySource(t *testing.T) {
 		{mid(2026, 1, 31), "opencode", 38},  // o1+o8
 		{mid(2026, 2, 1), "copilot", 235},   // c3+c4
 		{mid(2026, 2, 1), "opencode", 82},   // o2+o3
-		{mid(2026, 2, 28), "copilot", 600},  // c5: input 300→0 uncached, cacheRead 400 (c11 has no tokens)
+		{mid(2026, 2, 28), "copilot", 900},  // c5: input 700→300 uncached, cacheRead 400 (c11 has no tokens)
 		{mid(2026, 2, 28), "opencode", 47},  // o4
 		{mid(2026, 3, 1), "copilot", 200},   // c6+c12 (c12 input 40→30 uncached)
 		{mid(2026, 3, 1), "opencode", 51},   // o5
@@ -249,8 +249,8 @@ func TestTimeseriesBySource(t *testing.T) {
 	if got := byWeek["opencode"][mid(2026, 1, 26)]; got != 38+82 {
 		t.Errorf("opencode week of Jan 26 = %d, want 120", got)
 	}
-	if got := byWeek["copilot"][mid(2026, 2, 23)]; got != 600+200 {
-		t.Errorf("copilot week of Feb 23 = %d, want 800", got)
+	if got := byWeek["copilot"][mid(2026, 2, 23)]; got != 900+200 {
+		t.Errorf("copilot week of Feb 23 = %d, want 1100", got)
 	}
 
 	if _, err := storage.TimeseriesBySource(ctx, db, seedtest.FullRange(), "year"); err == nil {

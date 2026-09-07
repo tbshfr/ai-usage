@@ -73,7 +73,7 @@ func TestSummaryEndpoint(t *testing.T) {
 	if err := json.Unmarshal([]byte(body), &got); err != nil {
 		t.Fatal(err)
 	}
-	if got.Requests != 20 || got.InputTokens != 1677 || got.OutputTokens != 1239 ||
+	if got.Requests != 20 || got.InputTokens != 1977 || got.OutputTokens != 1239 ||
 		got.CacheReadTokens != 410 || got.CacheCreationTokens != 56 || got.ReasoningTokens != 35 {
 		t.Errorf("totals mismatch: %+v", got)
 	}
@@ -154,10 +154,10 @@ func TestSummaryCacheHitRate(t *testing.T) {
 		t.Fatalf("cache totals = %d/%d, want 410/56", got.CacheReadTokens, got.CacheCreationTokens)
 	}
 	if got.CacheHitRate == nil {
-		t.Fatal("cacheHitRate is nil, want 410/2143")
+		t.Fatal("cacheHitRate is nil, want 410/2443")
 	}
-	if *got.CacheHitRate < 0.1913 || *got.CacheHitRate > 0.1914 {
-		t.Errorf("cacheHitRate = %v, want ~0.1913 (410/2143)", *got.CacheHitRate)
+	if *got.CacheHitRate < 0.1678 || *got.CacheHitRate > 0.1679 {
+		t.Errorf("cacheHitRate = %v, want ~0.1678 (410/2443)", *got.CacheHitRate)
 	}
 }
 

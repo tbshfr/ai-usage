@@ -41,7 +41,7 @@ func Rows(t *testing.T) []normalize.Generation {
 		{id: "c2", source: "copilot", provider: "github", model: "gpt-5.6-luna", day: "2026-01-31", in: IP(200), out: IP(100), reasoning: IP(30)},
 		{id: "c3", source: "copilot", provider: "github", model: "gpt-4.1", day: "2026-02-01", in: IP(150), out: IP(75)},
 		{id: "c4", source: "copilot", provider: "github", model: "gpt-5.6-luna", day: "2026-02-01", in: IP(10)},
-		{id: "c5", source: "copilot", provider: "github", model: "gpt-4.1", day: "2026-02-28", in: IP(300), out: IP(200), cacheRead: IP(400)},
+		{id: "c5", source: "copilot", provider: "github", model: "gpt-4.1", day: "2026-02-28", in: IP(700), out: IP(200), cacheRead: IP(400)},
 		{id: "c6", source: "copilot", provider: "github", model: "claude-sonnet-4-5", day: "2026-03-01", in: IP(50), out: IP(25), reasoning: IP(5)},
 		{id: "c7", source: "copilot", provider: "github", model: "gpt-4.1", day: "2026-03-02", in: IP(20), out: IP(10)},
 		{id: "c8", source: "copilot", provider: "github", model: "gpt-4.1", day: "2026-03-02", in: IP(20), out: IP(10)},

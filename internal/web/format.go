@@ -17,6 +17,7 @@ import (
 const emDash = "—"
 
 var funcs = template.FuncMap{
+	"staticURL":        staticURL,
 	"commas":           commas,
 	"tokens":           tokens,
 	"cost":             cost,

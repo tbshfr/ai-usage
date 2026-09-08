@@ -70,8 +70,8 @@ func TestDashboardPageRenders(t *testing.T) {
 	}
 	wantContains(t, body,
 		"OpenCode", "VS Code Copilot",
-		`/static/vendor/htmx.min.js?v=4.0.0`,
-		`/static/vendor/hx-sse.min.js?v=4.0.0`,
+		staticURL("vendor/htmx.min.js"),
+		staticURL("vendor/hx-sse.min.js"),
 		"Today", "Last 7 days", "Last 30 days", "All time",
 		"hit 16.8%",
 		"3,717",       // all-time total tokens (copilot cache no longer double-counted)

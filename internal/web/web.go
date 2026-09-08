@@ -6,7 +6,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"io/fs"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -26,25 +25,6 @@ const (
 	conversationsLimit = 24
 	statsDaysLimit     = 3660
 )
-
-var staticFS = func() fs.FS {
-	sub, err := fs.Sub(assets.Static, "web/static")
-	if err != nil {
-		panic(err)
-	}
-	return sub
-}()
-
-// staticHandler serves embedded assets from stable, unversioned URLs, so
-// browsers must revalidate them after a binary upgrade. In particular,
-// vendored libraries can change between releases without their path changing.
-func staticHandler() http.Handler {
-	files := http.StripPrefix("/static/", http.FileServerFS(staticFS))
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Cache-Control", "no-cache")
-		files.ServeHTTP(w, r)
-	})
-}
 
 // New returns the dashboard UI routes (pages, fragments, static assets).
 // Templates are parsed once at package init from the embedded FS.
@@ -1364,15 +1344,13 @@ func toAny(v []int64) []any {
 func (s *server) render(w http.ResponseWriter, name string, d *pageData) {
 	d.ShowLogout = s.dash != nil
 	d.Version = s.version
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_ = pageTmpls[name].ExecuteTemplate(w, "layout", d)
+	renderTemplate(w, pageTmpls[name], "layout", http.StatusOK, d)
 }
 
 func (s *server) renderFrag(w http.ResponseWriter, name string, d *pageData) {
 	d.ShowLogout = s.dash != nil
 	d.Version = s.version
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_ = fragTmpls[name].ExecuteTemplate(w, name, d)
+	renderTemplate(w, fragTmpls[name], name, http.StatusOK, d)
 }
 
 type badRequest struct{ err error }

@@ -151,10 +151,8 @@ func (s *server) loginSubmit(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) renderLoginError(w http.ResponseWriter, status int, msg string) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.WriteHeader(status)
 	d := &pageData{Title: "Sign in", Error: msg}
-	_ = pageTmpls["login"].ExecuteTemplate(w, "layout", d)
+	renderTemplate(w, pageTmpls["login"], "layout", status, d)
 }
 
 func (s *server) logout(w http.ResponseWriter, r *http.Request) {

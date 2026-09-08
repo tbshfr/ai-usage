@@ -15,6 +15,15 @@ services:
       AI_USAGE_OTLP_TOKEN: ${AI_USAGE_OTLP_TOKEN:?set in .env}
       AI_USAGE_LOG_LEVEL: info
 
+      # Optional R2 backups: uncomment this entire block after filling .env.
+      # Temporary snapshots use /data; allow space for SQLite + gzip + WAL.
+      # AI_USAGE_BACKUP_S3_BUCKET: ${AI_USAGE_BACKUP_S3_BUCKET:?set in .env}
+      # AI_USAGE_BACKUP_S3_REGION: ${AI_USAGE_BACKUP_S3_REGION:?set auto in .env}
+      # AI_USAGE_BACKUP_S3_PREFIX: ${AI_USAGE_BACKUP_S3_PREFIX:?set in .env}
+      # AI_USAGE_BACKUP_S3_ENDPOINT: ${AI_USAGE_BACKUP_S3_ENDPOINT:?set in .env}
+      # S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?set in .env}
+      # S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?set in .env}
+
     expose:
       - 8080 # dashboard + JSON API
       - 4318 # OTLP/HTTP

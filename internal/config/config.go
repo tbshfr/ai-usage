@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -11,6 +12,10 @@ import (
 )
 
 type Config struct {
+	BackupS3Bucket    string
+	BackupS3Region    string
+	BackupS3Prefix    string
+	BackupS3Endpoint  string
 	HTTPAddr          string
 	OTLPHTTPAddr      string
 	OTLPGRPCAddr      string
@@ -36,6 +41,10 @@ func Load(args []string, lookup envFunc, goos, homeDir string) (*Config, error) 
 	dashPass := fs.String("dashboard-password", "", "dashboard login password (required for non-loopback binds)")
 	otlpToken := fs.String("otlp-token", "", "bearer token OTLP clients must send (required for non-loopback binds)")
 
+	backupBucket := fs.String("backup-s3-bucket", "", "backup bucket (empty disables backups)")
+	backupRegion := fs.String("backup-s3-region", "", "backup region (auto for R2)")
+	backupPrefix := fs.String("backup-s3-prefix", "", "dedicated backup object prefix ending in /")
+	backupEndpoint := fs.String("backup-s3-endpoint", "", "S3-compatible endpoint URL")
 	if err := fs.Parse(args); err != nil {
 		return nil, err
 	}
@@ -44,6 +53,31 @@ func Load(args []string, lookup envFunc, goos, homeDir string) (*Config, error) 
 	fs.Visit(func(f *flag.Flag) { set[f.Name] = true })
 
 	c := &Config{}
+	c.BackupS3Bucket, _ = flagOrEnv("backup-s3-bucket", *backupBucket, set, lookup)
+	c.BackupS3Region, _ = flagOrEnv("backup-s3-region", *backupRegion, set, lookup)
+	c.BackupS3Prefix, _ = flagOrEnv("backup-s3-prefix", *backupPrefix, set, lookup)
+	c.BackupS3Endpoint, _ = flagOrEnv("backup-s3-endpoint", *backupEndpoint, set, lookup)
+	if c.BackupS3Bucket == "" {
+		for name, value := range map[string]string{"backup-s3-region": *backupRegion, "backup-s3-prefix": *backupPrefix, "backup-s3-endpoint": *backupEndpoint} {
+			if _, supplied := flagOrEnv(name, value, set, lookup); supplied {
+				return nil, fmt.Errorf("--%s requires --backup-s3-bucket", name)
+			}
+		}
+	} else {
+		if strings.TrimSpace(c.BackupS3Bucket) != c.BackupS3Bucket || strings.ContainsAny(c.BackupS3Bucket, "/\\:@?#") {
+			return nil, fmt.Errorf("invalid --backup-s3-bucket")
+		}
+		prefix := c.BackupS3Prefix
+		if strings.TrimSpace(prefix) != prefix || prefix == "" || prefix == "/" || strings.HasPrefix(prefix, "/") || !strings.HasSuffix(prefix, "/") || strings.ContainsAny(prefix, "\r\n\\") {
+			return nil, fmt.Errorf("--backup-s3-prefix requires a dedicated nonempty prefix ending in /")
+		}
+		if c.BackupS3Endpoint != "" {
+			u, e := url.Parse(c.BackupS3Endpoint)
+			if e != nil || u.Hostname() == "" || (u.Scheme != "https" && u.Scheme != "http") || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Path != "" && u.Path != "/") {
+				return nil, fmt.Errorf("invalid --backup-s3-endpoint: use an http(s) origin without credentials, query or path")
+			}
+		}
+	}
 	var err error
 
 	c.HTTPAddr, err = resolve("http", *httpAddr, set, lookup, "127.0.0.1:8080")
@@ -178,6 +212,10 @@ func flagOrEnv(name, value string, set map[string]bool, lookup envFunc) (string,
 }
 
 var envNames = map[string]string{
+	"backup-s3-bucket":   "AI_USAGE_BACKUP_S3_BUCKET",
+	"backup-s3-region":   "AI_USAGE_BACKUP_S3_REGION",
+	"backup-s3-prefix":   "AI_USAGE_BACKUP_S3_PREFIX",
+	"backup-s3-endpoint": "AI_USAGE_BACKUP_S3_ENDPOINT",
 	"http":               "AI_USAGE_HTTP_ADDR",
 	"otlp-http":          "AI_USAGE_OTLP_HTTP_ADDR",
 	"otlp-grpc":          "AI_USAGE_OTLP_GRPC_ADDR",

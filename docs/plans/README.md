@@ -207,6 +207,7 @@ gofmt -l .
 | 8 | `phase-8-distribution.md` | Phase 7 | done |
 | 9 | `phase-9-auth.md` | Phases 1–8 | done |
 | 10 | `phase-10-codex.md` | Phases 1–9 merged | done |
+| 11 | [phase-11-backups.md](phase-11-backups.md) | Phases 1–10 merged | implemented; R2 smoke test pending |
 
 Each phase plan is self-contained: an agent that has read this README plus its
 phase file can execute it. Do not start a phase before its prerequisites are

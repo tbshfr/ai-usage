@@ -18,7 +18,7 @@ func TestSecurityHeadersOnEveryRoute(t *testing.T) {
 		}
 		resp.Body.Close()
 		want := map[string]string{
-			"Content-Security-Policy": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+			"Content-Security-Policy": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; manifest-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
 			"X-Content-Type-Options":  "nosniff",
 			"X-Frame-Options":         "DENY",
 			"Referrer-Policy":         "no-referrer",

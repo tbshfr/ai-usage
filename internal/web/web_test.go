@@ -382,6 +382,9 @@ func TestStaticAssets(t *testing.T) {
 		{"/static/vendor/uplot.min.css", "text/css", "no-cache"},
 		{"/robots.txt", "text/plain", "no-cache"},
 		{"/favicon.ico", "image/", "no-cache"},
+		{"/site.webmanifest", "application/manifest+json", "no-cache"},
+		{"/android-chrome-192x192.png", "image/png", "no-cache"},
+		{"/android-chrome-512x512.png", "image/png", "no-cache"},
 	} {
 		resp, err := http.Get(srv.URL + tc.path)
 		if err != nil {

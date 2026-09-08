@@ -62,6 +62,9 @@ func ServePublic(w http.ResponseWriter, r *http.Request) bool {
 		return false
 	}
 	w.Header().Set("Cache-Control", "no-cache")
+	if path.Ext(name) == ".webmanifest" {
+		w.Header().Set("Content-Type", "application/manifest+json")
+	}
 	http.ServeContent(w, r, path.Base(name), publicModTime, bytes.NewReader(b))
 	return true
 }

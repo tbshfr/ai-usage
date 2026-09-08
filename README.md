@@ -97,6 +97,14 @@ machine; use `--http 127.0.0.1:8080` (and likewise for the OTLP ports)
 to restrict access to localhost only. Passing an empty value to any
 listener flag (e.g. `--otlp-http ""`) disables that listener entirely.
 
+## Android home screen
+
+Open the dashboard over HTTPS in Chrome on Android, then choose **Add to
+Home screen → Install** from the browser menu. The installed app is named
+**AI Usage** and opens the dashboard in its own window. It requires a network
+connection; offline access is not provided. HTTPS is required for installation
+(except for localhost development).
+
 ## Authentication
 
 Unauthenticated (no credential flags/env vars set), the dashboard and

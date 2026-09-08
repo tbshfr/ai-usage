@@ -118,9 +118,7 @@ func TestS3RoundTripAndRetry(t *testing.T) {
 		rw.Header().Set("ETag", "\"test\"")
 	}))
 	defer server.Close()
-	t.Setenv("S3_ACCESS_KEY_ID", "test")
-	t.Setenv("S3_SECRET_ACCESS_KEY", "test")
-	cfg := &config.Config{DatabasePath: filepath.Join(t.TempDir(), "db"), BackupS3Bucket: "bucket", BackupS3Prefix: "home/", BackupS3Region: "auto", BackupS3Endpoint: server.URL}
+	cfg := &config.Config{DatabasePath: filepath.Join(t.TempDir(), "db"), BackupS3Bucket: "bucket", BackupS3Prefix: "home/", BackupS3Region: "auto", BackupS3Endpoint: server.URL, BackupS3AccessKeyID: "test", BackupS3SecretAccessKey: "test"}
 	real, err := New(context.Background(), cfg, w.db, "test", w.logger)
 	if err != nil {
 		t.Fatal(err)
@@ -384,8 +382,8 @@ func TestRegionAndDestinationScope(t *testing.T) {
 	t.Setenv("AWS_SHARED_CREDENTIALS_FILE", filepath.Join(t.TempDir(), "absent"))
 	t.Setenv("AWS_REGION", "unused-region")
 	t.Setenv("AWS_DEFAULT_REGION", "unused-default-region")
-	t.Setenv("S3_REGION", "")
-	t.Setenv("S3_DEFAULT_REGION", "")
+	t.Setenv("S3_REGION", "ignored")
+	t.Setenv("S3_DEFAULT_REGION", "ignored")
 	cfg := &config.Config{DatabasePath: filepath.Join(t.TempDir(), "db"), BackupS3Bucket: "bucket", BackupS3Prefix: "home/"}
 	if _, err := New(context.Background(), cfg, nil, "test", nil); err == nil {
 		t.Fatal("missing region accepted")
@@ -405,7 +403,7 @@ func TestRegionAndDestinationScope(t *testing.T) {
 	}
 }
 
-func TestEnvironmentCredentials(t *testing.T) {
+func TestConfiguredCredentials(t *testing.T) {
 	t.Setenv("AWS_CONFIG_FILE", filepath.Join(t.TempDir(), "malformed"))
 	if err := os.WriteFile(os.Getenv("AWS_CONFIG_FILE"), []byte("[broken"), 0600); err != nil {
 		t.Fatal(err)
@@ -418,6 +416,9 @@ func TestEnvironmentCredentials(t *testing.T) {
 	t.Setenv("S3_SECRET_ACCESS_KEY", "environment-secret")
 	t.Setenv("S3_SESSION_TOKEN", "environment-session")
 	cfg := &config.Config{DatabasePath: filepath.Join(t.TempDir(), "db"), BackupS3Bucket: "bucket", BackupS3Prefix: "home/", BackupS3Region: "auto"}
+	cfg.BackupS3AccessKeyID = "configured-key"
+	cfg.BackupS3SecretAccessKey = "configured-secret"
+	cfg.BackupS3SessionToken = "configured-session"
 	w, err := New(context.Background(), cfg, nil, "test", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -426,13 +427,18 @@ func TestEnvironmentCredentials(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.AccessKeyID != "environment-key" || got.SecretAccessKey != "environment-secret" || got.SessionToken != "environment-session" {
-		t.Fatal("environment credentials were not used")
+	if got.AccessKeyID != "configured-key" || got.SecretAccessKey != "configured-secret" || got.SessionToken != "configured-session" {
+		t.Fatal("configured credentials were not used")
 	}
 	for _, missing := range []string{"S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY"} {
 		t.Run(missing, func(t *testing.T) {
-			t.Setenv(missing, "")
-			w, err := New(context.Background(), cfg, nil, "test", nil)
+			cfg := *cfg
+			if missing == "S3_ACCESS_KEY_ID" {
+				cfg.BackupS3AccessKeyID = ""
+			} else {
+				cfg.BackupS3SecretAccessKey = ""
+			}
+			w, err := New(context.Background(), &cfg, nil, "test", nil)
 			if err != nil {
 				t.Fatalf("missing credentials blocked startup: %v", err)
 			}
@@ -443,23 +449,15 @@ func TestEnvironmentCredentials(t *testing.T) {
 	}
 }
 
-func TestEnvironmentRegionPrecedence(t *testing.T) {
-	for _, tc := range []struct{ name, configured, region, fallback, want string }{
-		{"application", "auto", "us-east-1", "us-west-2", "auto"},
-		{"S3_REGION", "", "us-east-1", "us-west-2", "us-east-1"},
-		{"S3_DEFAULT_REGION", "", "", "us-west-2", "us-west-2"},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Setenv("S3_REGION", tc.region)
-			t.Setenv("S3_DEFAULT_REGION", tc.fallback)
-			cfg := &config.Config{DatabasePath: filepath.Join(t.TempDir(), "db"), BackupS3Bucket: "bucket", BackupS3Prefix: "home/", BackupS3Region: tc.configured}
-			w, err := New(context.Background(), cfg, nil, "test", nil)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if got := w.client.(*s3.Client).Options().Region; got != tc.want {
-				t.Fatalf("region = %q, want %q", got, tc.want)
-			}
-		})
+func TestConfiguredRegionIgnoresEnvironment(t *testing.T) {
+	t.Setenv("S3_REGION", "us-east-1")
+	t.Setenv("S3_DEFAULT_REGION", "us-west-2")
+	cfg := &config.Config{DatabasePath: filepath.Join(t.TempDir(), "db"), BackupS3Bucket: "bucket", BackupS3Prefix: "home/", BackupS3Region: "auto"}
+	w, err := New(context.Background(), cfg, nil, "test", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := w.client.(*s3.Client).Options().Region; got != "auto" {
+		t.Fatalf("region = %q, want auto", got)
 	}
 }

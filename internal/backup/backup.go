@@ -60,21 +60,15 @@ func New(ctx context.Context, cfg *config.Config, db *sql.DB, version string, lo
 		return nil, err
 	}
 	region := cfg.BackupS3Region
-	if region == "" {
-		region = os.Getenv("S3_REGION")
-	}
-	if region == "" {
-		region = os.Getenv("S3_DEFAULT_REGION")
-	}
 	if strings.TrimSpace(region) == "" {
-		return nil, errors.New("backup region required: set --backup-s3-region (auto for R2), S3_REGION or S3_DEFAULT_REGION")
+		return nil, errors.New("backup region required: set --backup-s3-region or AI_USAGE_BACKUP_S3_REGION (auto for R2)")
 	}
 	ac := aws.Config{
 		Region: region,
 		Credentials: aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider(
-			os.Getenv("S3_ACCESS_KEY_ID"),
-			os.Getenv("S3_SECRET_ACCESS_KEY"),
-			os.Getenv("S3_SESSION_TOKEN"),
+			cfg.BackupS3AccessKeyID,
+			cfg.BackupS3SecretAccessKey,
+			cfg.BackupS3SessionToken,
 		)),
 	}
 	client := s3.NewFromConfig(ac, func(o *s3.Options) {

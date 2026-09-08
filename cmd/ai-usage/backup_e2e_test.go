@@ -37,8 +37,8 @@ func TestShutdownDuringBackupUpload(t *testing.T) {
 	t.Setenv("AI_USAGE_BACKUP_S3_REGION", "auto")
 	t.Setenv("AI_USAGE_BACKUP_S3_PREFIX", "test/")
 	t.Setenv("AI_USAGE_BACKUP_S3_ENDPOINT", server.URL)
-	t.Setenv("S3_ACCESS_KEY_ID", "test")
-	t.Setenv("S3_SECRET_ACCESS_KEY", "test")
+	t.Setenv("AI_USAGE_BACKUP_S3_ACCESS_KEY_ID", "test")
+	t.Setenv("AI_USAGE_BACKUP_S3_SECRET_ACCESS_KEY", "test")
 	dir := t.TempDir()
 	port := freePort(t)
 	cmd, logs := startApp(t, bin, dir, port, freePort(t))
@@ -88,7 +88,7 @@ func TestBackupStartupFailureCleanup(t *testing.T) {
 		"--data-dir="+dir, "--backup-s3-bucket=bucket", "--backup-s3-prefix=test/",
 		"--backup-s3-region=auto", "--backup-s3-endpoint=http://127.0.0.1:1")
 	// A token allows config validation to reach the listener startup failure.
-	cmd.Env = append(os.Environ(), "AI_USAGE_OTLP_TOKEN=test", "S3_ACCESS_KEY_ID=test", "S3_SECRET_ACCESS_KEY=test")
+	cmd.Env = append(os.Environ(), "AI_USAGE_OTLP_TOKEN=test", "AI_USAGE_BACKUP_S3_ACCESS_KEY_ID=test", "AI_USAGE_BACKUP_S3_SECRET_ACCESS_KEY=test")
 	cmd.Stderr = &logs
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)

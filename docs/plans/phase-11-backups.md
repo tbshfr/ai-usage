@@ -39,18 +39,19 @@ Follow existing flag > environment > default precedence:
 | Flag | Environment variable | Default |
 |------|----------------------|---------|
 | `--backup-s3-bucket` | `AI_USAGE_BACKUP_S3_BUCKET` | empty; backups disabled |
-| `--backup-s3-region` | `AI_USAGE_BACKUP_S3_REGION` | S3_REGION, then S3_DEFAULT_REGION |
+| `--backup-s3-region` | `AI_USAGE_BACKUP_S3_REGION` | required when enabled |
 | `--backup-s3-prefix` | `AI_USAGE_BACKUP_S3_PREFIX` | required when enabled; e.g. `ai-usage/home/` |
 | `--backup-s3-endpoint` | `AI_USAGE_BACKUP_S3_ENDPOINT` | AWS S3 endpoint |
 
 - Require a nonempty dedicated prefix per database/instance and a resolved
   region when enabled. Validate endpoint syntax and reject embedded credentials.
   Reject explicitly supplied backup options without a bucket.
-- Use environment credentials through the AWS SDK for Go v2 static credentials
-  provider (S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY, optional S3_SESSION_TOKEN).
-  This replaces the original default credential-chain requirement following the
-  user's R2-focused dependency simplification. No shared profiles, SSO, or role
-  discovery. Do not add application credential flags or log secrets.
+- Resolve credential flags and AI_USAGE_BACKUP_S3_* environment variables in
+  application configuration with flag > environment > empty precedence:
+  --backup-s3-access-key-id, --backup-s3-secret-access-key, and optional
+  --backup-s3-session-token. Use the AWS SDK for Go v2 static credentials
+  provider. No legacy S3_* fallbacks, shared profiles, SSO, or role discovery.
+  Never log secrets.
 - Optional custom endpoints support S3-compatible deployments; document any
   required addressing configuration and verify the supported provider behavior.
 - Keep the first version daily with a fixed 24-hour interval; no cron parser.

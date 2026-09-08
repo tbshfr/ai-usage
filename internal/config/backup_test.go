@@ -43,3 +43,62 @@ func TestBackupPrecedence(t *testing.T) {
 		t.Fatalf("%+v", c)
 	}
 }
+
+func TestBackupCredentialPrecedence(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		args []string
+		want string
+	}{
+		{name: "environment", want: "env"},
+		{name: "flags", args: []string{"--backup-s3-access-key-id=flag", "--backup-s3-secret-access-key=flag", "--backup-s3-session-token=flag"}, want: "flag"},
+		{name: "explicit empty flags", args: []string{"--backup-s3-access-key-id=", "--backup-s3-secret-access-key=", "--backup-s3-session-token="}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			args := append([]string{"--backup-s3-bucket=bucket", "--backup-s3-prefix=home/", "--backup-s3-region=auto"}, tc.args...)
+			c, err := Load(args, envOf(map[string]string{
+				"AI_USAGE_BACKUP_S3_ACCESS_KEY_ID":     "env",
+				"AI_USAGE_BACKUP_S3_SECRET_ACCESS_KEY": "env",
+				"AI_USAGE_BACKUP_S3_SESSION_TOKEN":     "env",
+			}), "linux", t.TempDir())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if c.BackupS3AccessKeyID != tc.want || c.BackupS3SecretAccessKey != tc.want || c.BackupS3SessionToken != tc.want {
+				t.Fatal("incorrect credential precedence")
+			}
+		})
+	}
+}
+
+func TestBackupCredentialsRequireBucket(t *testing.T) {
+	for _, name := range []string{"access-key-id", "secret-access-key", "session-token"} {
+		t.Run(name, func(t *testing.T) {
+			for _, value := range []string{"", "secret"} {
+				if _, err := Load([]string{"--backup-s3-" + name + "=" + value}, envOf(nil), "linux", t.TempDir()); err == nil {
+					t.Fatal("credential flag without bucket accepted")
+				}
+			}
+		})
+	}
+	for _, name := range []string{"ACCESS_KEY_ID", "SECRET_ACCESS_KEY", "SESSION_TOKEN"} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := Load(nil, envOf(map[string]string{"AI_USAGE_BACKUP_S3_" + name: "secret"}), "linux", t.TempDir()); err == nil {
+				t.Fatal("credential environment variable without bucket accepted")
+			}
+		})
+	}
+}
+
+func TestLegacyBackupEnvironmentIgnored(t *testing.T) {
+	c, err := Load([]string{"--backup-s3-bucket=bucket", "--backup-s3-prefix=home/"}, envOf(map[string]string{
+		"S3_ACCESS_KEY_ID": "old", "S3_SECRET_ACCESS_KEY": "old", "S3_SESSION_TOKEN": "old",
+		"S3_REGION": "old", "S3_DEFAULT_REGION": "old",
+	}), "linux", t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.BackupS3AccessKeyID != "" || c.BackupS3SecretAccessKey != "" || c.BackupS3SessionToken != "" || c.BackupS3Region != "" {
+		t.Fatal("legacy environment variables were used")
+	}
+}

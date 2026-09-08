@@ -65,21 +65,24 @@ SHA-256 checksums).
 
 Flags override environment variables, which override defaults.
 
-| Flag                   | Env var                       | Default                       | Meaning                                              |
-| ---------------------- | ----------------------------- | ----------------------------- | ---------------------------------------------------- |
-| `--http`               | `AI_USAGE_HTTP_ADDR`          | `127.0.0.1:8080`              | Dashboard + JSON API listen address (empty disables) |
-| `--otlp-http`          | `AI_USAGE_OTLP_HTTP_ADDR`     | _(disabled)_                  | OTLP/HTTP listen address (starts only when set)      |
-| `--otlp-grpc`          | `AI_USAGE_OTLP_GRPC_ADDR`     | _(disabled)_                  | OTLP gRPC listen address (starts only when set)      |
-| `--data-dir`           | `AI_USAGE_DATA_DIR`           | OS user-data dir + `ai-usage` | Data directory                                       |
-| `--database`           | `AI_USAGE_DATABASE`           | `<data-dir>/usage.db`         | SQLite database path                                 |
-| `--log-level`          | `AI_USAGE_LOG_LEVEL`          | `info`                        | `debug`, `info`, `warn`, or `error`                  |
-| `--dashboard-user`     | `AI_USAGE_DASHBOARD_USER`     | _(auth off)_                  | Dashboard login username                             |
-| `--dashboard-password` | `AI_USAGE_DASHBOARD_PASSWORD` | _(auth off)_                  | Dashboard login password                             |
-| `--otlp-token`         | `AI_USAGE_OTLP_TOKEN`         | _(auth off)_                  | Bearer token OTLP clients must send                  |
-| `--backup-s3-bucket`   | `AI_USAGE_BACKUP_S3_BUCKET`   | _(disabled)_                  | Backup bucket                                        |
-| `--backup-s3-region`   | `AI_USAGE_BACKUP_S3_REGION`   | S3_REGION / S3_DEFAULT_REGION            | Use `auto` for R2                                    |
-| `--backup-s3-prefix`   | `AI_USAGE_BACKUP_S3_PREFIX`   | _(required when enabled)_     | Dedicated prefix ending in `/`                       |
-| `--backup-s3-endpoint` | `AI_USAGE_BACKUP_S3_ENDPOINT` | AWS S3                        | R2 S3 API endpoint                                   |
+| Flag                            | Env var                                | Default                       | Meaning                                              |
+| ------------------------------- | -------------------------------------- | ----------------------------- | ---------------------------------------------------- |
+| `--http`                        | `AI_USAGE_HTTP_ADDR`                   | `127.0.0.1:8080`              | Dashboard + JSON API listen address (empty disables) |
+| `--otlp-http`                   | `AI_USAGE_OTLP_HTTP_ADDR`              | _(disabled)_                  | OTLP/HTTP listen address (starts only when set)      |
+| `--otlp-grpc`                   | `AI_USAGE_OTLP_GRPC_ADDR`              | _(disabled)_                  | OTLP gRPC listen address (starts only when set)      |
+| `--data-dir`                    | `AI_USAGE_DATA_DIR`                    | OS user-data dir + `ai-usage` | Data directory                                       |
+| `--database`                    | `AI_USAGE_DATABASE`                    | `<data-dir>/usage.db`         | SQLite database path                                 |
+| `--log-level`                   | `AI_USAGE_LOG_LEVEL`                   | `info`                        | `debug`, `info`, `warn`, or `error`                  |
+| `--dashboard-user`              | `AI_USAGE_DASHBOARD_USER`              | _(auth off)_                  | Dashboard login username                             |
+| `--dashboard-password`          | `AI_USAGE_DASHBOARD_PASSWORD`          | _(auth off)_                  | Dashboard login password                             |
+| `--otlp-token`                  | `AI_USAGE_OTLP_TOKEN`                  | _(auth off)_                  | Bearer token OTLP clients must send                  |
+| `--backup-s3-bucket`            | `AI_USAGE_BACKUP_S3_BUCKET`            | _(disabled)_                  | Backup bucket                                        |
+| `--backup-s3-region`            | `AI_USAGE_BACKUP_S3_REGION`            | _(required when enabled)_     | Use `auto` for R2                                    |
+| `--backup-s3-prefix`            | `AI_USAGE_BACKUP_S3_PREFIX`            | _(required when enabled)_     | Dedicated prefix ending in `/`                       |
+| `--backup-s3-endpoint`          | `AI_USAGE_BACKUP_S3_ENDPOINT`          | AWS S3                        | R2 S3 API endpoint                                   |
+| `--backup-s3-access-key-id`     | `AI_USAGE_BACKUP_S3_ACCESS_KEY_ID`     | _(empty)_                     | Backup access key ID                                 |
+| `--backup-s3-secret-access-key` | `AI_USAGE_BACKUP_S3_SECRET_ACCESS_KEY` | _(empty)_                     | Backup secret access key                             |
+| `--backup-s3-session-token`     | `AI_USAGE_BACKUP_S3_SESSION_TOKEN`     | _(empty)_                     | Backup optional session token                        |
 
 See [backups, R2 lifecycle retention, and restore](docs/backups.md) for setup.
 

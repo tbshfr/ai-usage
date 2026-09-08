@@ -22,8 +22,8 @@ AI_USAGE_BACKUP_S3_BUCKET=ai-usage-backups
 AI_USAGE_BACKUP_S3_REGION=auto
 AI_USAGE_BACKUP_S3_PREFIX=ai-usage/home/
 AI_USAGE_BACKUP_S3_ENDPOINT=https://<ACCOUNT_ID>.r2.cloudflarestorage.com
-S3_ACCESS_KEY_ID=<R2_ACCESS_KEY_ID>
-S3_SECRET_ACCESS_KEY=<R2_SECRET_ACCESS_KEY>
+AI_USAGE_BACKUP_S3_ACCESS_KEY_ID=<R2_ACCESS_KEY_ID>
+AI_USAGE_BACKUP_S3_SECRET_ACCESS_KEY=<R2_SECRET_ACCESS_KEY>
 ~~~
 
 The region is **auto** for R2. Custom endpoints use path-style addressing
@@ -34,12 +34,15 @@ and [S3 compatibility](https://developers.cloudflare.com/r2/api/s3/api/).
 
 Use a unique prefix ending in / for each database/instance. Flags override
 environment variables. Without a bucket, backups are disabled and the AWS SDK is
-not initialized; leave the other backup options unset too. Region falls back to
-S3_REGION, then S3_DEFAULT_REGION, and must resolve when enabled. Credentials
-come only from S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY, with optional
-S3_SESSION_TOKEN. There are no application credential flags or automatic
-shared-profile, SSO, workload-role, or instance-role discovery. Restart the app
-after changing credentials. Missing credentials fail backup attempts without
+not initialized; leave the other backup options unset too. Set the region
+explicitly with --backup-s3-region or
+AI_USAGE_BACKUP_S3_REGION when enabled. Credentials use
+--backup-s3-access-key-id, --backup-s3-secret-access-key, and optional
+--backup-s3-session-token, or their AI_USAGE_BACKUP_S3_* environment variables.
+Flags override environment variables, including explicitly empty flags.
+Prefer environment variables for deployed secrets to avoid exposing them in
+command-line arguments. There is no shared-profile, SSO, workload-role, or
+instance-role discovery. Restart the app after changing credentials. Missing credentials fail backup attempts without
 stopping ingestion or the dashboard.
 
 For Docker Compose, uncomment the backup environment block in
@@ -51,13 +54,13 @@ database on /data; the example's small /tmp mount is not used for them.
 The AWS CLI still requires its own AWS-prefixed variables. For the operator
 commands below, define this shell function to map your S3 credentials for each
 CLI invocation. Use the appropriate separate administrator or restore credentials
-in the S3 variables before running those commands:
+in the application-prefixed variables before running those commands:
 
 ~~~sh
 s3() {
-  AWS_ACCESS_KEY_ID="$S3_ACCESS_KEY_ID" \
-  AWS_SECRET_ACCESS_KEY="$S3_SECRET_ACCESS_KEY" \
-  AWS_SESSION_TOKEN="${S3_SESSION_TOKEN:-}" \
+  AWS_ACCESS_KEY_ID="$AI_USAGE_BACKUP_S3_ACCESS_KEY_ID" \
+  AWS_SECRET_ACCESS_KEY="$AI_USAGE_BACKUP_S3_SECRET_ACCESS_KEY" \
+  AWS_SESSION_TOKEN="${AI_USAGE_BACKUP_S3_SESSION_TOKEN:-}" \
     aws "$@"
 }
 ~~~

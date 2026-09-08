@@ -380,7 +380,8 @@ func TestStaticAssets(t *testing.T) {
 		{"/static/vendor/hx-sse.min.js", "text/javascript", "no-cache"},
 		{"/static/vendor/uplot.min.js", "text/javascript", "no-cache"},
 		{"/static/vendor/uplot.min.css", "text/css", "no-cache"},
-		{"/robots.txt", "text/plain", ""},
+		{"/robots.txt", "text/plain", "no-cache"},
+		{"/favicon.ico", "image/", "no-cache"},
 	} {
 		resp, err := http.Get(srv.URL + tc.path)
 		if err != nil {

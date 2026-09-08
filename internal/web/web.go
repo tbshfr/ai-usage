@@ -85,7 +85,11 @@ func newMux(db *sql.DB, stats func() ingest.Stats, reasons func() ingest.ReasonC
 	mux.HandleFunc("GET /fragments/session-list", s.fragSessionList)
 	mux.HandleFunc("GET /fragments/stats", s.fragStats)
 	mux.HandleFunc("GET /fragments/stats-reasons", s.fragStatsReasons)
-	mux.HandleFunc("GET /robots.txt", s.robotsTxt)
+	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
+		if !assets.ServePublic(w, r) {
+			http.NotFound(w, r)
+		}
+	})
 	mux.Handle("GET /static/{path...}", staticHandler())
 	if dash != nil {
 		mux.HandleFunc("GET /login", s.loginForm)
@@ -93,18 +97,6 @@ func newMux(db *sql.DB, stats func() ingest.Stats, reasons func() ingest.ReasonC
 		mux.HandleFunc("GET /logout", s.logout)
 	}
 	return mux
-}
-
-// robotsTxt serves the embedded robots.txt; it is public (see
-// auth.publicPath) so crawlers can read it without a session.
-func (s *server) robotsTxt(w http.ResponseWriter, r *http.Request) {
-	b, err := fs.ReadFile(staticFS, "robots.txt")
-	if err != nil {
-		http.NotFound(w, r)
-		return
-	}
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	_, _ = w.Write(b)
 }
 
 type server struct {

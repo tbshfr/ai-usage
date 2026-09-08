@@ -3,6 +3,8 @@ package auth
 import (
 	"net/http"
 	"strings"
+
+	"github.com/tbshfr/ai-usage"
 )
 
 // Dashboard guards everything on the dashboard port with the login
@@ -34,6 +36,11 @@ func (d *Dashboard) Check(user, password string) bool {
 // answer.
 func (d *Dashboard) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Serve public files directly: their presence must never bypass
+		// authentication for a different handler at the same path.
+		if assets.ServePublic(w, r) {
+			return
+		}
 		if publicPath(r.URL.Path) {
 			next.ServeHTTP(w, r)
 			return
@@ -52,7 +59,7 @@ func (d *Dashboard) Middleware(next http.Handler) http.Handler {
 
 func publicPath(p string) bool {
 	switch p {
-	case "/login", "/logout", "/health", "/ready", "/robots.txt":
+	case "/login", "/logout", "/health", "/ready":
 		return true
 	}
 	return strings.HasPrefix(p, "/static/")

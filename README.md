@@ -170,6 +170,13 @@ remote copies remain until lifecycle expiration or operator deletion.
 - Source setup configs: [`docs/source-setup.md`](docs/source-setup.md)
 - Fixture capture/refresh process: [`docs/CAPTURE-INSTRUCTIONS.md`](docs/CAPTURE-INSTRUCTIONS.md)
 
+Files in `web/public/` are embedded at build time and served at root URLs
+(for example, `web/public/favicon.ico` becomes `/favicon.ico`), without adding
+routes or authentication exceptions. Rebuild after adding or changing files.
+Only put intentionally public files here; hidden files and directories are not served.
+First path segments reserved by API and dashboard routes (listed in
+`reservedSegments` in `assets.go`) are not served from this directory.
+
 Verify changes:
 
 ```bash

@@ -15,7 +15,7 @@ import (
 
 func TestDashboardMiddlewarePublicPaths(t *testing.T) {
 	d := NewDashboard("admin", "pw", mustSessions(t))
-	for _, p := range []string{"/login", "/logout", "/health", "/ready", "/robots.txt", "/static/app.css", "/static/vendor/htmx.min.js"} {
+	for _, p := range []string{"/login", "/logout", "/health", "/ready", "/static/app.css", "/static/vendor/htmx.min.js"} {
 		req := httptest.NewRequest("GET", p, nil)
 		rec := httptest.NewRecorder()
 		called := false
@@ -139,4 +139,17 @@ func mustSessions(t *testing.T) *Sessions {
 		t.Fatal(err)
 	}
 	return s
+}
+
+func TestDashboardPublicFilesDoNotBypassOtherHandlers(t *testing.T) {
+	d := NewDashboard("admin", "pw", mustSessions(t))
+	for _, p := range []string{"/robots.txt", "/favicon.ico"} {
+		rec := httptest.NewRecorder()
+		d.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			t.Error("public file must not bypass authentication for a downstream handler")
+		})).ServeHTTP(rec, httptest.NewRequest("GET", p, nil))
+		if rec.Code != http.StatusOK || rec.Body.Len() == 0 {
+			t.Errorf("%s: status %d, body length %d", p, rec.Code, rec.Body.Len())
+		}
+	}
 }

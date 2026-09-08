@@ -65,17 +65,26 @@ SHA-256 checksums).
 
 Flags override environment variables, which override defaults.
 
-| Flag                | Env var                       | Default                 | Meaning                                    |
-|---------------------|-------------------------------|-------------------------|--------------------------------------------|
-| `--http`            | `AI_USAGE_HTTP_ADDR`          | `127.0.0.1:8080`        | Dashboard + JSON API listen address (empty disables) |
-| `--otlp-http`       | `AI_USAGE_OTLP_HTTP_ADDR`     | *(disabled)*            | OTLP/HTTP listen address (starts only when set) |
-| `--otlp-grpc`       | `AI_USAGE_OTLP_GRPC_ADDR`     | *(disabled)*            | OTLP gRPC listen address (starts only when set) |
-| `--data-dir`        | `AI_USAGE_DATA_DIR`           | OS user-data dir + `ai-usage` | Data directory                       |
-| `--database`        | `AI_USAGE_DATABASE`           | `<data-dir>/usage.db`   | SQLite database path                       |
-| `--log-level`       | `AI_USAGE_LOG_LEVEL`          | `info`                  | `debug`, `info`, `warn`, or `error`        |
-| `--dashboard-user`  | `AI_USAGE_DASHBOARD_USER`     | *(auth off)*            | Dashboard login username                   |
-| `--dashboard-password` | `AI_USAGE_DASHBOARD_PASSWORD` | *(auth off)*         | Dashboard login password                   |
-| `--otlp-token`      | `AI_USAGE_OTLP_TOKEN`         | *(auth off)*            | Bearer token OTLP clients must send        |
+| Flag                            | Env var                                | Default                       | Meaning                                              |
+| ------------------------------- | -------------------------------------- | ----------------------------- | ---------------------------------------------------- |
+| `--http`                        | `AI_USAGE_HTTP_ADDR`                   | `127.0.0.1:8080`              | Dashboard + JSON API listen address (empty disables) |
+| `--otlp-http`                   | `AI_USAGE_OTLP_HTTP_ADDR`              | _(disabled)_                  | OTLP/HTTP listen address (starts only when set)      |
+| `--otlp-grpc`                   | `AI_USAGE_OTLP_GRPC_ADDR`              | _(disabled)_                  | OTLP gRPC listen address (starts only when set)      |
+| `--data-dir`                    | `AI_USAGE_DATA_DIR`                    | OS user-data dir + `ai-usage` | Data directory                                       |
+| `--database`                    | `AI_USAGE_DATABASE`                    | `<data-dir>/usage.db`         | SQLite database path                                 |
+| `--log-level`                   | `AI_USAGE_LOG_LEVEL`                   | `info`                        | `debug`, `info`, `warn`, or `error`                  |
+| `--dashboard-user`              | `AI_USAGE_DASHBOARD_USER`              | _(auth off)_                  | Dashboard login username                             |
+| `--dashboard-password`          | `AI_USAGE_DASHBOARD_PASSWORD`          | _(auth off)_                  | Dashboard login password                             |
+| `--otlp-token`                  | `AI_USAGE_OTLP_TOKEN`                  | _(auth off)_                  | Bearer token OTLP clients must send                  |
+| `--backup-s3-bucket`            | `AI_USAGE_BACKUP_S3_BUCKET`            | _(disabled)_                  | Backup bucket                                        |
+| `--backup-s3-region`            | `AI_USAGE_BACKUP_S3_REGION`            | _(required when enabled)_     | Use `auto` for R2                                    |
+| `--backup-s3-prefix`            | `AI_USAGE_BACKUP_S3_PREFIX`            | _(required when enabled)_     | Dedicated prefix ending in `/`                       |
+| `--backup-s3-endpoint`          | `AI_USAGE_BACKUP_S3_ENDPOINT`          | AWS S3                        | R2 S3 API endpoint                                   |
+| `--backup-s3-access-key-id`     | `AI_USAGE_BACKUP_S3_ACCESS_KEY_ID`     | _(empty)_                     | Backup access key ID                                 |
+| `--backup-s3-secret-access-key` | `AI_USAGE_BACKUP_S3_SECRET_ACCESS_KEY` | _(empty)_                     | Backup secret access key                             |
+| `--backup-s3-session-token`     | `AI_USAGE_BACKUP_S3_SESSION_TOKEN`     | _(empty)_                     | Backup optional session token                        |
+
+See [backups, R2 lifecycle retention, and restore](docs/backups.md) for setup.
 
 Default data directory per OS:
 
@@ -137,9 +146,9 @@ plain HTTP.
 
 ## Data location & privacy
 
-Everything stays on your machine. The binary makes no outbound network
-connections; it only listens for OTLP and dashboard requests on the
-addresses configured above.
+By default, data stays on your machine and the binary makes no outbound
+network connections. Optional [daily backups](docs/backups.md) send the stored
+SQLite database to your configured S3 destination.
 
 What is collected: **metadata and token counts only** — timestamps,
 source (opencode/copilot/codex), provider, model, input/output/reasoning/cache
@@ -150,7 +159,8 @@ What is **not** collected: your prompts and completions. No prompt or
 completion content is captured, stored, or logged. Raw telemetry payloads
 are never persisted; logs are structured JSON containing no telemetry
 data. To delete your history, stop the app and remove `usage.db` (and its
-`-wal`/`-shm` companions) from the data directory.
+`-wal`/`-shm` companions) from the data directory. If backups were enabled,
+remote copies remain until lifecycle expiration or operator deletion.
 
 ## Development
 

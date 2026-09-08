@@ -18,6 +18,7 @@ import (
 
 	"github.com/tbshfr/ai-usage/internal/api"
 	"github.com/tbshfr/ai-usage/internal/auth"
+	"github.com/tbshfr/ai-usage/internal/backup"
 	"github.com/tbshfr/ai-usage/internal/config"
 	"github.com/tbshfr/ai-usage/internal/ingest"
 	"github.com/tbshfr/ai-usage/internal/live"
@@ -79,6 +80,19 @@ func run(cfg *config.Config, logger *slog.Logger) error {
 		return err
 	}
 
+	backupCtx, stopBackup := context.WithCancel(context.Background())
+	worker, err := backup.New(backupCtx, cfg, db, version, logger)
+	if err != nil {
+		stopBackup()
+		return err
+	}
+	backupDone := make(chan struct{})
+	if worker != nil {
+		go func() { defer close(backupDone); worker.Run(backupCtx) }()
+	} else {
+		close(backupDone)
+	}
+	defer func() { stopBackup(); <-backupDone }()
 	hub := live.New()
 	pipeline := ingest.NewPipeline(db, logger, hub)
 	// Continue today's persisted counters across restarts and keep them
@@ -163,6 +177,7 @@ func run(cfg *config.Config, logger *slog.Logger) error {
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(stop)
 
 	select {
 	case sig := <-stop:
@@ -172,6 +187,7 @@ func run(cfg *config.Config, logger *slog.Logger) error {
 		// exits so the error path loses no more than the counters added
 		// since the last periodic save. Double stopSaver with the defer
 		// is harmless (context cancel is idempotent).
+		stopBackup()
 		logger.Error("shutdown started", "reason", "listener error", "error", err.Error())
 		stopSaver()
 		if saveErr := pipeline.Save(); saveErr != nil {
@@ -180,6 +196,7 @@ func run(cfg *config.Config, logger *slog.Logger) error {
 		return err
 	}
 
+	stopBackup()
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownGrace)
 	defer cancel()
 	for _, srv := range servers {
@@ -205,6 +222,7 @@ func run(cfg *config.Config, logger *slog.Logger) error {
 	if err := pipeline.Save(); err != nil {
 		logger.Error("stats save failed", "error", err.Error())
 	}
+	<-backupDone
 	logger.Info("shutdown complete")
 	return nil
 }

@@ -3,10 +3,21 @@
   <div class="heatmap-head">
     <div><h2 id="activity-title">Daily activity</h2><p class="muted">Tokens per UTC day over the last year</p></div>
   </div>
-  <div class="heatmap-scroll" data-scroll-end tabindex="0" aria-label="Daily token activity heatmap">
-    <div class="heatmap-grid">
-      {{range .Heatmap.Cells}}<span class="heatmap-cell level-{{.Level}}{{if .Future}} future{{end}}" title="{{.Label}}: {{commas .Tokens}} tokens" aria-label="{{.Label}}: {{commas .Tokens}} tokens"></span>{{end}}
+  <div class="heatmap-calendar">
+    <div class="heatmap-weekdays" aria-hidden="true"><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span></div>
+    <button type="button" class="heatmap-nav" data-heatmap-direction="-1" aria-label="Scroll to earlier months"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 6-6 6 6 6"/></svg></button>
+    <div class="heatmap-scroll" data-scroll-end tabindex="0" aria-label="Daily token activity heatmap; scroll to explore months">
+      <div class="heatmap-months">
+        {{range .Heatmap.Months}}<div class="heatmap-month">
+          <div class="heatmap-month-label">{{.Label}}</div>
+          <div class="heatmap-grid">
+            {{range .Padding}}<span aria-hidden="true"></span>{{end}}
+            {{range .Cells}}{{if .Future}}<span class="heatmap-cell level-0 future" aria-hidden="true"></span>{{else}}<button type="button" class="heatmap-cell level-{{.Level}}" data-date="{{.Label}}" data-tokens="{{commas .Tokens}}" aria-label="{{.Label}}: {{commas .Tokens}} tokens"></button>{{end}}{{end}}
+          </div>
+        </div>{{end}}
+      </div>
     </div>
+    <button type="button" class="heatmap-nav" data-heatmap-direction="1" aria-label="Scroll to later months"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></button>
   </div>
   <div class="heatmap-legend muted" aria-label="Activity scale">Less <i class="level-0"></i><i class="level-1"></i><i class="level-2"></i><i class="level-3"></i><i class="level-4"></i> More</div>
 </section>

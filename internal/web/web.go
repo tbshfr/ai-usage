@@ -186,7 +186,13 @@ type periodModes struct {
 }
 
 type heatmapView struct {
-	Cells []heatmapCell
+	Months []heatmapMonth
+}
+
+type heatmapMonth struct {
+	Label   string
+	Padding []struct{}
+	Cells   []heatmapCell
 }
 
 type heatmapCell struct {
@@ -512,7 +518,7 @@ func (s *server) heatmap(ctx context.Context, u uiFilter) (heatmapView, error) {
 			maxTokens = total
 		}
 	}
-	v := heatmapView{Cells: make([]heatmapCell, 0, 371)}
+	v := heatmapView{}
 	for day := start; day.Before(end); day = day.AddDate(0, 0, 1) {
 		tokens := byDay[day.UnixMilli()]
 		level := 0
@@ -520,8 +526,12 @@ func (s *server) heatmap(ctx context.Context, u uiFilter) (heatmapView, error) {
 			level = int((tokens*4 + maxTokens - 1) / maxTokens)
 			level = min(max(level, 1), 4)
 		}
-		v.Cells = append(v.Cells, heatmapCell{
-			Label:  day.Format("Jan 2, 2006"),
+		if len(v.Months) == 0 || day.Day() == 1 {
+			v.Months = append(v.Months, heatmapMonth{Label: day.Format("Jan 2006"), Padding: make([]struct{}, int(day.Weekday()))})
+		}
+		month := &v.Months[len(v.Months)-1]
+		month.Cells = append(month.Cells, heatmapCell{
+			Label:  day.Format("Mon, Jan 2, 2006"),
 			Tokens: tokens, Level: level, Future: day.After(today),
 		})
 	}

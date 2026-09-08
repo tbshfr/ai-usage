@@ -30,20 +30,99 @@ function renderDataCharts() {
 document.addEventListener('DOMContentLoaded', renderDataCharts);
 document.addEventListener('htmx:after:settle', renderDataCharts);
 
-// The heatmap is chronological from left to right. On phones, start at the
-// newest days while leaving the strip freely swipeable toward older history.
-function scrollMobileHeatmapsToEnd(root = document) {
-  if (!window.matchMedia('(max-width: 640px)').matches) return;
+// The heatmap is chronological from left to right. Start at the newest days
+// on every screen size, while allowing scrolling back toward older history.
+function scrollHeatmapsToEnd(root = document) {
   const heatmaps = [];
   if (root instanceof Element && root.matches('[data-scroll-end]')) heatmaps.push(root);
   if (root.querySelectorAll) heatmaps.push(...root.querySelectorAll('[data-scroll-end]'));
   requestAnimationFrame(() => {
-    for (const el of heatmaps) el.scrollLeft = el.scrollWidth;
+    for (const el of heatmaps) {
+      el.scrollLeft = el.scrollWidth;
+      updateHeatmapNavigation(el);
+    }
   });
 }
 
-document.addEventListener('DOMContentLoaded', () => scrollMobileHeatmapsToEnd());
-document.addEventListener('htmx:after:settle', e => scrollMobileHeatmapsToEnd(e.target));
+document.addEventListener('DOMContentLoaded', () => scrollHeatmapsToEnd());
+document.addEventListener('htmx:after:settle', e => scrollHeatmapsToEnd(e.target));
+
+function updateHeatmapNavigation(scroller) {
+  const calendar = scroller.closest('.heatmap-calendar');
+  if (!calendar) return;
+  calendar.querySelector('[data-heatmap-direction="-1"]').disabled = scroller.scrollLeft <= 1;
+  calendar.querySelector('[data-heatmap-direction="1"]').disabled = scroller.scrollLeft + scroller.clientWidth >= scroller.scrollWidth - 1;
+}
+document.addEventListener('click', e => {
+  const button = e.target.closest('[data-heatmap-direction]');
+  if (!button) return;
+  const scroller = button.closest('.heatmap-calendar').querySelector('.heatmap-scroll');
+  scroller.scrollBy({
+    left: Number(button.dataset.heatmapDirection) * scroller.clientWidth * 0.75,
+    behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
+  });
+});
+document.addEventListener('scroll', e => {
+  if (e.target instanceof Element && e.target.matches('.heatmap-scroll')) updateHeatmapNavigation(e.target);
+}, true);
+window.addEventListener('resize', () => {
+  document.querySelectorAll('.heatmap-scroll').forEach(updateHeatmapNavigation);
+});
+
+// Delegated events also cover heatmaps replaced by live updates.
+let activeHeatmapCell = null;
+let heatmapTooltip = null;
+function hideHeatmapTooltip() {
+  activeHeatmapCell?.classList.remove('is-active');
+  activeHeatmapCell = null;
+  heatmapTooltip?.remove();
+  heatmapTooltip = null;
+}
+function showHeatmapTooltip(cell) {
+  hideHeatmapTooltip();
+  activeHeatmapCell = cell;
+  cell.classList.add('is-active');
+  heatmapTooltip = document.createElement('div');
+  heatmapTooltip.className = 'heatmap-tooltip';
+  // The button's accessible label already includes both values.
+  heatmapTooltip.setAttribute('aria-hidden', 'true');
+  const date = document.createElement('div');
+  date.textContent = cell.dataset.date + ' · UTC';
+  const tokens = document.createElement('strong');
+  tokens.textContent = cell.dataset.tokens + ' tokens';
+  heatmapTooltip.append(date, tokens);
+  document.body.append(heatmapTooltip);
+  const rect = cell.getBoundingClientRect();
+  const tip = heatmapTooltip.getBoundingClientRect();
+  const left = Math.max(12, Math.min(rect.left + rect.width / 2 - tip.width / 2, window.innerWidth - tip.width - 12));
+  const top = rect.top >= tip.height + 20 ? rect.top - tip.height - 10 : rect.bottom + 10;
+  heatmapTooltip.style.left = `${left}px`;
+  heatmapTooltip.style.top = `${Math.max(12, Math.min(top, window.innerHeight - tip.height - 12))}px`;
+}
+document.addEventListener('pointerover', e => {
+  const cell = e.target.closest('button.heatmap-cell');
+  if (cell && e.pointerType === 'mouse') showHeatmapTooltip(cell);
+});
+document.addEventListener('pointerout', e => {
+  if (e.pointerType === 'mouse' && e.target === activeHeatmapCell) hideHeatmapTooltip();
+});
+document.addEventListener('focusin', e => {
+  if (e.target.matches('button.heatmap-cell')) showHeatmapTooltip(e.target);
+});
+document.addEventListener('focusout', e => {
+  if (e.target === activeHeatmapCell) hideHeatmapTooltip();
+});
+document.addEventListener('click', e => {
+  const cell = e.target.closest('button.heatmap-cell');
+  if (cell) showHeatmapTooltip(cell);
+  else hideHeatmapTooltip();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') hideHeatmapTooltip();
+});
+document.addEventListener('scroll', hideHeatmapTooltip, true);
+window.addEventListener('resize', hideHeatmapTooltip);
+document.addEventListener('htmx:beforeSwap', hideHeatmapTooltip);
 
 // Slide-over menu (mobile): the topbar nav turns into a right-hand drawer,
 // toggled by the hamburger and closed by the backdrop, any nav link, or Esc.

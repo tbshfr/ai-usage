@@ -17,6 +17,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -41,7 +42,40 @@ type success struct {
 	ObjectKey      string    `json:"object_key"`
 }
 
+// Status is a credential-free snapshot of backup health.
+type Status struct {
+	Enabled      bool
+	Running      bool
+	LastSuccess  time.Time
+	FailedAt     time.Time
+	FailureStage string
+}
+
+// Status returns the current state; a nil worker means backups are disabled.
+func (w *Worker) Status() Status {
+	if w == nil {
+		return Status{}
+	}
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	s := w.status
+	s.Enabled = true
+	return s
+}
+
+func (w *Worker) updateStatus(fn func(*Status)) {
+	w.mu.Lock()
+	fn(&w.status)
+	w.mu.Unlock()
+	if w.notify != nil {
+		w.notify()
+	}
+}
+
 type Worker struct {
+	notify                       func()
+	mu                           sync.RWMutex
+	status                       Status
 	db                           *sql.DB
 	client                       uploader
 	bucket, prefix, version, dir string
@@ -52,7 +86,7 @@ type Worker struct {
 	save                         func(success) error
 }
 
-func New(ctx context.Context, cfg *config.Config, db *sql.DB, version string, logger *slog.Logger) (*Worker, error) {
+func New(ctx context.Context, cfg *config.Config, db *sql.DB, version string, logger *slog.Logger, notify ...func()) (*Worker, error) {
 	if cfg.BackupS3Bucket == "" {
 		return nil, nil
 	}
@@ -86,6 +120,9 @@ func New(ctx context.Context, cfg *config.Config, db *sql.DB, version string, lo
 	hash := sha256.Sum256(identity)
 	w := &Worker{db: db, client: client, bucket: cfg.BackupS3Bucket, prefix: cfg.BackupS3Prefix, version: version,
 		dir: abs + ".backups-" + hex.EncodeToString(hash[:8]), logger: logger, now: time.Now, wait: wait, snapshot: storage.Snapshot}
+	if len(notify) > 0 {
+		w.notify = notify[0]
+	}
 	w.save = w.saveState
 	return w, nil
 }
@@ -177,6 +214,7 @@ func (w *Worker) Run(ctx context.Context) {
 	for ctx.Err() == nil {
 		if !prepared {
 			if err := w.prepare(); err != nil {
+				w.updateStatus(func(s *Status) { s.FailedAt = w.now(); s.FailureStage = "prepare" })
 				w.logger.Error("backup failed", "stage", "prepare")
 				w.warnStale(last, &warned)
 				if !w.wait(ctx, retryDelay(retry)) {
@@ -187,6 +225,11 @@ func (w *Worker) Run(ctx context.Context) {
 			}
 			prepared = true
 			last = w.loadState()
+			w.updateStatus(func(s *Status) {
+				s.LastSuccess = last.CompletionTime
+				s.FailureStage = ""
+				s.FailedAt = time.Time{}
+			})
 			if !last.SnapshotTime.IsZero() {
 				w.logger.Info("backup last success", "snapshot_time", last.SnapshotTime, "completion_time", last.CompletionTime, "object_key", last.ObjectKey)
 			}
@@ -194,14 +237,17 @@ func (w *Worker) Run(ctx context.Context) {
 		if !w.wait(ctx, dueDelay(last, w.now())) {
 			return
 		}
+		w.updateStatus(func(s *Status) { s.Running = true })
 		started := w.now()
 		attemptCtx, cancel := context.WithTimeout(ctx, attemptTimeout)
 		result, size, stage, err := w.attempt(attemptCtx)
 		cancel()
 		if ctx.Err() != nil {
+			w.updateStatus(func(s *Status) { s.Running = false })
 			return
 		}
 		if err != nil {
+			w.updateStatus(func(s *Status) { s.Running = false; s.FailedAt = w.now(); s.FailureStage = stage })
 			// SDK errors can include signed URLs and credential-provider output.
 			w.logger.Error("backup failed", "stage", stage, "elapsed", w.now().Sub(started), "compressed_bytes", size, "last_successful_snapshot_time", last.SnapshotTime)
 			w.warnStale(last, &warned)
@@ -212,6 +258,12 @@ func (w *Worker) Run(ctx context.Context) {
 			continue
 		}
 		last = result
+		w.updateStatus(func(s *Status) {
+			s.Running = false
+			s.LastSuccess = result.CompletionTime
+			s.FailedAt = time.Time{}
+			s.FailureStage = ""
+		})
 		retry = time.Minute
 		w.logger.Info("backup succeeded", "snapshot_time", last.SnapshotTime, "completion_time", last.CompletionTime, "object_key", last.ObjectKey, "elapsed", w.now().Sub(started), "compressed_bytes", size)
 	}

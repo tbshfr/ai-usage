@@ -14,6 +14,7 @@ import (
 
 	"github.com/tbshfr/ai-usage"
 	"github.com/tbshfr/ai-usage/internal/auth"
+	"github.com/tbshfr/ai-usage/internal/backup"
 	"github.com/tbshfr/ai-usage/internal/ingest"
 	"github.com/tbshfr/ai-usage/internal/live"
 	"github.com/tbshfr/ai-usage/internal/normalize"
@@ -33,24 +34,30 @@ const (
 // keepalives). stats may be nil; when set, the live pipeline counters
 // replace today's persisted row. reasons may be nil; when set, the live
 // per-reason breakdown replaces today's persisted rows.
-func New(db *sql.DB, stats func() ingest.Stats, reasons func() ingest.ReasonCounts, hub *live.Hub, version string) http.Handler {
-	return newMux(db, stats, reasons, nil, hub, version)
+func New(db *sql.DB, stats func() ingest.Stats, reasons func() ingest.ReasonCounts, hub *live.Hub, version string, backupStatus ...func() backup.Status) http.Handler {
+	return newMux(db, stats, reasons, nil, hub, version, backupStatus...)
 }
 
 // NewAuthed adds the login/logout routes and applies the dashboard
 // guard to every UI route; api.NewWithAuth additionally wraps the whole
 // dashboard port so /api/* is protected as well.
-func NewAuthed(db *sql.DB, stats func() ingest.Stats, reasons func() ingest.ReasonCounts, dash *auth.Dashboard, hub *live.Hub, version string) http.Handler {
-	return dash.Middleware(newMux(db, stats, reasons, dash, hub, version))
+func NewAuthed(db *sql.DB, stats func() ingest.Stats, reasons func() ingest.ReasonCounts, dash *auth.Dashboard, hub *live.Hub, version string, backupStatus ...func() backup.Status) http.Handler {
+	return dash.Middleware(newMux(db, stats, reasons, dash, hub, version, backupStatus...))
 }
 
-func newMux(db *sql.DB, stats func() ingest.Stats, reasons func() ingest.ReasonCounts, dash *auth.Dashboard, hub *live.Hub, version string) http.Handler {
+func newMux(db *sql.DB, stats func() ingest.Stats, reasons func() ingest.ReasonCounts, dash *auth.Dashboard, hub *live.Hub, version string, backupStatus ...func() backup.Status) http.Handler {
 	if version == "" {
 		version = "dev"
 	}
 	s := &server{db: db, stats: stats, reasons: reasons, dash: dash, hub: hub, limiter: newLoginLimiter(), version: version}
+	if len(backupStatus) > 0 {
+		s.backupStatus = backupStatus[0]
+	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", s.dashboard)
+	mux.HandleFunc("GET /fragments/backup-banner", func(w http.ResponseWriter, r *http.Request) {
+		s.renderFrag(w, "backup-banner", &pageData{Backup: s.currentBackupStatus()})
+	})
 	mux.HandleFunc("GET /trends", s.trends)
 	mux.HandleFunc("GET /breakdowns", s.breakdowns)
 	mux.HandleFunc("GET /sessions", s.sessions)
@@ -79,19 +86,28 @@ func newMux(db *sql.DB, stats func() ingest.Stats, reasons func() ingest.ReasonC
 	return mux
 }
 
+func (s *server) currentBackupStatus() backup.Status {
+	if s.backupStatus == nil {
+		return backup.Status{}
+	}
+	return s.backupStatus()
+}
+
 type server struct {
-	db      *sql.DB
-	stats   func() ingest.Stats
-	reasons func() ingest.ReasonCounts
-	dash    *auth.Dashboard
-	hub     *live.Hub
-	limiter *loginLimiter
-	version string
+	backupStatus func() backup.Status
+	db           *sql.DB
+	stats        func() ingest.Stats
+	reasons      func() ingest.ReasonCounts
+	dash         *auth.Dashboard
+	hub          *live.Hub
+	limiter      *loginLimiter
+	version      string
 }
 
 // pageData is the single view model passed to every template set; each
 // template only reads the fields it needs.
 type pageData struct {
+	Backup      backup.Status
 	Title       string
 	Active      string
 	ShowLogout  bool
@@ -311,6 +327,7 @@ func (s *server) dashboard(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, err)
 		return
 	}
+	d.Backup = s.currentBackupStatus()
 	s.render(w, "dashboard", d)
 }
 
@@ -664,6 +681,7 @@ func (s *server) statsPage(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, err)
 		return
 	}
+	d.Backup = s.currentBackupStatus()
 	s.render(w, "stats", d)
 }
 
@@ -679,6 +697,7 @@ func (s *server) fragStats(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, err)
 		return
 	}
+	d.Backup = s.currentBackupStatus()
 	s.renderFrag(w, "stats", d)
 }
 

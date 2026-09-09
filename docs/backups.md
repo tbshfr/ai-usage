@@ -286,3 +286,5 @@ Latency measures the application's storage ingestion function, excluding OTLP
 parsing and network time. The writer pauses 1 ms between batches. This was not
 run under the example container's 1-CPU/256-MiB limits and includes no R2 network
 upload; allow for slower disks, larger databases, and network transfer time.
+
+When backups are configured, the stats page shows backup status and the last successful completion time below ingestion counters. Backup changes notify the existing SSE feed, which triggers HTMX fragment refreshes. The dashboard only shows a backup banner when an attempt has failed. A failed attempt displays a banner with the failure stage and time; it remains visible during retries until a backup succeeds. Raw error details and credentials are never displayed. The last success is restored from local state after restart; failure status is tracked for the current process.

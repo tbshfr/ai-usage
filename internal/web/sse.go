@@ -20,8 +20,7 @@ const (
 var sseHelloFrame = ":" + strings.Repeat(" ", sseHelloPadding) + "\n\n"
 
 // serveEvents streams the dashboard's Server-Sent Events feed. The stream
-// carries no page content: a named data-changed event only signals "new
-// generations were stored", and the htmx SSE extension re-fetches whatever
+// carries no page content: a named data-changed event only signals "displayed data or backup status changed", and the htmx SSE extension re-fetches whatever
 // fragments the current page renders (with the client's own filter state).
 // Dropped events are harmless — the next one follows, and the response is
 // one fragment re-render instead of pushed HTML.

@@ -21,6 +21,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/tbshfr/ai-usage/internal/config"
+	"github.com/tbshfr/ai-usage/internal/live"
 	"github.com/tbshfr/ai-usage/internal/storage"
 )
 
@@ -459,5 +460,127 @@ func TestConfiguredRegionIgnoresEnvironment(t *testing.T) {
 	}
 	if got := w.client.(*s3.Client).Options().Region; got != "auto" {
 		t.Fatalf("region = %q, want auto", got)
+	}
+}
+
+func TestRunStatusFailureAndRecovery(t *testing.T) {
+	w := testWorker(t)
+	var notifications []Status
+	w.notify = func() { notifications = append(notifications, w.Status()) }
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	calls := 0
+	w.client = uploadFunc(func(context.Context, *s3.PutObjectInput) error {
+		calls++
+		if !w.Status().Running {
+			t.Error("attempt not marked running")
+		}
+		if calls == 1 {
+			return errors.New("secret error must not be exposed")
+		}
+		if w.Status().FailureStage != "upload" {
+			t.Error("failure cleared before recovery")
+		}
+		return nil
+	})
+	w.wait = func(context.Context, time.Duration) bool {
+		s := w.Status()
+		if calls == 1 && s.FailureStage != "upload" {
+			t.Fatal("missing upload failure")
+		}
+		if calls == 2 {
+			if s.Running || s.FailureStage != "" || !s.FailedAt.IsZero() || s.LastSuccess.IsZero() {
+				t.Fatalf("bad recovered status: %+v", s)
+			}
+			cancel()
+			return false
+		}
+		return true
+	}
+	w.Run(ctx)
+	if calls != 2 {
+		t.Fatalf("attempts = %d", calls)
+	}
+	// Preparation, start/failure, and start/success each publish one state.
+	if len(notifications) != 5 {
+		t.Fatalf("notifications = %d, want 5: %+v", len(notifications), notifications)
+	}
+	if notifications[2].Running || notifications[2].FailureStage != "upload" {
+		t.Fatalf("failure notification is incomplete: %+v", notifications[2])
+	}
+	if notifications[4].Running || notifications[4].FailureStage != "" || notifications[4].LastSuccess.IsZero() {
+		t.Fatalf("success notification is incomplete: %+v", notifications[4])
+	}
+	var disabled *Worker
+	if disabled.Status().Enabled {
+		t.Fatal("nil worker enabled")
+	}
+}
+
+func TestStatusChangesNotifySSEHub(t *testing.T) {
+	w := testWorker(t)
+	hub := live.New()
+	events, unsubscribe := hub.Subscribe()
+	defer unsubscribe()
+	w.notify = func() {
+		// Reading status in the callback must not deadlock.
+		_ = w.Status()
+		hub.Notify()
+	}
+	for _, update := range []func(*Status){
+		func(s *Status) { s.Running = true },
+		func(s *Status) { s.Running = false; s.FailureStage = "upload" },
+		func(s *Status) { s.FailureStage = ""; s.LastSuccess = time.Now() },
+	} {
+		w.updateStatus(update)
+		select {
+		case <-events:
+		default:
+			t.Fatal("backup status change did not notify SSE subscribers")
+		}
+	}
+}
+
+func TestPrepareRecoveryClearsFailureBeforeScheduledBackup(t *testing.T) {
+	w := testWorker(t)
+	now := time.Now().UTC()
+	w.now = func() time.Time { return now }
+	last := success{SnapshotTime: now.Add(-time.Hour), CompletionTime: now.Add(-time.Hour), ObjectKey: w.prefix + "saved.sqlite.gz"}
+	if err := w.saveState(last); err != nil {
+		t.Fatal(err)
+	}
+	healthyDir := w.dir
+	blocked := filepath.Join(t.TempDir(), "file")
+	if err := os.WriteFile(blocked, nil, 0600); err != nil {
+		t.Fatal(err)
+	}
+	w.dir = blocked
+	waits := 0
+	w.wait = func(_ context.Context, delay time.Duration) bool {
+		waits++
+		s := w.Status()
+		switch waits {
+		case 1:
+			if s.FailureStage != "prepare" || s.FailedAt.IsZero() {
+				t.Fatalf("missing prepare failure: %+v", s)
+			}
+			w.dir = healthyDir
+			return true
+		case 2:
+			if s.FailureStage != "" || !s.FailedAt.IsZero() || !s.LastSuccess.Equal(last.CompletionTime) {
+				t.Fatalf("stale status after preparation recovered: %+v", s)
+			}
+			if delay != 23*time.Hour {
+				t.Fatalf("scheduled delay = %v", delay)
+			}
+			return false
+		default:
+			t.Fatal("unexpected wait")
+			return false
+		}
+	}
+	w.Run(context.Background())
+	if waits != 2 {
+		t.Fatalf("waits = %d", waits)
 	}
 }

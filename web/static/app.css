@@ -690,3 +690,6 @@ footer { text-align: center; padding: 1rem; }
 @media (max-width: 640px) {
   .heatmap-nav { display: none; }
 }
+
+.backup-status { margin-bottom: 1rem; font-size: 0.875rem; }
+.backup-failure { margin-bottom: 0.75rem; padding: 1rem; border: 1px solid #b00020; border-radius: 0.5rem; background: #fff0f0; color: #90001a; }

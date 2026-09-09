@@ -1,0 +1,11 @@
+{{define "backup-status"}}
+{{if .Backup.Enabled}}
+<section><h2>Backup status</h2>
+{{template "backup-banner" .}}
+<div class="backup-status"><strong>Backup:</strong> {{if .Backup.Running}}In progress{{else if .Backup.FailureStage}}Waiting to retry{{else if .Backup.LastSuccess.IsZero}}Waiting for first backup{{else}}Healthy{{end}}.
+{{if .Backup.LastSuccess.IsZero}}No successful backup yet.{{else}}Last successful backup: {{.Backup.LastSuccess.UTC.Format "2006-01-02 15:04:05 UTC"}}.{{end}}
+</div></section>
+{{end}}
+{{end}}
+
+{{define "backup-banner"}}{{if .Backup.Enabled}}{{if .Backup.FailureStage}}<div class="backup-failure" role="alert"><strong>Backup failed</strong> during {{.Backup.FailureStage}} at {{.Backup.FailedAt.UTC.Format "2006-01-02 15:04:05 UTC"}}. Automatic retries are enabled.</div>{{end}}{{end}}{{end}}

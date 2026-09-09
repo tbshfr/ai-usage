@@ -41,24 +41,25 @@ var funcs = template.FuncMap{
 
 var pageTmpls = map[string]*template.Template{
 	"login":      mustParse("login.html"),
-	"dashboard":  mustParse("layout.html", "filterbar.html", "cards.html", "dashboard.html"),
+	"dashboard":  mustParse("layout.html", "filterbar.html", "cards.html", "backup-status.html", "dashboard.html"),
 	"trends":     mustParse("layout.html", "filterbar.html", "chart.html", "trends_page.html"),
 	"breakdowns": mustParse("layout.html", "filterbar.html", "breakdowns.html", "breakdowns_page.html"),
 	"sessions":   mustParse("layout.html", "filterbar.html", "session_list.html", "conversations.html", "rows.html", "sessions_page.html"),
 	"detail":     mustParse("layout.html", "detail.html"),
-	"stats":      mustParse("layout.html", "filterbar.html", "stats_page.html", "stats.html"),
+	"stats":      mustParse("layout.html", "filterbar.html", "stats_page.html", "stats.html", "backup-status.html"),
 }
 
 // fragTmpls render bare page sections (no layout); the same named templates
 // are included by the page sets, so a fragment is always also a
 // full-HTML-renderable page section.
 var fragTmpls = map[string]*template.Template{
+	"backup-banner":   mustParse("backup-status.html"),
 	"dashboard-stats": mustParse("cards.html"),
 	"period-detail":   mustParse("cards.html"),
 	"trends":          mustParse("chart.html"),
 	"breakdowns":      mustParse("breakdowns.html"),
 	"session-list":    mustParse("session_list.html", "conversations.html", "rows.html"),
-	"stats":           mustParse("stats.html"),
+	"stats":           mustParse("stats.html", "backup-status.html"),
 	"stats-reasons":   mustParse("stats-reasons.html"),
 }
 

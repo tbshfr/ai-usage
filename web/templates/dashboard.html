@@ -1,4 +1,5 @@
 {{define "content"}}
+{{if .Backup.Enabled}}<div id="backup-banner" hx-get="/fragments/backup-banner" hx-trigger="data-changed from:body delay:2s" aria-live="polite">{{template "backup-banner" .}}</div>{{end}}
 {{template "filterbar" .}}
 <div id="dashboard-stats" hx-get="/fragments/dashboard-stats" hx-trigger="change from:#filter-bar, data-changed from:body delay:2s" hx-include="#filter-bar" hx-sync="this:replace">
 {{template "dashboard-stats" .}}

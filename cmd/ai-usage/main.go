@@ -80,8 +80,9 @@ func run(cfg *config.Config, logger *slog.Logger) error {
 		return err
 	}
 
+	hub := live.New()
 	backupCtx, stopBackup := context.WithCancel(context.Background())
-	worker, err := backup.New(backupCtx, cfg, db, version, logger)
+	worker, err := backup.New(backupCtx, cfg, db, version, logger, hub.Notify)
 	if err != nil {
 		stopBackup()
 		return err
@@ -93,7 +94,6 @@ func run(cfg *config.Config, logger *slog.Logger) error {
 		close(backupDone)
 	}
 	defer func() { stopBackup(); <-backupDone }()
-	hub := live.New()
 	pipeline := ingest.NewPipeline(db, logger, hub)
 	// Continue today's persisted counters across restarts and keep them
 	// saved periodically; a final save happens on shutdown. A failed
@@ -121,7 +121,7 @@ func run(cfg *config.Config, logger *slog.Logger) error {
 	if cfg.HTTPAddr != "" {
 		srv := &http.Server{
 			Addr:              cfg.HTTPAddr,
-			Handler:           api.NewWithAuth(db, logger, pipeline.Stats, pipeline.ReasonCounts, hub, version, dash),
+			Handler:           api.NewWithAuth(db, logger, pipeline.Stats, pipeline.ReasonCounts, hub, version, dash, worker.Status),
 			ReadHeaderTimeout: 10 * time.Second,
 			ReadTimeout:       30 * time.Second,
 			WriteTimeout:      60 * time.Second,

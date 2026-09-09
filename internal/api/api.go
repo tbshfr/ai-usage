@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/tbshfr/ai-usage/internal/auth"
+	"github.com/tbshfr/ai-usage/internal/backup"
 	"github.com/tbshfr/ai-usage/internal/live"
 	"github.com/tbshfr/ai-usage/internal/web"
 )
@@ -21,7 +22,7 @@ func New(db *sql.DB, logger *slog.Logger, stats StatsFunc, reasons ReasonCountsF
 
 // NewWithAuth wraps the dashboard with the login-session guard when dash
 // is non-nil; /health, /ready, /static and /login stay public.
-func NewWithAuth(db *sql.DB, logger *slog.Logger, stats StatsFunc, reasons ReasonCountsFunc, hub *live.Hub, version string, dash *auth.Dashboard) http.Handler {
+func NewWithAuth(db *sql.DB, logger *slog.Logger, stats StatsFunc, reasons ReasonCountsFunc, hub *live.Hub, version string, dash *auth.Dashboard, backupStatus ...func() backup.Status) http.Handler {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -38,9 +39,9 @@ func NewWithAuth(db *sql.DB, logger *slog.Logger, stats StatsFunc, reasons Reaso
 	})
 	mux.Handle("/api/", apiRoutes(db, stats, reasons, logger))
 	if dash != nil {
-		mux.Handle("/", web.NewAuthed(db, stats, reasons, dash, hub, version))
+		mux.Handle("/", web.NewAuthed(db, stats, reasons, dash, hub, version, backupStatus...))
 	} else {
-		mux.Handle("/", web.New(db, stats, reasons, hub, version))
+		mux.Handle("/", web.New(db, stats, reasons, hub, version, backupStatus...))
 	}
 	h := accessLog(logger, mux)
 	if dash != nil {

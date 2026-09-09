@@ -172,6 +172,9 @@ successful snapshot for more than 24 hours (allow a small completion margin).
 Monitor process availability too: a stopped process cannot warn. An upload-stage
 failure calls for checking credentials, endpoint, network access, and provider
 status. /health and /ready remain independent of remote backup availability.
+The authenticated [`GET /api/backup`](api.md#get-apibackup) endpoint exposes
+backup status, running state, last success, and failure time and stage for
+separate monitoring.
 
 Allow free disk space beside the database for one standalone snapshot **plus**
 its gzip file and WAL growth during the read. Compression and upload stream data

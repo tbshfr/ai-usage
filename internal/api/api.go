@@ -26,9 +26,38 @@ func NewWithAuth(db *sql.DB, logger *slog.Logger, stats StatsFunc, reasons Reaso
 	if logger == nil {
 		logger = slog.Default()
 	}
+	currentBackupStatus := func() backup.Status {
+		if len(backupStatus) > 0 && backupStatus[0] != nil {
+			return backupStatus[0]()
+		}
+		return backup.Status{}
+	}
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/backup", func(w http.ResponseWriter, r *http.Request) {
+		s := currentBackupStatus()
+		state, _ := backupStates(s)
+		var lastSuccess, failedAt *time.Time
+		if !s.LastSuccess.IsZero() {
+			lastSuccess = &s.LastSuccess
+		}
+		if !s.FailedAt.IsZero() {
+			failedAt = &s.FailedAt
+		}
+		writeJSON(w, http.StatusOK, struct {
+			Status       string     `json:"status"`
+			Enabled      bool       `json:"enabled"`
+			Running      bool       `json:"running"`
+			LastSuccess  *time.Time `json:"last_success"`
+			FailedAt     *time.Time `json:"failed_at"`
+			FailureStage string     `json:"failure_stage"`
+		}{state, s.Enabled, s.Running, lastSuccess, failedAt, s.FailureStage})
+	})
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+		_, state := backupStates(currentBackupStatus())
+		writeJSON(w, http.StatusOK, struct {
+			Status string `json:"status"`
+			Backup string `json:"backup"`
+		}{"ok", state})
 	})
 	mux.HandleFunc("GET /ready", func(w http.ResponseWriter, r *http.Request) {
 		if err := db.PingContext(r.Context()); err != nil {
@@ -48,6 +77,24 @@ func NewWithAuth(db *sql.DB, logger *slog.Logger, stats StatsFunc, reasons Reaso
 		h = dash.Middleware(h)
 	}
 	return web.SecureHeaders(h)
+}
+
+// backupStates derives the detailed API state and the health summary together.
+// Pending and running backups remain healthy unless an attempt has failed.
+func backupStates(s backup.Status) (state, health string) {
+	if !s.Enabled {
+		return "disabled", "disabled"
+	}
+	if !s.FailedAt.IsZero() {
+		return "failed", "unhealthy"
+	}
+	if s.Running {
+		return "running", "healthy"
+	}
+	if s.LastSuccess.IsZero() {
+		return "pending", "healthy"
+	}
+	return "ok", "healthy"
 }
 
 func accessLog(logger *slog.Logger, next http.Handler) http.Handler {

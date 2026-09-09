@@ -34,7 +34,19 @@ func TestHealthAndReadyStayPublic(t *testing.T) {
 
 func TestAPIUnauthorizedWithoutSession(t *testing.T) {
 	srv := newAuthedServer(t)
-	for _, p := range []string{"/api/summary", "/api/stats", "/api/generations"} {
+	for _, p := range []string{
+		"/api/summary",
+		"/api/timeseries",
+		"/api/sources",
+		"/api/providers",
+		"/api/models",
+		"/api/generations",
+		"/api/generations/test-id",
+		"/api/stats",
+		"/api/stats/daily",
+		"/api/stats/reasons",
+		"/api/backup",
+	} {
 		status, body := get(t, srv.URL+p)
 		if status != http.StatusUnauthorized {
 			t.Errorf("%s: status = %d, want 401", p, status)

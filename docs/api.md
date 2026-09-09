@@ -209,7 +209,34 @@ requests — counted per request, not per record). Today's row serves the
 live counters; older days serve persisted rows. A day with nothing
 recorded returns `[]`; a malformed `day` returns `400`.
 
+### `GET /api/backup`
+
+Returns the current backup worker status (with the same authentication as other
+API routes):
+
+```json
+{"status":"failed","enabled":true,"running":false,"last_success":"2026-09-08T12:00:00Z","failed_at":"2026-09-09T12:00:00Z","failure_stage":"upload"}
+```
+
+`status` is `disabled`, `pending` (waiting for the first backup), `running`,
+`ok`, or `failed`. A failure remains `failed` during retries (`running: true`)
+until success. Unset timestamps are `null`; `failure_stage` is empty without a
+failure. `last_success` is the successful completion time restored from local
+state; failures are tracked only for the current process. No credentials or raw
+errors are returned. This endpoint returns 200 even when a backup failed: alert
+on `status: failed` and on the age of `last_success`. `ok` does not guarantee
+freshness or verify that the remote object still exists.
+
 ## Health probes
 
-`GET /health` always returns `{"status":"ok"}`; `GET /ready` returns 200
+`GET /health` always returns HTTP 200 with `{"status":"ok","backup":"healthy"}`.
+The `backup` field is `disabled` when unconfigured, `unhealthy` after a failed
+attempt (including during retries), and `healthy` otherwise. Waiting for or
+running the first backup is `healthy`; the health summary never reports
+`pending` or `running`. A successful backup clears an outstanding failure. It summarizes worker state, not backup freshness; use
+`/api/backup` for timestamps and details. This summary is public like the probe.
+
+`GET /ready` returns 200
 `{"status":"ready"}` when the database answers, 503 otherwise.
+Backup failures do not affect either probe's HTTP status; monitor the `backup`
+field or `/api/backup` separately.

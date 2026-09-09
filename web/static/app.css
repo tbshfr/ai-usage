@@ -21,7 +21,7 @@ body {
   color: var(--text);
 }
 html.dialog-open, body.dialog-open { overflow: hidden; overscroll-behavior: none; }
-body.dialog-open { position: fixed; inset: 0; width: 100%; touch-action: none; }
+body.dialog-open { position: fixed; inset: var(--dialog-scroll-top, 0px) 0 auto; width: 100%; touch-action: none; }
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
 code {
@@ -355,11 +355,15 @@ button.heatmap-cell { cursor: pointer; touch-action: manipulation; }
   font: inherit;
   transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
 }
-.stat-card:hover {
-  border-color: var(--accent);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(96, 64, 32, 0.1), 0 8px 22px rgba(96, 64, 32, 0.08);
+@media (hover: hover) and (pointer: fine) {
+  .stat-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(96, 64, 32, 0.1), 0 8px 22px rgba(96, 64, 32, 0.08);
+  }
 }
+/* Avoid a lingering native tap flash as the detail dialog opens. */
+.stat-card, .conv-card, .row-detail { -webkit-tap-highlight-color: transparent; }
 .stat-card.hero { padding: 1.6rem 1.8rem; }
 .stat-top {
   display: flex;
@@ -607,11 +611,13 @@ tr.row-detail { cursor: pointer; }
   color: var(--text);
   transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
 }
-.conv-card:hover {
-  border-color: var(--accent);
-  text-decoration: none;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(96, 64, 32, 0.1), 0 8px 22px rgba(96, 64, 32, 0.08);
+@media (hover: hover) and (pointer: fine) {
+  .conv-card:hover {
+    border-color: var(--accent);
+    text-decoration: none;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(96, 64, 32, 0.1), 0 8px 22px rgba(96, 64, 32, 0.08);
+  }
 }
 .conv-title { font-weight: 700; font-size: 0.98rem; }
 .conv-sub {

@@ -141,8 +141,8 @@ function setNavOpen(open) {
 function openSwappedDialog(target) {
   if (!(target instanceof HTMLDialogElement)) return;
   if (target.childElementCount && !target.open) {
-    target.showModal();
     lockPageScroll();
+    target.showModal();
   }
 }
 
@@ -150,6 +150,7 @@ let lockedScrollY = 0;
 function lockPageScroll() {
   if (document.body.classList.contains('dialog-open')) return;
   lockedScrollY = window.scrollY;
+  document.body.style.setProperty('--dialog-scroll-top', `-${lockedScrollY}px`);
   document.documentElement.classList.add('dialog-open');
   document.body.classList.add('dialog-open');
 }
@@ -158,6 +159,7 @@ function unlockPageScroll() {
   if (document.querySelector('dialog[open]')) return;
   document.documentElement.classList.remove('dialog-open');
   document.body.classList.remove('dialog-open');
+  document.body.style.removeProperty('--dialog-scroll-top');
   window.scrollTo(0, lockedScrollY);
 }
 

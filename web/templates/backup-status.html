@@ -2,7 +2,7 @@
 {{if .Backup.Enabled}}
 <section><h2>Backup status</h2>
 {{template "backup-banner" .}}
-<div class="backup-status"><strong>Backup:</strong> {{if .Backup.Running}}In progress{{else if .Backup.FailureStage}}Waiting to retry{{else if .Backup.LastSuccess.IsZero}}Waiting for first backup{{else}}Healthy{{end}}.
+<div class="backup-status"><strong>{{if .Backup.Running}}In progress{{else if .Backup.FailureStage}}Waiting to retry{{else if .Backup.LastSuccess.IsZero}}Waiting for first backup{{else}}Healthy{{end}}.</strong>
 {{if .Backup.LastSuccess.IsZero}}No successful backup yet.{{else}}Last successful backup: {{.Backup.LastSuccess.UTC.Format "2006-01-02 15:04:05 UTC"}}.{{end}}
 </div></section>
 {{end}}

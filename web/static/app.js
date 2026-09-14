@@ -30,28 +30,27 @@ function renderDataCharts() {
 document.addEventListener('DOMContentLoaded', renderDataCharts);
 document.addEventListener('htmx:after:settle', renderDataCharts);
 
-// The heatmap is chronological from left to right. Start at the newest days
-// on every screen size, while allowing scrolling back toward older history.
-function scrollHeatmapsToEnd(root = document) {
+// CSS starts heatmaps at the right edge, without a visible scroll after paint.
+function initializeHeatmapNavigation(root = document) {
   const heatmaps = [];
   if (root instanceof Element && root.matches('[data-scroll-end]')) heatmaps.push(root);
   if (root.querySelectorAll) heatmaps.push(...root.querySelectorAll('[data-scroll-end]'));
   requestAnimationFrame(() => {
     for (const el of heatmaps) {
-      el.scrollLeft = el.scrollWidth;
       updateHeatmapNavigation(el);
     }
   });
 }
 
-document.addEventListener('DOMContentLoaded', () => scrollHeatmapsToEnd());
-document.addEventListener('htmx:after:settle', e => scrollHeatmapsToEnd(e.target));
+document.addEventListener('DOMContentLoaded', () => initializeHeatmapNavigation());
+document.addEventListener('htmx:after:settle', e => initializeHeatmapNavigation(e.target));
 
 function updateHeatmapNavigation(scroller) {
   const calendar = scroller.closest('.heatmap-calendar');
   if (!calendar) return;
-  calendar.querySelector('[data-heatmap-direction="-1"]').disabled = scroller.scrollLeft <= 1;
-  calendar.querySelector('[data-heatmap-direction="1"]').disabled = scroller.scrollLeft + scroller.clientWidth >= scroller.scrollWidth - 1;
+  // RTL scroll containers use zero at the right edge and negative offsets leftward.
+  calendar.querySelector('[data-heatmap-direction="-1"]').disabled = scroller.scrollWidth - scroller.clientWidth + scroller.scrollLeft <= 1;
+  calendar.querySelector('[data-heatmap-direction="1"]').disabled = scroller.scrollLeft >= -1;
 }
 document.addEventListener('click', e => {
   const button = e.target.closest('[data-heatmap-direction]');

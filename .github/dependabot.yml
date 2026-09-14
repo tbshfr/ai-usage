@@ -26,7 +26,6 @@ updates:
         patterns:
           - github.com/aws/aws-sdk-go-v2
           - github.com/aws/aws-sdk-go-v2/*
-    groups:
       telemetry:
         patterns:
           - go.opentelemetry.io/*

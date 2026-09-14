@@ -79,12 +79,17 @@ func newTestSessions(t *testing.T, ttl time.Duration) *Sessions {
 func TestSessionIssueAndValid(t *testing.T) {
 	s := newTestSessions(t, DefaultSessionTTL)
 	rec := httptest.NewRecorder()
+	earliestExpiry := time.Now().Add(DefaultSessionTTL).Truncate(time.Second)
 	s.Issue(rec)
+	latestExpiry := time.Now().Add(DefaultSessionTTL).Truncate(time.Second)
 	res := rec.Result()
 	found := false
 	for _, c := range res.Cookies() {
 		if c.Name == SessionCookie {
 			found = true
+			if c.Expires.Before(earliestExpiry) || c.Expires.After(latestExpiry) {
+				t.Errorf("session cookie expiry = %v, want between %v and %v", c.Expires, earliestExpiry, latestExpiry)
+			}
 			if !c.HttpOnly {
 				t.Error("session cookie not HttpOnly")
 			}

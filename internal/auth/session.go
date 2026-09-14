@@ -52,6 +52,7 @@ func (s *Sessions) Issue(w http.ResponseWriter) {
 		Name:     SessionCookie,
 		Value:    v,
 		Path:     "/",
+		Expires:  time.Unix(expiry, 0).UTC(),
 		HttpOnly: true,
 		Secure:   true,
 		SameSite: http.SameSiteLaxMode,

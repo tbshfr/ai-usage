@@ -30,6 +30,8 @@ func ModelCreator(model string) string {
 		return "inclusionai"
 	case strings.HasPrefix(m, "deepseek"):
 		return "deepseek"
+	case strings.HasPrefix(m, "kimi"):
+		return "moonshot"
 	default:
 		return "unknown"
 	}

@@ -152,14 +152,15 @@ func costLine(known, unknown int64, total *float64, estimated ...int64) string {
 }
 
 // costCell is the table-level cost cell: total when any row has a known cost.
-func costCell(known int64, total *float64, estimated ...int64) string {
+// The estimate marker carries the explanation so repeated rows stay compact.
+func costCell(known int64, total *float64, estimated ...int64) template.HTML {
 	if known == 0 {
 		return emDash
 	}
 	if len(estimated) > 0 && estimated[0] > 0 {
-		return "≈ " + cost(total) + " (includes estimates)"
+		return template.HTML(`<abbr class="cost-estimate" title="Includes estimated costs from OpenRouter or manual rates">≈</abbr> ` + cost(total))
 	}
-	return cost(total)
+	return template.HTML(cost(total))
 }
 
 func dur(d time.Duration) string {

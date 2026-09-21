@@ -89,12 +89,15 @@ func TestPricingProvenanceTotalsAndUI(t *testing.T) {
 		{"/generations/free", "(free)"},
 		{"/generations/harness", "(reported)"},
 		{"/generations/unknown", "<dt>Cost</dt><dd>—</dd>"},
-		{"/breakdowns?range=all", "includes estimates"},
-		{"/sessions?range=all", "includes estimates"},
+		{"/breakdowns?range=all", `<abbr class="cost-estimate" title="Includes estimated costs from OpenRouter or manual rates">≈</abbr>`},
+		{"/sessions?range=all", `<abbr class="cost-estimate" title="Includes estimated costs from OpenRouter or manual rates">≈</abbr>`},
 	} {
 		status, body := get(t, srv.URL+tc.path)
 		if status != http.StatusOK || !strings.Contains(body, tc.expected) {
 			t.Errorf("%s: status %d, missing %q", tc.path, status, tc.expected)
+		}
+		if strings.Contains(body, "(includes estimates)") {
+			t.Errorf("%s: old estimate label remains", tc.path)
 		}
 	}
 }

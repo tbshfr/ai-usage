@@ -248,7 +248,7 @@ func mergeArgs(gen normalize.Generation) []any {
 		nullableFloat(gen.Cost),
 		nullableFloat(gen.Cost),
 		nullableFloat(gen.Cost),
-			// pricing_pending: did the merge add pricing inputs or move the timestamp?
+		// pricing_pending: did the merge add pricing inputs or move the timestamp?
 		nullableString(gen.Model),
 		nullableInt(gen.InputTokens),
 		nullableInt(gen.OutputTokens),

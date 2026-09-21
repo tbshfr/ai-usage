@@ -33,6 +33,7 @@ code {
 }
 code.copy { cursor: pointer; }
 code.copy:hover { color: var(--accent); }
+.cost-estimate { text-decoration: underline dotted; text-underline-offset: 2px; cursor: help; }
 .muted { color: var(--muted); }
 
 .topbar {
@@ -564,6 +565,7 @@ tbody tr:nth-child(even):not(.totals) { background: rgba(233, 220, 203, 0.18); }
 tbody tr:hover:not(.totals) { background: var(--panel-hover); }
 tr.totals td { font-weight: 700; border-top: 2px solid var(--border); background: var(--accent-soft); }
 td { font-variant-numeric: tabular-nums; }
+#breakdowns th:last-child, #breakdowns td:last-child { min-width: 8rem; white-space: nowrap; }
 
 /* Clickable detail rows (stats page day breakdown) */
 tr.row-detail { cursor: pointer; }

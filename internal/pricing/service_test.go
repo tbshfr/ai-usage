@@ -454,6 +454,15 @@ func TestOverridePriceKeysAndDayCasing(t *testing.T) {
 			t.Errorf("overrideMatches(%s) = %v, want %v", tc.override, got, tc.want)
 		}
 	}
+	withoutInput := thursday
+	withoutInput.InputTokens = nil
+	var threshold map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(`{"min_prompt_tokens":100,"prompt":"3"}`), &threshold); err != nil {
+		t.Fatal(err)
+	}
+	if overrideMatches(threshold, withoutInput) {
+		t.Error("threshold override must not match without input tokens")
+	}
 	// Unmodeled unit prices (audio, future_unit) must not skip their entry:
 	// 100*1 + 20*9 + 0.5 request.
 	r := c["unit/model"]

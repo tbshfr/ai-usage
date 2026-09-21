@@ -229,7 +229,11 @@ func overrideMatches(o map[string]json.RawMessage, g normalize.Generation) bool 
 		if json.Unmarshal(raw, &threshold) != nil || threshold < 0 {
 			return false
 		}
-		prompt := *g.UncachedInput()
+		uncached := g.UncachedInput()
+		if uncached == nil {
+			return false
+		}
+		prompt := *uncached
 		if g.CacheReadTokens != nil {
 			prompt += *g.CacheReadTokens
 		}

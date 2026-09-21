@@ -115,6 +115,7 @@ type pageData struct {
 	Error       string
 	F           filterView
 	Cards       []cardView
+	Podium      podiumView
 	Heatmap     heatmapView
 	Periods     periodModes
 	Detail      *periodDetailView
@@ -179,6 +180,11 @@ type cardView struct {
 
 type periodModes struct {
 	Rolling bool
+}
+
+type podiumView struct {
+	Metric storage.ModelRankMetric
+	Rows   []storage.ModelRank
 }
 
 type heatmapView struct {
@@ -562,6 +568,16 @@ func (s *server) trendsData(r *http.Request) (*pageData, error) {
 	if err != nil {
 		return nil, badRequest{err}
 	}
+	metric := storage.ModelRankMetric(r.URL.Query().Get("podium_metric"))
+	if metric == "" {
+		metric = storage.RankTokens
+	}
+	if metric != storage.RankTokens && metric != storage.RankDays && metric != storage.RankCost {
+		return nil, badRequest{fmt.Errorf("invalid podium metric %q (want tokens, days, or cost)", metric)}
+	}
+	if metric != storage.RankTokens {
+		u.PodiumMetric = string(metric)
+	}
 	bucket, err := trendBucketParam(r, f)
 	if err != nil {
 		return nil, err
@@ -570,8 +586,19 @@ func (s *server) trendsData(r *http.Request) (*pageData, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Keep explicit date bounds when changing chart grouping or podium metric.
+	for _, name := range []string{"from", "to"} {
+		if value := r.URL.Query().Get(name); value != "" {
+			d.F.Hidden = append(d.F.Hidden, hiddenInput{Name: name, Value: value})
+		}
+	}
 	d.Charts.Bucket = bucket
 	d.Charts.Buckets = trendBucketOptions(f, bucket)
+	d.Podium.Metric = metric
+	d.Podium.Rows, err = storage.TopModels(r.Context(), s.db, f, metric)
+	if err != nil {
+		return nil, err
+	}
 	pts, err := storage.Timeseries(r.Context(), s.db, f, bucket)
 	if err != nil {
 		return nil, err

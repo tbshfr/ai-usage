@@ -162,6 +162,19 @@ const outputTokensSQL = `CASE WHEN source = '` + normalize.SourceCodex + `'
 	THEN MAX(COALESCE(output_tokens, 0) - COALESCE(reasoning_tokens, 0), 0)
 	ELSE COALESCE(output_tokens, 0) END`
 
+// modelGroupKeySQL keeps OpenRouter's creator prefix out of displayed model
+// groups, while retaining raw model IDs for filters and stored records.
+const modelGroupKeySQL = `CASE WHEN provider = 'openrouter' AND instr(model, '/') > 1
+	THEN substr(model, instr(model, '/') + 1) ELSE model END`
+
+// totalTokensSumSQL is the canonical total across the five disjoint token
+// buckets. Use it for model breakdown ordering and podium rankings.
+const totalTokensSumSQL = `COALESCE(SUM(` + uncachedInputSQL + `), 0)
+	+ COALESCE(SUM(` + outputTokensSQL + `), 0)
+	+ COALESCE(SUM(cache_read_tokens), 0)
+	+ COALESCE(SUM(cache_creation_tokens), 0)
+	+ COALESCE(SUM(reasoning_tokens), 0)`
+
 // CacheHitRate applies CacheHitRate to the aggregate sums; nil when no
 // cache/prompt activity was reported.
 func (s SummaryResult) CacheHitRate() *float64 {
@@ -407,10 +420,7 @@ func breakdown(ctx context.Context, db *sql.DB, f Filter, column string) ([]Brea
 	where, args := f.whereSQL()
 	groupKey := column
 	if column == "model" {
-		// OpenRouter prepends the model creator (for example z-ai/glm-5.3-flash).
-		// Strip only that provider's nonempty prefix so other model IDs stay raw.
-		groupKey = `CASE WHEN provider = 'openrouter' AND instr(model, '/') > 1
-			THEN substr(model, instr(model, '/') + 1) ELSE model END`
+		groupKey = modelGroupKeySQL
 	}
 	q := `SELECT
 	COALESCE(` + groupKey + `, ''),
@@ -428,9 +438,7 @@ func breakdown(ctx context.Context, db *sql.DB, f Filter, column string) ([]Brea
 	SUM(cost)
 FROM generations WHERE ` + where + ` GROUP BY ` + groupKey
 	if column == "model" {
-		q += ` ORDER BY COALESCE(SUM(` + uncachedInputSQL + `), 0) + COALESCE(SUM(` + outputTokensSQL + `), 0)
-			+ COALESCE(SUM(cache_read_tokens), 0) + COALESCE(SUM(cache_creation_tokens), 0)
-			+ COALESCE(SUM(reasoning_tokens), 0) DESC`
+		q += ` ORDER BY ` + totalTokensSumSQL + ` DESC`
 	} else {
 		q += ` ORDER BY COALESCE(` + column + `, '')`
 	}

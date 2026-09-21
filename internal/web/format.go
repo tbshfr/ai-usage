@@ -43,7 +43,7 @@ var funcs = template.FuncMap{
 var pageTmpls = map[string]*template.Template{
 	"login":      mustParse("login.html"),
 	"dashboard":  mustParse("layout.html", "filterbar.html", "cards.html", "backup-status.html", "dashboard.html"),
-	"trends":     mustParse("layout.html", "filterbar.html", "chart.html", "trends_page.html"),
+	"trends":     mustParse("layout.html", "filterbar.html", "chart.html", "podium.html", "trends_page.html"),
 	"breakdowns": mustParse("layout.html", "filterbar.html", "breakdowns.html", "breakdowns_page.html"),
 	"sessions":   mustParse("layout.html", "filterbar.html", "session_list.html", "conversations.html", "rows.html", "sessions_page.html"),
 	"detail":     mustParse("layout.html", "detail.html"),
@@ -57,7 +57,7 @@ var fragTmpls = map[string]*template.Template{
 	"backup-banner":   mustParse("backup-status.html"),
 	"dashboard-stats": mustParse("cards.html"),
 	"period-detail":   mustParse("cards.html"),
-	"trends":          mustParse("chart.html"),
+	"trends":          mustParse("chart.html", "podium.html"),
 	"breakdowns":      mustParse("breakdowns.html"),
 	"session-list":    mustParse("session_list.html", "conversations.html", "rows.html"),
 	"stats":           mustParse("stats.html", "backup-status.html"),

@@ -1,12 +1,13 @@
 {{define "trends"}}
 <div class="chart-head">
   <div><h2>Trends</h2><p class="chart-help muted">The date range controls what is included; group by controls chart resolution.</p></div>
-  <form id="bucket-form" class="bucket-control" hx-get="/fragments/trends" hx-trigger="change" hx-target="#trends" hx-include="#bucket-form, #filter-bar" hx-sync="#trends:replace">
+  <form id="bucket-form" class="bucket-control" hx-get="/fragments/trends" hx-trigger="change" hx-target="#trends" hx-include="#bucket-form, #filter-bar, #podium-controls" hx-sync="#trends:replace">
     <fieldset class="filter-choice"><legend>Group by</legend>
       {{range .Charts.Buckets}}<label{{if .Disabled}} class="disabled" title="Choose a shorter date range to use {{.Label}} grouping"{{end}}><input type="radio" name="bucket" value="{{.Value}}"{{if eq .Value $.Charts.Bucket}} checked{{end}}{{if .Disabled}} disabled{{end}}><span>{{.Label}}</span></label>{{end}}
     </fieldset>
   </form>
 </div>
+{{template "model-podium" .}}
 {{if .Charts.HasTokens}}
 <section class="panel">
   <h3>Tokens over time</h3>

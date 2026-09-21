@@ -418,6 +418,60 @@ button.heatmap-cell { cursor: pointer; touch-action: manipulation; }
   border-top: 1px solid var(--border);
 }
 
+/* Trends model leaderboard */
+.podium-panel {
+  position: relative;
+  overflow: hidden;
+  margin: 0.9rem 0 1.2rem;
+  padding: 1.3rem 1.5rem 0;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: radial-gradient(circle at 50% 100%, #f5e9d9 0, transparent 58%), var(--panel);
+  box-shadow: var(--shadow);
+}
+.podium-head { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 0.8rem 1.5rem; }
+.podium-eyebrow { margin: 0; color: var(--accent); font-size: 0.7rem; font-weight: 750; letter-spacing: 0.15em; text-transform: uppercase; }
+.podium-head h2 { margin: 0.05rem 0 0; font-size: 1.45rem; line-height: 1.2; }
+.podium-description { margin: 0.35rem 0 0; font-size: 0.84rem; }
+.podium-controls { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.podium-controls label { display: grid; gap: 0.18rem; color: var(--muted); font-size: 0.72rem; font-weight: 650; }
+.podium-controls select {
+  min-width: 128px;
+  padding: 0.42rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--panel);
+  color: var(--text);
+  font: 600 0.85rem/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+  cursor: pointer;
+}
+.podium-controls select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.model-podium { display: flex; align-items: flex-end; justify-content: center; gap: clamp(0.35rem, 2vw, 1.1rem); margin: 1.25rem auto 0; padding: 0; list-style: none; max-width: 900px; }
+.podium-place { display: flex; flex: 1 1 0; flex-direction: column; max-width: 290px; min-width: 0; text-align: center; }
+.podium-place-0 { order: 2; --podium-color: #b87921; --podium-tint: #f8e6b8; --podium-height: 88px; }
+.podium-place-1 { order: 1; --podium-color: #6d827d; --podium-tint: #e0e9e5; --podium-height: 62px; }
+.podium-place-2 { order: 3; --podium-color: #a97153; --podium-tint: #f1ddd0; --podium-height: 44px; }
+.podium-entry { display: flex; align-items: center; flex-direction: column; gap: 0.38rem; min-height: 148px; padding: 1rem 0.7rem 0.8rem; border: 1px solid var(--border); border-bottom: 0; border-radius: 14px 14px 0 0; background: var(--panel); }
+.podium-place-0 .podium-entry { border-color: #e5cf9f; box-shadow: 0 0 0 3px #efdab451; }
+.podium-rank { display: grid; place-items: center; width: 2rem; height: 2rem; flex: none; border: 1px solid currentColor; border-radius: 50%; background: var(--podium-tint); color: var(--podium-color); font-weight: 800; font-variant-numeric: tabular-nums; }
+.podium-model { width: 100%; overflow-wrap: anywhere; font-size: 0.92rem; line-height: 1.25; }
+.podium-value { margin-top: auto; color: var(--podium-color); font-size: 1.22rem; font-weight: 750; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.podium-value small { display: block; margin-top: 0.2rem; color: var(--muted); font-size: 0.68rem; font-weight: 500; letter-spacing: 0.03em; text-transform: uppercase; }
+.podium-step { display: grid; place-items: center; height: var(--podium-height); border: 1px solid color-mix(in srgb, var(--podium-color), transparent 45%); border-bottom: 0; background: linear-gradient(145deg, var(--podium-tint), color-mix(in srgb, var(--podium-tint), white 40%)); color: color-mix(in srgb, var(--podium-color), transparent 70%); }
+.podium-step span { font-size: clamp(1.8rem, 4vw, 3rem); font-weight: 800; line-height: 1; }
+.podium-note { margin: 0.8rem 0; font-size: 0.75rem; text-align: center; }
+.podium-empty { margin: 1.5rem 0; padding: 1.7rem 1rem; border: 1px dashed var(--border); border-radius: 10px; text-align: center; }
+@media (max-width: 640px) {
+  .podium-panel { padding: 1rem 0.7rem 0; }
+  .podium-controls { width: 100%; }
+  .podium-controls label { flex: 1 1 120px; }
+  .podium-controls select { width: 100%; min-width: 0; }
+  .podium-entry { min-height: 164px; padding: 0.75rem 0.25rem 0.6rem; }
+  .podium-model { font-size: 0.76rem; }
+  .podium-value { font-size: 0.95rem; }
+  .podium-step { height: calc(var(--podium-height) * 0.75); }
+}
+
 /* Inline period detail expansion */
 .period-detail {
   background: var(--panel);

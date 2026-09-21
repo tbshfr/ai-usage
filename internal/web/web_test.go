@@ -109,6 +109,106 @@ func TestDashboardCalendarPeriodMode(t *testing.T) {
 	wantContains(t, body, `<span class="stat-label">This week</span>`, `<span class="stat-label">This month</span>`)
 }
 
+func TestTrendsModelPodiumMetricsAndFragment(t *testing.T) {
+	srv := newServer(t)
+	defer srv.Close()
+	status, body := get(t, srv.URL+"/trends?"+fullRangeQuery)
+	if status != http.StatusOK {
+		t.Fatalf("status %d", status)
+	}
+	wantContains(t, body, "Top models", `name="podium_metric"`, `value="tokens" selected`,
+		`hx-include="#filter-bar, #bucket-form, #podium-controls"`,
+		`gpt-5.6-luna`, `gpt-4.1`, `claude-haiku-4-5-20251001`)
+	if strings.Index(body, `gpt-5.6-luna</strong>`) > strings.Index(body, `gpt-4.1</strong>`) {
+		t.Error("default token podium order is wrong")
+	}
+
+	status, body = get(t, srv.URL+"/fragments/trends?"+fullRangeQuery+"&podium_metric=days")
+	if status != http.StatusOK {
+		t.Fatalf("days fragment status %d", status)
+	}
+	wantContains(t, body, `value="days" selected`, "Copilot autocomplete, title, and progress helpers are excluded", `6 <small>days</small>`)
+	if strings.Index(body, `claude-haiku-4-5-20251001</strong>`) > strings.Index(body, `gpt-5.6-luna</strong>`) {
+		t.Error("distinct-day podium order is wrong")
+	}
+
+	status, body = get(t, srv.URL+"/fragments/trends?"+fullRangeQuery+"&podium_metric=cost")
+	if status != http.StatusOK {
+		t.Fatalf("cost fragment status %d", status)
+	}
+	wantContains(t, body, `value="cost" selected`, "$2.8500", "Models with no cost data are excluded")
+	wantNotContains(t, body, `gpt-5.6-luna</strong>`)
+	status, body = get(t, srv.URL+"/trends?range=all&podium_metric=cost")
+	if status != http.StatusOK {
+		t.Fatalf("cost page status %d", status)
+	}
+	wantContains(t, body, `href="/trends?podium_metric=cost&amp;range=7d"`)
+	status, body = get(t, srv.URL+"/trends?range=all&conversation=conv-copilot&podium_metric=cost")
+	if status != http.StatusOK {
+		t.Fatalf("conversation cost page status %d", status)
+	}
+	wantContains(t, body, `class="chip" href="/trends?podium_metric=cost&amp;range=all"`)
+
+	status, body = get(t, srv.URL+"/fragments/trends?"+fullRangeQuery+"&podium_metric=cost&source=copilot")
+	if status != http.StatusOK {
+		t.Fatalf("filtered cost fragment status %d", status)
+	}
+	wantContains(t, body, "No model cost data in this timeframe.")
+}
+
+func TestTrendsModelPodiumPlainFormPreservesFilters(t *testing.T) {
+	srv := newServer(t)
+	defer srv.Close()
+	status, body := get(t, srv.URL+"/trends?range=all&source=copilot&provider=github&model=gpt-4.1&conversation=conv-copilot&podium_metric=days&bucket=month")
+	if status != http.StatusOK {
+		t.Fatalf("status %d", status)
+	}
+	start := strings.Index(body, `<form id="podium-controls"`)
+	if start < 0 {
+		t.Fatal("podium form missing")
+	}
+	end := strings.Index(body[start:], `</form>`)
+	if end < 0 {
+		t.Fatal("podium form closing tag missing")
+	}
+	form := body[start : start+end]
+	wantContains(t, form, `<noscript>`,
+		`name="range" value="all"`, `name="source" value="copilot"`,
+		`name="provider" value="github"`, `name="model" value="gpt-4.1"`,
+		`name="conversation" value="conv-copilot"`, `name="bucket" value="month"`)
+
+	status, body = get(t, srv.URL+"/trends?from=2026-03-01&to=2026-03-03&conversation=conv-copilot&podium_metric=days")
+	if status != http.StatusOK {
+		t.Fatalf("explicit range status %d", status)
+	}
+	wantContains(t, body, `class="chip" href="/trends?from=2026-03-01&amp;podium_metric=days&amp;to=2026-03-03"`)
+	start = strings.Index(body, `<form id="podium-controls"`)
+	end = strings.Index(body[start:], `</form>`)
+	form = body[start : start+end]
+	wantContains(t, form, `name="from" value="2026-03-01"`, `name="to" value="2026-03-03"`)
+}
+
+func TestTrendsModelPodiumUsesSelectedDateRange(t *testing.T) {
+	srv := newServer(t)
+	defer srv.Close()
+	status, body := get(t, srv.URL+"/trends?from=2026-03-01&to=2026-03-03")
+	if status != http.StatusOK {
+		t.Fatalf("status %d", status)
+	}
+	wantContains(t, body, `gpt-5.6-luna</strong>`, `120 <small>tokens</small>`,
+		`<input type="hidden" name="from" value="2026-03-01">`, `<input type="hidden" name="to" value="2026-03-03">`)
+	wantNotContains(t, body, `1,970 <small>tokens</small>`)
+}
+
+func TestTrendsModelPodiumRejectsInvalidSelection(t *testing.T) {
+	srv := newServer(t)
+	defer srv.Close()
+	status, _ := get(t, srv.URL+"/fragments/trends?podium_metric=requests")
+	if status != http.StatusBadRequest {
+		t.Errorf("invalid metric: status %d, want 400", status)
+	}
+}
+
 func TestFooterShowsVersion(t *testing.T) {
 	srv := newServer(t)
 	defer srv.Close()

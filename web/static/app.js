@@ -30,6 +30,18 @@ function renderDataCharts() {
 document.addEventListener('DOMContentLoaded', renderDataCharts);
 document.addEventListener('htmx:after:settle', renderDataCharts);
 
+// The Trends fragment changes independently of its range links. Keep the
+// chosen podium metric in those links when the selector changes in place.
+document.addEventListener('change', e => {
+  if (!e.target.matches('#podium-controls select[name="podium_metric"]')) return;
+  for (const link of document.querySelectorAll('#filter-bar .presets a, #filter-bar .chip')) {
+    const url = new URL(link.getAttribute('href'), window.location.href);
+    if (e.target.value === 'tokens') url.searchParams.delete('podium_metric');
+    else url.searchParams.set('podium_metric', e.target.value);
+    link.href = url.pathname + url.search + url.hash;
+  }
+});
+
 // CSS starts heatmaps at the right edge, without a visible scroll after paint.
 function initializeHeatmapNavigation(root = document) {
   const heatmaps = [];

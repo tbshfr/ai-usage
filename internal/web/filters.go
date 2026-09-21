@@ -21,6 +21,9 @@ type uiFilter struct {
 	Provider     string
 	Model        string
 	Conversation string
+	FromParam    string
+	ToParam      string
+	PodiumMetric string // set only for Trends after validating the metric
 }
 
 var rangeKeys = []struct{ key, label string }{
@@ -42,6 +45,8 @@ func parseFilter(r *http.Request) (storage.Filter, uiFilter, error) {
 		Provider:     q.Get("provider"),
 		Model:        q.Get("model"),
 		Conversation: q.Get("conversation"),
+		FromParam:    q.Get("from"),
+		ToParam:      q.Get("to"),
 	}
 	f := storage.Filter{Source: u.Source, Provider: u.Provider, Model: u.Model, Conversation: u.Conversation}
 	var err error
@@ -189,6 +194,9 @@ func presetViews(action string, u uiFilter) []presetView {
 		if u.Conversation != "" {
 			q.Set("conversation", u.Conversation)
 		}
+		if u.PodiumMetric != "" {
+			q.Set("podium_metric", u.PodiumMetric)
+		}
 		active := u.Range == k.key || (k.key == "today" && u.Range == "")
 		link := action
 		if enc := q.Encode(); enc != "" {
@@ -282,6 +290,15 @@ func withoutConversationURL(action string, u uiFilter) string {
 	}
 	if u.Model != "" {
 		q.Set("model", u.Model)
+	}
+	if u.FromParam != "" {
+		q.Set("from", u.FromParam)
+	}
+	if u.ToParam != "" {
+		q.Set("to", u.ToParam)
+	}
+	if u.PodiumMetric != "" {
+		q.Set("podium_metric", u.PodiumMetric)
 	}
 	return action + "?" + q.Encode()
 }

@@ -1,0 +1,43 @@
+{{define "model-podium"}}
+<section class="podium-panel" aria-labelledby="podium-title">
+  <div class="podium-head">
+    <div>
+      <p class="podium-eyebrow">Leaderboard</p>
+      <h2 id="podium-title">Top models</h2>
+      <p class="muted podium-description">{{if eq .Podium.Metric "days"}}Distinct UTC days with a request. Copilot autocomplete, title, and progress helpers are excluded.{{else if eq .Podium.Metric "cost"}}Known reported and estimated costs.{{else}}Total tokens across all token types.{{end}}</p>
+    </div>
+    <form id="podium-controls" class="podium-controls" method="get" action="/trends" hx-get="/fragments/trends" hx-trigger="change" hx-target="#trends" hx-include="#filter-bar, #bucket-form, #podium-controls" hx-sync="#trends:replace">
+      <label>Rank by
+        <select name="podium_metric" aria-label="Podium ranking metric">
+          <option value="tokens"{{if eq .Podium.Metric "tokens"}} selected{{end}}>Most tokens</option>
+          <option value="days"{{if eq .Podium.Metric "days"}} selected{{end}}>Most days used</option>
+          <option value="cost"{{if eq .Podium.Metric "cost"}} selected{{end}}>Highest cost</option>
+        </select>
+      </label>
+      <noscript>
+        {{if .F.Selected.Range}}<input type="hidden" name="range" value="{{.F.Selected.Range}}">{{end}}
+        {{if .F.Selected.Source}}<input type="hidden" name="source" value="{{.F.Selected.Source}}">{{end}}
+        {{if .F.Selected.Provider}}<input type="hidden" name="provider" value="{{.F.Selected.Provider}}">{{end}}
+        {{if .F.Selected.Model}}<input type="hidden" name="model" value="{{.F.Selected.Model}}">{{end}}
+        {{if .F.Selected.Conversation}}<input type="hidden" name="conversation" value="{{.F.Selected.Conversation}}">{{end}}
+        {{range .F.Hidden}}{{if .Value}}<input type="hidden" name="{{.Name}}" value="{{.Value}}">{{end}}{{end}}
+        <input type="hidden" name="bucket" value="{{.Charts.Bucket}}">
+        <button type="submit">Apply</button>
+      </noscript>
+    </form>
+  </div>
+  {{if .Podium.Rows}}
+  <ol class="model-podium" aria-label="Top models ranked by {{.Podium.Metric}}">
+    {{range $i, $row := .Podium.Rows}}<li class="podium-place podium-place-{{$i}}">
+      <div class="podium-entry">
+        <span class="podium-rank" aria-label="Rank {{if eq $i 0}}1{{else if eq $i 1}}2{{else}}3{{end}}">{{if eq $i 0}}1{{else if eq $i 1}}2{{else}}3{{end}}</span>
+        <strong class="podium-model">{{$row.Model}}</strong>
+        <span class="podium-value">{{if eq $.Podium.Metric "days"}}{{commas $row.ActiveDays}} <small>{{if eq $row.ActiveDays 1}}day{{else}}days{{end}}</small>{{else if eq $.Podium.Metric "cost"}}{{costCell $row.CostKnownCount $row.CostTotal $row.CostEstimatedCount}}{{else}}{{commas $row.TotalTokens}} <small>tokens</small>{{end}}</span>
+      </div>
+      <div class="podium-step" aria-hidden="true"><span>{{if eq $i 0}}1{{else if eq $i 1}}2{{else}}3{{end}}</span></div>
+    </li>{{end}}
+  </ol>
+  {{if eq .Podium.Metric "cost"}}<p class="podium-note muted">Costs can be incomplete when some requests have no price. Models with no cost data are excluded.</p>{{end}}
+  {{else}}<p class="podium-empty muted">{{if eq .Podium.Metric "cost"}}No model cost data in this timeframe.{{else if eq .Podium.Metric "days"}}No eligible model usage in this timeframe.{{else}}No model usage in this timeframe.{{end}}</p>{{end}}
+</section>
+{{end}}

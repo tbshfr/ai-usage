@@ -539,15 +539,35 @@ func (p *Pipeline) storeGenerations(ctx context.Context, gens []normalize.Genera
 			}
 		}
 	}
-	// One notification per stored batch: bursts of spans coalesce into a
-	// single "data changed" signal for the dashboard's SSE stream.
-	if p.AfterCommit != nil && len(gens) > 0 {
+	// The pricing worker wakes only when the batch can have queued pricing
+	// work: records without a harness-reported cost are pending when
+	// inserted, and only such a record re-queues a merged row — one carrying
+	// a cost finalizes the row instead. A costed batch never wakes it.
+	if p.AfterCommit != nil && needsPricing(gens) {
 		p.AfterCommit()
 	}
-	if p.hub != nil && (stored > 0 || (p.AfterCommit != nil && len(gens) > 0)) {
+	// One notification per stored batch: bursts of spans coalesce into a
+	// single "data changed" signal for the dashboard's SSE stream. Fully
+	// deduplicated batches stay silent, so retried exports never refresh.
+	if p.hub != nil && stored > 0 {
 		p.hub.Notify()
 	}
 	return nil
+}
+
+// needsPricing reports whether the batch can have queued pricing work.
+// Records without a harness-reported cost are marked pending at insert,
+// and a merge re-queues an already-priced row only when such a record
+// fills pricing-relevant columns. A pure retry of unpriced records still
+// reports true: the wake is coalesced and the pending scan is indexed, so
+// the false positive costs one cheap check.
+func needsPricing(gens []normalize.Generation) bool {
+	for _, g := range gens {
+		if g.Cost == nil {
+			return true
+		}
+	}
+	return false
 }
 
 // countBySource counts generations per source (fixed enum).

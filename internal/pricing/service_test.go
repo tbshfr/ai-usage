@@ -3,6 +3,7 @@ package pricing
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -350,6 +351,55 @@ func TestConditionalRatesAndFixtureAliases(t *testing.T) {
 		if got := estimate(g, c["time/model"]); got == nil || *got != tc.want {
 			t.Errorf("%s = %v want %g", tc.stamp, got, tc.want)
 		}
+	}
+}
+
+// TestOverridePriceKeysAndDayCasing pins the override grammar of the
+// OpenRouter API: condition fields are evaluated, price fields reuse the
+// base pricing keys as JSON strings (the estimate ignores units it does not
+// bill), and any other value is an unrecognized condition that skips the
+// entry. Real catalogs carry audio, input_audio_cache, and
+// input_cache_write_1h price keys inside overrides.
+func TestOverridePriceKeysAndDayCasing(t *testing.T) {
+	c, err := parseCatalog([]byte(`{"data":[{"id":"unit/model","pricing":{"prompt":"1","completion":"2","request":"0","overrides":[
+	{"min_prompt_tokens":100,"prompt":"3","audio":"0.000004","input_audio_cache":"0.0000004","input_cache_write_1h":"0.000012"},
+	{"utc_days":["Thursday","SUNDAY"],"completion":"9"},
+	{"image":true,"prompt":"999"},
+	{"future_unit":"0.001","request":"0.5"}
+	]}}]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	thursday := usage("x", "test") // 2026-01-01 is a Thursday
+	for _, tc := range []struct {
+		override string
+		want     bool
+	}{
+		{`{"utc_days":["Thursday","SUNDAY"]}`, true},
+		{`{"utc_days":["friday"]}`, false},
+		{`{"image":true,"prompt":"999"}`, false},
+		{`{"future_unit":"0.001","request":"0.5"}`, true},
+	} {
+		var o map[string]json.RawMessage
+		if err := json.Unmarshal([]byte(tc.override), &o); err != nil {
+			t.Fatal(err)
+		}
+		if got := overrideMatches(o, thursday); got != tc.want {
+			t.Errorf("overrideMatches(%s) = %v, want %v", tc.override, got, tc.want)
+		}
+	}
+	// Unmodeled unit prices (audio, future_unit) must not skip their entry:
+	// 100*1 + 20*9 + 0.5 request.
+	r := c["unit/model"]
+	if got := estimate(thursday, r); got == nil || *got != 280.5 {
+		t.Fatalf("at threshold = %v, want 280.5", got)
+	}
+	// Above the threshold the token prices come from the first entry:
+	// 101*3 + 20*9 + 0.5.
+	above := thursday
+	above.InputTokens = ptr(int64(101))
+	if got := estimate(above, r); got == nil || *got != 483.5 {
+		t.Fatalf("above threshold = %v, want 483.5", got)
 	}
 }
 

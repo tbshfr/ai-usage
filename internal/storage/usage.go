@@ -96,7 +96,11 @@ const (
 // record and non-nil values are never overwritten with nil — retried OTLP
 // batches reuse the same trace/span IDs, possibly with more attributes
 // filled in (docs/telemetry.md D2, README rule 3). A newly reported harness
-// cost supersedes an estimate; existing harness costs are preserved.
+// cost supersedes an estimate; existing harness costs are preserved. A
+// merge re-queues pricing only when it fills previously-NULL model or token
+// columns, so a retried batch with no new information never re-enqueues an
+// already-enriched row; every merge still bumps pricing_revision so
+// enrichment racing a re-delivered record cannot land stale results.
 func InsertGeneration(ctx context.Context, db *sql.DB, gen normalize.Generation) (bool, error) {
 	return insertGeneration(ctx, db, gen)
 }
@@ -178,7 +182,17 @@ const mergeSQL = `UPDATE generations SET
 	pricing_fetched_at = CASE WHEN ? IS NOT NULL THEN NULL ELSE pricing_fetched_at END,
 	pricing_rates = CASE WHEN ? IS NOT NULL THEN NULL ELSE pricing_rates END,
 	cost_reported_by_harness = CASE WHEN ? IS NOT NULL THEN 1 ELSE cost_reported_by_harness END,
-	pricing_pending = CASE WHEN cost_reported_by_harness = 1 OR ? IS NOT NULL THEN 0 ELSE 1 END,
+	pricing_pending = CASE
+		WHEN cost_reported_by_harness = 1 OR ? IS NOT NULL THEN 0
+		WHEN (model IS NULL AND ? IS NOT NULL)
+			OR (input_tokens IS NULL AND ? IS NOT NULL)
+			OR (output_tokens IS NULL AND ? IS NOT NULL)
+			OR (cache_read_tokens IS NULL AND ? IS NOT NULL)
+			OR (cache_creation_tokens IS NULL AND ? IS NOT NULL)
+			OR (reasoning_tokens IS NULL AND ? IS NOT NULL)
+		THEN 1
+		ELSE pricing_pending
+	END,
 	pricing_revision = pricing_revision + 1,
 	conversation_id = COALESCE(conversation_id, ?),
 	duration_ms = COALESCE(duration_ms, ?),
@@ -232,6 +246,13 @@ func mergeArgs(gen normalize.Generation) []any {
 		nullableFloat(gen.Cost),
 		nullableFloat(gen.Cost),
 		nullableFloat(gen.Cost),
+		// pricing_pending: does the merge fill a pricing-relevant column?
+		nullableString(gen.Model),
+		nullableInt(gen.InputTokens),
+		nullableInt(gen.OutputTokens),
+		nullableInt(gen.CacheReadTokens),
+		nullableInt(gen.CacheCreationTokens),
+		nullableInt(gen.ReasoningTokens),
 		nullableString(gen.ConversationID),
 		nullableDuration(gen.Duration),
 		nullableString(gen.AgentName),

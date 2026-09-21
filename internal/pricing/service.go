@@ -193,7 +193,11 @@ func (s *Service) process(ctx context.Context) error {
 		}
 		for _, g := range gens {
 			after = g.ID
-			// Keep pending paid records during a cold-cache outage for the next attempt.
+			// Keep pending paid records during a cold-cache outage for the
+			// next attempt. Once any catalog is available, unknown models are
+			// finalized as unknown: later refreshes do not revisit them, so
+			// the pending queue cannot grow without bound (newly listed
+			// models only price requests ingested after they appear).
 			enriched := s.enrich(g)
 			if len(s.catalog) == 0 && enriched.Cost == nil {
 				continue

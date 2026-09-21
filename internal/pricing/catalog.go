@@ -158,8 +158,11 @@ func freeModel(model string) bool {
 	return strings.HasSuffix(strings.ToLower(strings.TrimSpace(model)), "free")
 }
 
-// forUsage applies OpenRouter's ordered conditional overrides. Unknown condition
-// fields skip the entry, as required by the API's forward-compatibility rules.
+// forUsage applies OpenRouter's ordered conditional overrides; when several
+// entries match, later entries win per key. Entries with conditions the
+// estimate cannot evaluate are skipped (see overrideMatches), while price
+// fields for units it does not bill (images, searches, audio, cache-write
+// tiers, ...) are ignored and the entry still applies.
 func (r rates) forUsage(g normalize.Generation) (rates, bool) {
 	for _, override := range r.Overrides {
 		if !overrideMatches(override, g) {
@@ -205,14 +208,20 @@ func (r rates) forUsage(g normalize.Generation) (rates, bool) {
 	return r, true
 }
 
+// Override entries mix condition fields (min_prompt_tokens, utc_start,
+// utc_end, utc_days) with price fields that reuse the base pricing keys.
+// Prices are always JSON strings in the catalog schema, so any other
+// non-string value is an unrecognized condition and the entry is skipped,
+// as the API's forward-compatibility rules require.
 func overrideMatches(o map[string]json.RawMessage, g normalize.Generation) bool {
-	for key := range o {
+	for key, raw := range o {
 		switch key {
-		case "min_prompt_tokens", "utc_start", "utc_end", "utc_days",
-			"prompt", "completion", "input_cache_read", "input_cache_write", "internal_reasoning", "request",
-			"image", "web_search", "input_cache_write_1h":
+		case "min_prompt_tokens", "utc_start", "utc_end", "utc_days":
 		default:
-			return false
+			var price string
+			if json.Unmarshal(raw, &price) != nil {
+				return false
+			}
 		}
 	}
 	if raw, ok := o["min_prompt_tokens"]; ok {
@@ -233,7 +242,8 @@ func overrideMatches(o map[string]json.RawMessage, g normalize.Generation) bool 
 	}
 	if raw, ok := o["utc_days"]; ok {
 		var days []string
-		if json.Unmarshal(raw, &days) != nil || !slices.Contains(days, strings.ToLower(g.Timestamp.UTC().Weekday().String())) {
+		weekday := g.Timestamp.UTC().Weekday().String()
+		if json.Unmarshal(raw, &days) != nil || !slices.ContainsFunc(days, func(day string) bool { return strings.EqualFold(day, weekday) }) {
 			return false
 		}
 	}

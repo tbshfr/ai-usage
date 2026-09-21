@@ -190,7 +190,10 @@ output, reasoning, cache, and per-request rates. Missing cache rates fall back t
 normal input rates. Input and output counts are required; absent optional token
 counts are treated as zero. Matching uses exact model IDs, unique bare IDs, and
 explicit aliases for known harness names. When OpenRouter has no match, manual
-prices are checked; models without a usable price stay unknown.
+prices are checked; models without a usable price stay unknown. That outcome
+is final for the row: later catalog refreshes never revisit unknown models
+(only retried fetches during a cold-cache outage keep rows pending), so a
+newly listed model prices only requests ingested after it appears.
 
 Conditional rates use the request's full prompt count and UTC timestamp. Estimates
 cover token usage and fixed request charges, not unreported image, search, or other

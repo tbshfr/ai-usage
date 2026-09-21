@@ -4,58 +4,30 @@ This is the single source of truth for refreshing the sanitized fixtures
 under `testdata/opencode/`, `testdata/copilot/`, and `testdata/codex/`. Run it
 when a source tool or plugin changes its telemetry.
 
-The current app does not persist raw payloads, so capture into a small
-throwaway receiver first, then sanitize. **Never commit unsanitized
-captures.**
+The current app does not persist raw payloads, so capture into the
+small `cmd/capture` receiver first, then sanitize. **Never commit
+unsanitized captures.**
 
 ## 1. Capture raw OTLP
 
-Create a throwaway capture receiver in a scratch directory (outside this
-repo) and run it:
-
-```go
-// main.go — minimal OTLP/HTTP capture receiver; module with
-// go.opentelemetry.io/collector/pdata and the standard library only.
-package main
-
-import (
-	"fmt"
-	"go.opentelemetry.io/collector/pdata/plog"
-	"go.opentelemetry.io/collector/pdata/pmetric"
-	"go.opentelemetry.io/collector/pdata/ptrace"
-	"io"
-	"net/http"
-	"os"
-)
-
-func main() {
-	for _, route := range []struct {
-		path string
-		kind string
-	}{{"/v1/traces", "traces"}, {"/v1/metrics", "metrics"}, {"/v1/logs", "logs"}} {
-		kind := route.kind
-		http.HandleFunc(route.path, func(w http.ResponseWriter, r *http.Request) {
-			body, _ := io.ReadAll(r.Body)
-			name := fmt.Sprintf("%s/%s-%d.%s", os.Args[1], kind, len(body), encoding(r))
-			os.WriteFile(name, body, 0o600)
-			w.WriteHeader(200)
-		})
-	}
-	http.ListenAndServe("127.0.0.1:4318", nil)
-}
-
-func encoding(r *http.Request) string {
-	if r.Header.Get("Content-Type") == "application/json" {
-		return "json"
-	}
-	return "pb"
-}
-```
+Run the in-repo capture receiver (`cmd/capture/main.go`):
 
 ```bash
 mkdir -p /tmp/ai-usage-capture/opencode /tmp/ai-usage-capture/copilot /tmp/ai-usage-capture/codex
-go mod init capture && go mod tidy && go run . /tmp/ai-usage-capture
+go run ./cmd/capture /tmp/ai-usage-capture/opencode
 ```
+
+Point it at one source subdirectory at a time (e.g. `.../copilot`,
+`.../codex` for the later steps). It listens on `127.0.0.1:4318` for
+`POST /v1/traces`, `/v1/metrics`, `/v1/logs` and writes every request
+body to disk unchanged as `<dir>/<kind>-<unixmilli>-<n>.<ext>`, where
+`<kind>` is `traces`, `metrics`, or `logs`, `<unixmilli>` is the receive
+time, `<n>` is a monotonically increasing counter (6 digits, so
+same-millisecond and same-size batches never overwrite each other), and
+`<ext>` is `json` when `Content-Type` is `application/json`, `pb`
+otherwise. Files are created with mode `0600` and each capture is logged
+to stdout as `captured <kind> <bytes> bytes -> <file>`; the receiver
+always answers `200`.
 
 ## 2. OpenCode
 

@@ -201,6 +201,8 @@ billable units. They may differ from charges by the actual provider or subscript
 The request detail shows when prices were fetched. Daily catalog changes do not
 reprice stored costs. Later token enrichment uses the saved rates, and a later
 harness-reported cost replaces an estimate.
+Only rates used by estimated requests are retained as shared price snapshots;
+requests reference their snapshot instead of storing duplicate rate JSON.
 
 Existing requests with missing costs are backfilled **once per database**, after
 usage arrives and a fresh catalog is available. Historical estimates use prices

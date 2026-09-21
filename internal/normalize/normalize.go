@@ -40,7 +40,8 @@ type Generation struct {
 	CostSource            string
 	PricingModelID        string
 	PricingFetchedAt      *time.Time
-	// PricingRates preserves the rates used when later telemetry fills missing tokens.
+	// PricingRates is loaded from the shared price snapshot so later telemetry
+	// can be priced with the original rates.
 	PricingRates    string
 	PricingRevision int64
 	ConversationID  string

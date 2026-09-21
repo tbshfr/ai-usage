@@ -73,7 +73,7 @@ func TestSnapshotWALConcurrent(t *testing.T) {
 	if count < 100 || total != count*10 {
 		t.Fatalf("inconsistent totals %d %d", count, total)
 	}
-	if err := restored.QueryRow("SELECT count(*) FROM schema_migrations").Scan(&migrations); err != nil || migrations != 6 {
+	if err := restored.QueryRow("SELECT count(*) FROM schema_migrations").Scan(&migrations); err != nil || migrations != 5 {
 		t.Fatalf("schema %d %v", migrations, err)
 	}
 	if _, err := db.Exec("INSERT INTO generations(id,timestamp,source,created_at) VALUES('after',1,'codex',1)"); err != nil {

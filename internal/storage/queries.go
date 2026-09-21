@@ -525,7 +525,8 @@ const generationColumns = `
 	input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens, reasoning_tokens,
 	cost, conversation_id, trace_id, span_id, duration_ms,
 	agent_name, git_repo, git_branch, cost_reported_by_harness, cost_source,
-	COALESCE(pricing_model_id, ''), pricing_fetched_at, COALESCE(pricing_rates, ''), pricing_revision`
+	COALESCE(pricing_model_id, ''), pricing_fetched_at,
+	COALESCE((SELECT rates_json FROM pricing_snapshots WHERE id = pricing_snapshot_id), ''), pricing_revision`
 
 func RecentGenerations(ctx context.Context, db *sql.DB, f Filter, order Order, limit, offset int) ([]normalize.Generation, error) {
 	if limit <= 0 {

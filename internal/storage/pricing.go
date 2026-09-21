@@ -53,19 +53,44 @@ func pricingRows(ctx context.Context, db *sql.DB, where string, args ...any) ([]
 	return out, rows.Err()
 }
 
-// ApplyPricing uses a revision check so enrichment cannot overwrite newer telemetry.
+// ApplyPricing saves a used rate set and updates its generation in one
+// transaction. The revision check prevents stale enrichment from overwriting
+// newer telemetry or leaving behind an unused snapshot.
 func ApplyPricing(ctx context.Context, db *sql.DB, g normalize.Generation) (bool, error) {
 	var fetched any
 	if g.PricingFetchedAt != nil {
 		fetched = g.PricingFetchedAt.UnixMilli()
 	}
-	result, err := db.ExecContext(ctx, `UPDATE generations SET cost = ?, cost_source = ?,
-  pricing_model_id = ?, pricing_fetched_at = ?, pricing_rates = ?, pricing_pending = 0
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return false, err
+	}
+	defer tx.Rollback()
+	var snapshotID any
+	if g.PricingRates != "" {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO pricing_snapshots (rates_json) VALUES (?) ON CONFLICT(rates_json) DO NOTHING`, g.PricingRates); err != nil {
+			return false, err
+		}
+		if err := tx.QueryRowContext(ctx, `SELECT id FROM pricing_snapshots WHERE rates_json = ?`, g.PricingRates).Scan(&snapshotID); err != nil {
+			return false, err
+		}
+	}
+	result, err := tx.ExecContext(ctx, `UPDATE generations SET cost = ?, cost_source = ?,
+  pricing_model_id = ?, pricing_fetched_at = ?, pricing_snapshot_id = ?, pricing_pending = 0
   WHERE id = ? AND pricing_revision = ? AND cost_reported_by_harness = 0`,
-		nullableFloat(g.Cost), g.CostSource, nullableString(g.PricingModelID), fetched, nullableString(g.PricingRates), g.ID, g.PricingRevision)
+		nullableFloat(g.Cost), g.CostSource, nullableString(g.PricingModelID), fetched, snapshotID, g.ID, g.PricingRevision)
 	if err != nil {
 		return false, err
 	}
 	n, err := result.RowsAffected()
-	return n > 0 && g.Cost != nil, err
+	if err != nil {
+		return false, err
+	}
+	if n == 0 {
+		return false, nil
+	}
+	if err := tx.Commit(); err != nil {
+		return false, err
+	}
+	return g.Cost != nil, nil
 }

@@ -259,14 +259,18 @@ func TestInsertGenerationMergePricingQueue(t *testing.T) {
 		t.Fatalf("insert: inserted=%v err=%v", inserted, err)
 	}
 	// Simulate the pricing worker's result: estimated, rates saved, queue drained.
+	if _, err := db.Exec(`INSERT INTO pricing_snapshots (rates_json) VALUES ('{}')`); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := db.Exec(`UPDATE generations SET cost = 1.5, cost_source = 'openrouter',
-		pricing_rates = '{}', pricing_pending = 0, pricing_revision = 5 WHERE id = 'abc'`); err != nil {
+		pricing_snapshot_id = (SELECT id FROM pricing_snapshots WHERE rates_json = '{}'),
+		pricing_pending = 0, pricing_revision = 5 WHERE id = 'abc'`); err != nil {
 		t.Fatal(err)
 	}
 
 	state := func() (pending, revision int, cost any, source string, harness int, rates any) {
 		err := db.QueryRow(`SELECT pricing_pending, pricing_revision, cost, cost_source,
-			cost_reported_by_harness, pricing_rates FROM generations WHERE id = 'abc'`).
+			cost_reported_by_harness, pricing_snapshot_id FROM generations WHERE id = 'abc'`).
 			Scan(&pending, &revision, &cost, &source, &harness, &rates)
 		if err != nil {
 			t.Fatal(err)
@@ -280,8 +284,8 @@ func TestInsertGenerationMergePricingQueue(t *testing.T) {
 	if inserted, err := InsertGeneration(ctx, db, gen); err != nil || inserted {
 		t.Fatalf("retry: inserted=%v err=%v", inserted, err)
 	}
-	if pending, revision, cost, _, _, rates := state(); pending != 0 || revision != 6 || cost != 1.5 || rates != "{}" {
-		t.Fatalf("no-op merge re-queued pricing: pending=%d revision=%d cost=%v rates=%v", pending, revision, cost, rates)
+	if pending, revision, cost, _, _, snapshot := state(); pending != 0 || revision != 6 || cost != 1.5 || snapshot != int64(1) {
+		t.Fatalf("no-op merge re-queued pricing: pending=%d revision=%d cost=%v snapshot=%v", pending, revision, cost, snapshot)
 	}
 
 	// A retry carrying more tokens re-queues the row for re-estimation.
@@ -300,10 +304,10 @@ func TestInsertGenerationMergePricingQueue(t *testing.T) {
 	if inserted, err := InsertGeneration(ctx, db, paid); err != nil || inserted {
 		t.Fatalf("cost merge: inserted=%v err=%v", inserted, err)
 	}
-	if pending, revision, cost, source, harness, rates := state(); pending != 0 || revision != 8 ||
-		cost != 0.75 || source != "harness" || harness != 1 || rates != nil {
-		t.Fatalf("cost merge must finalize: pending=%d revision=%d cost=%v source=%s harness=%d rates=%v",
-			pending, revision, cost, source, harness, rates)
+	if pending, revision, cost, source, harness, snapshot := state(); pending != 0 || revision != 8 ||
+		cost != 0.75 || source != "harness" || harness != 1 || snapshot != nil {
+		t.Fatalf("cost merge must finalize: pending=%d revision=%d cost=%v source=%s harness=%d snapshot=%v",
+			pending, revision, cost, source, harness, snapshot)
 	}
 }
 

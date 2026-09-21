@@ -181,7 +181,7 @@ const mergeSQL = `UPDATE generations SET
 	cost_source = CASE WHEN cost_reported_by_harness = 1 OR ? IS NOT NULL THEN 'harness' ELSE cost_source END,
 	pricing_model_id = CASE WHEN ? IS NOT NULL THEN NULL ELSE pricing_model_id END,
 	pricing_fetched_at = CASE WHEN ? IS NOT NULL THEN NULL ELSE pricing_fetched_at END,
-	pricing_rates = CASE WHEN ? IS NOT NULL THEN NULL ELSE pricing_rates END,
+	pricing_snapshot_id = CASE WHEN ? IS NOT NULL THEN NULL ELSE pricing_snapshot_id END,
 	cost_reported_by_harness = CASE WHEN ? IS NOT NULL THEN 1 ELSE cost_reported_by_harness END,
 	pricing_pending = CASE
 		WHEN cost_reported_by_harness = 1 OR ? IS NOT NULL THEN 0

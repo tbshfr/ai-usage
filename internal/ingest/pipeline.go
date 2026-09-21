@@ -128,9 +128,11 @@ type Stats struct {
 // stored at least one new generation notifies it once, so the dashboard
 // can refresh its live fragments.
 type Pipeline struct {
-	db     *sql.DB
-	logger *slog.Logger
-	hub    *live.Hub
+	// AfterCommit is configured before listeners start; it must not block.
+	AfterCommit func()
+	db          *sql.DB
+	logger      *slog.Logger
+	hub         *live.Hub
 
 	received   atomic.Uint64
 	normalized atomic.Uint64
@@ -537,12 +539,36 @@ func (p *Pipeline) storeGenerations(ctx context.Context, gens []normalize.Genera
 			}
 		}
 	}
+	// The pricing worker wakes only when the batch can have queued pricing
+	// work: records without a harness-reported cost are pending when
+	// inserted, and such a record can re-queue a merged row when it fills
+	// pricing inputs or moves an estimate's timestamp earlier. A costed
+	// batch finalizes the row and never wakes the worker.
+	if p.AfterCommit != nil && needsPricing(gens) {
+		p.AfterCommit()
+	}
 	// One notification per stored batch: bursts of spans coalesce into a
-	// single "data changed" signal for the dashboard's SSE stream.
+	// single "data changed" signal for the dashboard's SSE stream. Fully
+	// deduplicated batches stay silent, so retried exports never refresh.
 	if p.hub != nil && stored > 0 {
 		p.hub.Notify()
 	}
 	return nil
+}
+
+// needsPricing reports whether the batch can have queued pricing work.
+// Records without a harness-reported cost are marked pending at insert,
+// and a merge re-queues an already-priced row when such a record fills
+// pricing-relevant columns or moves its timestamp earlier. A pure retry still
+// reports true: the wake is coalesced and the pending scan is indexed, so
+// the false positive costs one cheap check.
+func needsPricing(gens []normalize.Generation) bool {
+	for _, g := range gens {
+		if g.Cost == nil {
+			return true
+		}
+	}
+	return false
 }
 
 // countBySource counts generations per source (fixed enum).

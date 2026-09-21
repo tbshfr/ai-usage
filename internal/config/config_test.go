@@ -261,3 +261,23 @@ func TestInvalidListenAddress(t *testing.T) {
 		t.Error("want error for address without port")
 	}
 }
+
+func TestManualPricingFileFlagAndEnv(t *testing.T) {
+	env := envOf(map[string]string{"AI_USAGE_PRICING_FILE": "env-prices.json"})
+	for _, tc := range []struct {
+		args []string
+		want string
+	}{
+		{nil, "env-prices.json"},
+		{[]string{"--pricing-file", "flag-prices.json"}, "flag-prices.json"},
+		{[]string{"--pricing-file", ""}, ""},
+	} {
+		cfg, err := Load(tc.args, env, "linux", t.TempDir())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if cfg.PricingFile != tc.want {
+			t.Fatalf("pricing file %q want %q", cfg.PricingFile, tc.want)
+		}
+	}
+}

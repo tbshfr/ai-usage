@@ -60,6 +60,9 @@ func apiRoutes(db *sql.DB, stats StatsFunc, reasons ReasonCountsFunc, logger *sl
 			CacheCreationTokens: s.CacheCreationTokens,
 			CacheHitRate:        s.CacheHitRate(),
 			ReasoningTokens:     s.ReasoningTokens,
+			CostReportedCount:   s.CostReportedCount,
+			CostEstimatedCount:  s.CostEstimatedCount,
+			CostFreeCount:       s.CostFreeCount,
 			CostKnownCount:      s.CostKnownCount,
 			CostTotal:           s.CostTotal,
 			CostUnknownCount:    s.CostUnknownCount,
@@ -95,6 +98,9 @@ func apiRoutes(db *sql.DB, stats StatsFunc, reasons ReasonCountsFunc, logger *sl
 				CacheReadTokens:     p.CacheReadTokens,
 				CacheCreationTokens: p.CacheCreationTokens,
 				ReasoningTokens:     p.ReasoningTokens,
+				CostReportedCount:   p.CostReportedCount,
+				CostEstimatedCount:  p.CostEstimatedCount,
+				CostFreeCount:       p.CostFreeCount,
 				CostKnownCount:      p.CostKnownCount,
 				CostTotal:           p.CostTotal,
 			})
@@ -312,6 +318,9 @@ func breakdownOf(ctx context.Context, db *sql.DB, f storage.Filter, column strin
 			CacheCreationTokens: b.CacheCreationTokens,
 			CacheHitRate:        b.CacheHitRate(),
 			ReasoningTokens:     b.ReasoningTokens,
+			CostReportedCount:   b.CostReportedCount,
+			CostEstimatedCount:  b.CostEstimatedCount,
+			CostFreeCount:       b.CostFreeCount,
 			CostKnownCount:      b.CostKnownCount,
 			CostUnknownCount:    b.CostUnknownCount,
 			CostTotal:           b.CostTotal,
@@ -418,6 +427,9 @@ type summaryResponse struct {
 	CacheCreationTokens int64      `json:"cacheCreationTokens"`
 	CacheHitRate        *float64   `json:"cacheHitRate"`
 	ReasoningTokens     int64      `json:"reasoningTokens"`
+	CostReportedCount   int64      `json:"costReportedCount"`
+	CostEstimatedCount  int64      `json:"costEstimatedCount"`
+	CostFreeCount       int64      `json:"costFreeCount"`
 	CostKnownCount      int64      `json:"costKnownCount"`
 	CostTotal           *float64   `json:"costTotal"`
 	CostUnknownCount    int64      `json:"costUnknownCount"`
@@ -431,6 +443,9 @@ type timeseriesPoint struct {
 	CacheReadTokens     int64    `json:"cacheReadTokens"`
 	CacheCreationTokens int64    `json:"cacheCreationTokens"`
 	ReasoningTokens     int64    `json:"reasoningTokens"`
+	CostReportedCount   int64    `json:"costReportedCount"`
+	CostEstimatedCount  int64    `json:"costEstimatedCount"`
+	CostFreeCount       int64    `json:"costFreeCount"`
 	CostKnownCount      int64    `json:"costKnownCount"`
 	CostTotal           *float64 `json:"costTotal"`
 }
@@ -444,31 +459,38 @@ type breakdownRow struct {
 	CacheCreationTokens int64    `json:"cacheCreationTokens"`
 	CacheHitRate        *float64 `json:"cacheHitRate"`
 	ReasoningTokens     int64    `json:"reasoningTokens"`
+	CostReportedCount   int64    `json:"costReportedCount"`
+	CostEstimatedCount  int64    `json:"costEstimatedCount"`
+	CostFreeCount       int64    `json:"costFreeCount"`
 	CostKnownCount      int64    `json:"costKnownCount"`
 	CostUnknownCount    int64    `json:"costUnknownCount"`
 	CostTotal           *float64 `json:"costTotal"`
 }
 
 type generation struct {
-	ID                  string   `json:"id"`
-	Timestamp           string   `json:"timestamp"`
-	Source              string   `json:"source"`
-	ServiceName         string   `json:"serviceName"`
-	Provider            string   `json:"provider"`
-	Model               string   `json:"model"`
-	InputTokens         *int64   `json:"inputTokens"`
-	OutputTokens        *int64   `json:"outputTokens"`
-	CacheReadTokens     *int64   `json:"cacheReadTokens"`
-	CacheCreationTokens *int64   `json:"cacheCreationTokens"`
-	ReasoningTokens     *int64   `json:"reasoningTokens"`
-	Cost                *float64 `json:"cost"`
-	ConversationID      string   `json:"conversationId"`
-	TraceID             string   `json:"traceId"`
-	SpanID              string   `json:"spanId"`
-	DurationMS          *int64   `json:"durationMs"`
-	AgentName           string   `json:"agentName"`
-	GitRepo             string   `json:"gitRepo"`
-	GitBranch           string   `json:"gitBranch"`
+	CostReportedByHarness bool       `json:"costReportedByHarness"`
+	CostSource            string     `json:"costSource"`
+	PricingModelID        string     `json:"pricingModelId"`
+	PricingFetchedAt      *time.Time `json:"pricingFetchedAt"`
+	ID                    string     `json:"id"`
+	Timestamp             string     `json:"timestamp"`
+	Source                string     `json:"source"`
+	ServiceName           string     `json:"serviceName"`
+	Provider              string     `json:"provider"`
+	Model                 string     `json:"model"`
+	InputTokens           *int64     `json:"inputTokens"`
+	OutputTokens          *int64     `json:"outputTokens"`
+	CacheReadTokens       *int64     `json:"cacheReadTokens"`
+	CacheCreationTokens   *int64     `json:"cacheCreationTokens"`
+	ReasoningTokens       *int64     `json:"reasoningTokens"`
+	Cost                  *float64   `json:"cost"`
+	ConversationID        string     `json:"conversationId"`
+	TraceID               string     `json:"traceId"`
+	SpanID                string     `json:"spanId"`
+	DurationMS            *int64     `json:"durationMs"`
+	AgentName             string     `json:"agentName"`
+	GitRepo               string     `json:"gitRepo"`
+	GitBranch             string     `json:"gitBranch"`
 }
 
 func generationJSON(g normalize.Generation) generation {
@@ -478,25 +500,29 @@ func generationJSON(g normalize.Generation) generation {
 		durationMS = &ms
 	}
 	return generation{
-		ID:                  g.ID,
-		Timestamp:           g.Timestamp.UTC().Format(time.RFC3339),
-		Source:              g.Source,
-		ServiceName:         g.ServiceName,
-		Provider:            g.Provider,
-		Model:               g.Model,
-		InputTokens:         g.UncachedInput(),
-		OutputTokens:        g.NonReasoningOutput(),
-		CacheReadTokens:     g.CacheReadTokens,
-		CacheCreationTokens: g.CacheCreationTokens,
-		ReasoningTokens:     g.ReasoningTokens,
-		Cost:                g.Cost,
-		ConversationID:      g.ConversationID,
-		TraceID:             g.TraceID,
-		SpanID:              g.SpanID,
-		DurationMS:          durationMS,
-		AgentName:           g.AgentName,
-		GitRepo:             g.GitRepo,
-		GitBranch:           g.GitBranch,
+		CostReportedByHarness: g.CostReportedByHarness,
+		CostSource:            g.CostSource,
+		PricingModelID:        g.PricingModelID,
+		PricingFetchedAt:      g.PricingFetchedAt,
+		ID:                    g.ID,
+		Timestamp:             g.Timestamp.UTC().Format(time.RFC3339),
+		Source:                g.Source,
+		ServiceName:           g.ServiceName,
+		Provider:              g.Provider,
+		Model:                 g.Model,
+		InputTokens:           g.UncachedInput(),
+		OutputTokens:          g.NonReasoningOutput(),
+		CacheReadTokens:       g.CacheReadTokens,
+		CacheCreationTokens:   g.CacheCreationTokens,
+		ReasoningTokens:       g.ReasoningTokens,
+		Cost:                  g.Cost,
+		ConversationID:        g.ConversationID,
+		TraceID:               g.TraceID,
+		SpanID:                g.SpanID,
+		DurationMS:            durationMS,
+		AgentName:             g.AgentName,
+		GitRepo:               g.GitRepo,
+		GitBranch:             g.GitBranch,
 	}
 }
 

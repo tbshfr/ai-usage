@@ -8,10 +8,13 @@ Go binary. A small web dashboard and JSON API on `:8080` show today's
 token usage up front with weekly/monthly/all-time totals beside it (each
 with the cache hit rate; click a card for details), a **Trends** page with
 charts, per-source/provider/model breakdowns, and a **Sessions** view that
-groups requests by conversation with a sortable request list. Cost is
-displayed **only where the source itself reports it** (OpenCode reports a
-USD estimate; Copilot and Codex report none) — this project has no pricing
-subsystem and never computes cost.
+groups requests by conversation with a sortable request list.
+
+Harness-reported costs take priority. When a cost is missing, the dashboard
+estimates it using OpenRouter pricing, or records zero for model names ending
+in `free` (including `:free` and `-free`). A manual pricing JSON file provides
+fallback rates; models without a matching price remain unknown.
+Reported, estimated, and free costs are labeled in the dashboard and JSON API.
 
 ```
 OpenCode / VS Code Copilot / Codex ──OTLP──▶ ai-usage ──▶ SQLite ──▶ dashboard + JSON API
@@ -72,6 +75,7 @@ Flags override environment variables, which override defaults.
 | `--otlp-grpc`                   | `AI_USAGE_OTLP_GRPC_ADDR`              | _(disabled)_                  | OTLP gRPC listen address (starts only when set)      |
 | `--data-dir`                    | `AI_USAGE_DATA_DIR`                    | OS user-data dir + `ai-usage` | Data directory                                       |
 | `--database`                    | `AI_USAGE_DATABASE`                    | `<data-dir>/usage.db`         | SQLite database path                                 |
+| `--pricing-file`                 | `AI_USAGE_PRICING_FILE`                 | _(bundled prices only)_      | JSON file with additional manual model prices         |
 | `--log-level`                   | `AI_USAGE_LOG_LEVEL`                   | `info`                        | `debug`, `info`, `warn`, or `error`                  |
 | `--dashboard-user`              | `AI_USAGE_DASHBOARD_USER`              | _(auth off)_                  | Dashboard login username                             |
 | `--dashboard-password`          | `AI_USAGE_DASHBOARD_PASSWORD`          | _(auth off)_                  | Dashboard login password                             |
@@ -154,14 +158,16 @@ plain HTTP.
 
 ## Data location & privacy
 
-By default, data stays on your machine and the binary makes no outbound
-network connections. Optional [daily backups](docs/backups.md) send the stored
+Usage data stays on your machine. After usage first arrives, the binary
+fetches the public OpenRouter model catalog over HTTPS, without an API key
+or any telemetry in the request. Optional [daily backups](docs/backups.md) send the stored
 SQLite database to your configured S3 destination.
 
 What is collected: **metadata and token counts only** — timestamps,
 source (opencode/copilot/codex), provider, model, input/output/reasoning/cache
 token counts, duration, conversation/trace IDs, and (from OpenCode) the
-cost the source itself reports.
+cost the source itself reports, or an estimated cost with its pricing source
+and the rates used.
 
 What is **not** collected: your prompts and completions. No prompt or
 completion content is captured, stored, or logged. Raw telemetry payloads
@@ -169,6 +175,83 @@ are never persisted; logs are structured JSON containing no telemetry
 data. To delete your history, stop the app and remove `usage.db` (and its
 `-wal`/`-shm` companions) from the data directory. If backups were enabled,
 remote copies remain until lifecycle expiration or operator deletion.
+
+## Cost estimates
+
+OpenRouter prices are cached in SQLite for 24 hours and reused across restarts.
+The first usage batch triggers a background fetch; subsequent usage triggers a
+refresh after expiry. Fetch failures never reject telemetry: the last successful
+catalog is used when available. Without cached prices, paid usage stays pending;
+the worker retries after five minutes and resumes pending rows after a restart.
+
+Reported costs, including zero, always win. Otherwise a name ending in `free`
+(case-insensitive, after trimming whitespace) costs zero. Paid estimates use input,
+output, reasoning, cache, and per-request rates. Missing cache rates fall back to
+normal input rates. Input and output counts are required; absent optional token
+counts are treated as zero. Matching uses exact model IDs, unique bare IDs, and
+explicit aliases for known harness names. When OpenRouter has no match, manual
+prices are checked; models without a usable price stay unknown. That outcome
+is final for the row: later catalog refreshes never revisit unknown models
+(only retried fetches during a cold-cache outage keep rows pending), so a
+newly listed model prices only requests ingested after it appears.
+
+Conditional rates use the request's full prompt count and UTC timestamp. Estimates
+cover token usage and fixed request charges, not unreported image, search, or other
+billable units. They may differ from charges by the actual provider or subscription.
+The request detail shows when prices were fetched. Daily catalog changes do not
+reprice stored costs. Later token enrichment uses the saved rates, and a later
+harness-reported cost replaces an estimate.
+Only rates used by estimated requests are retained as shared price snapshots;
+requests reference their snapshot instead of storing duplicate rate JSON.
+
+Existing requests with missing costs are backfilled **once per database**, after
+usage arrives and a fresh catalog is available. Historical estimates use prices
+available at backfill time, not reconstructed historical prices. Unknown historical
+models remain unknown after the job completes. Progress is safe to retry after an
+interruption; completion is recorded in `pricing_jobs` as `historical-costs-v1`.
+The removable job lives in `internal/pricing/backfill.go` and
+`internal/storage/pricing_backfill.go`; removal instructions are in the worker file.
+Keep migration `0005_pricing.sql` for database upgrades after retiring the job.
+
+### Manual prices
+
+[`internal/pricing/manual-prices.json`](internal/pricing/manual-prices.json)
+contains bundled fallback prices.
+Editing the bundled file requires rebuilding. To add or update prices without a
+rebuild, supply another JSON file with `--pricing-file /path/to/prices.json`
+or `AI_USAGE_PRICING_FILE`. Restart after changing that file. Its entries supplement
+the bundled entries; an identical model ID replaces the bundled entry.
+
+```json
+{
+  "models": {
+    "mai-code-1.1-flash": {
+      "inputPerMillion": 0.20,
+      "outputPerMillion": 1.20,
+      "cacheReadPerMillion": 0.02,
+      "updatedAt": "2026-09-21",
+      "sourceURL": "https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing"
+    }
+  }
+}
+```
+
+All numbers are **USD per million tokens**. `inputPerMillion`,
+`outputPerMillion`, and `updatedAt` (YYYY-MM-DD) are required for each model.
+Optional `cacheReadPerMillion` and `cacheWritePerMillion` default to the input
+rate; `reasoningPerMillion` defaults to the output rate. Explicit zero is valid.
+`sourceURL` is an optional reference for people maintaining the file. Invalid
+configured files fail startup with an error instead of silently ignoring typos.
+
+Manual entries match exact stored model IDs after trimming surrounding whitespace.
+They apply when OpenRouter cannot match a model. Harness-reported costs and the
+free-name rule still take priority. Manual costs are labeled **manual estimate**,
+count toward estimated totals, and preserve their rates and `updatedAt` date in
+SQLite. They work even when OpenRouter is unavailable. The detail page shows
+"Prices updated" for manual estimates.
+
+Manual prices also apply during the existing one-time historical backfill.
+Adding prices does **not** restart a completed backfill or change saved estimates.
 
 ## Development
 

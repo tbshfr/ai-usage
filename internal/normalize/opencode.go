@@ -49,5 +49,9 @@ func FromOpenCodeSpan(resource pcommon.Map, span ptrace.Span) (Generation, bool,
 	if gen.Cost == nil {
 		gen.Cost = attrDoublePtr(attrs, "cost_usd")
 	}
+	if gen.Cost != nil {
+		gen.CostReportedByHarness = true
+		gen.CostSource = "harness"
+	}
 	return gen, true, nil
 }

@@ -95,7 +95,13 @@ const (
 // inserted. On ID conflict it merges: NULL columns are filled from the new
 // record and non-nil values are never overwritten with nil — retried OTLP
 // batches reuse the same trace/span IDs, possibly with more attributes
-// filled in (docs/telemetry.md D2, README rule 3).
+// filled in (docs/telemetry.md D2, README rule 3). A newly reported harness
+// cost supersedes an estimate; existing harness costs are preserved. A
+// merge re-queues pricing only when it fills previously-NULL model or token
+// columns or moves an OpenRouter estimate to an earlier timestamp (which may
+// change a conditional rate). A retried batch with no new information never
+// re-enqueues an already-enriched row; every merge still bumps pricing_revision so
+// enrichment racing a re-delivered record cannot land stale results.
 func InsertGeneration(ctx context.Context, db *sql.DB, gen normalize.Generation) (bool, error) {
 	return insertGeneration(ctx, db, gen)
 }
@@ -158,8 +164,8 @@ const insertSQL = `INSERT INTO generations (
 	id, timestamp, source, service_name, provider, model,
 	input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens, reasoning_tokens,
 	cost, conversation_id, trace_id, span_id, duration_ms,
-	agent_name, git_repo, git_branch, created_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	agent_name, git_repo, git_branch, created_at, cost_reported_by_harness, cost_source, pricing_pending
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(id) DO NOTHING RETURNING id`
 
 const mergeSQL = `UPDATE generations SET
@@ -171,7 +177,25 @@ const mergeSQL = `UPDATE generations SET
 	cache_read_tokens = COALESCE(cache_read_tokens, ?),
 	cache_creation_tokens = COALESCE(cache_creation_tokens, ?),
 	reasoning_tokens = COALESCE(reasoning_tokens, ?),
-	cost = COALESCE(cost, ?),
+	cost = CASE WHEN cost_reported_by_harness = 1 THEN cost ELSE COALESCE(?, cost) END,
+	cost_source = CASE WHEN cost_reported_by_harness = 1 OR ? IS NOT NULL THEN 'harness' ELSE cost_source END,
+	pricing_model_id = CASE WHEN ? IS NOT NULL THEN NULL ELSE pricing_model_id END,
+	pricing_fetched_at = CASE WHEN ? IS NOT NULL THEN NULL ELSE pricing_fetched_at END,
+	pricing_snapshot_id = CASE WHEN ? IS NOT NULL THEN NULL ELSE pricing_snapshot_id END,
+	cost_reported_by_harness = CASE WHEN ? IS NOT NULL THEN 1 ELSE cost_reported_by_harness END,
+	pricing_pending = CASE
+		WHEN cost_reported_by_harness = 1 OR ? IS NOT NULL THEN 0
+		WHEN (model IS NULL AND ? IS NOT NULL)
+			OR (input_tokens IS NULL AND ? IS NOT NULL)
+			OR (output_tokens IS NULL AND ? IS NOT NULL)
+			OR (cache_read_tokens IS NULL AND ? IS NOT NULL)
+			OR (cache_creation_tokens IS NULL AND ? IS NOT NULL)
+			OR (reasoning_tokens IS NULL AND ? IS NOT NULL)
+			OR (cost_source = 'openrouter' AND timestamp > ?)
+		THEN 1
+		ELSE pricing_pending
+	END,
+	pricing_revision = pricing_revision + 1,
 	conversation_id = COALESCE(conversation_id, ?),
 	duration_ms = COALESCE(duration_ms, ?),
 	agent_name = COALESCE(agent_name, ?),
@@ -201,6 +225,9 @@ func insertArgs(gen normalize.Generation) []any {
 		nullableString(gen.GitRepo),
 		nullableString(gen.GitBranch),
 		time.Now().UnixMilli(),
+		gen.Cost != nil,
+		harnessCostSource(gen.Cost),
+		gen.Cost == nil,
 	}
 }
 
@@ -215,6 +242,20 @@ func mergeArgs(gen normalize.Generation) []any {
 		nullableInt(gen.CacheCreationTokens),
 		nullableInt(gen.ReasoningTokens),
 		nullableFloat(gen.Cost),
+		nullableFloat(gen.Cost),
+		nullableFloat(gen.Cost),
+		nullableFloat(gen.Cost),
+		nullableFloat(gen.Cost),
+		nullableFloat(gen.Cost),
+		nullableFloat(gen.Cost),
+		// pricing_pending: did the merge add pricing inputs or move the timestamp?
+		nullableString(gen.Model),
+		nullableInt(gen.InputTokens),
+		nullableInt(gen.OutputTokens),
+		nullableInt(gen.CacheReadTokens),
+		nullableInt(gen.CacheCreationTokens),
+		nullableInt(gen.ReasoningTokens),
+		gen.Timestamp.UnixMilli(),
 		nullableString(gen.ConversationID),
 		nullableDuration(gen.Duration),
 		nullableString(gen.AgentName),
@@ -250,4 +291,12 @@ func nullableDuration(d time.Duration) any {
 		return nil
 	}
 	return d.Milliseconds()
+}
+
+// Only raw normalized telemetry enters the insert path; estimates are applied separately.
+func harnessCostSource(cost *float64) string {
+	if cost != nil {
+		return "harness"
+	}
+	return "unknown"
 }

@@ -239,6 +239,78 @@ func TestInsertGenerationCompleteFirstPartialRetry(t *testing.T) {
 	}
 }
 
+// A retried batch with no new information must not re-queue pricing for an
+// already-enriched row; only a merge that fills model or token columns
+// re-queues it, and a merge carrying a harness cost finalizes the row.
+func TestInsertGenerationMergePricingQueue(t *testing.T) {
+	ctx := context.Background()
+	db := openedDB(t)
+
+	gen := normalize.Generation{
+		ID:           "abc",
+		Timestamp:    time.UnixMilli(1000).UTC(),
+		Source:       "opencode",
+		Provider:     "anthropic",
+		Model:        "claude-haiku-4-5",
+		InputTokens:  ptr(int64(100)),
+		OutputTokens: ptr(int64(20)),
+	}
+	if inserted, err := InsertGeneration(ctx, db, gen); err != nil || !inserted {
+		t.Fatalf("insert: inserted=%v err=%v", inserted, err)
+	}
+	// Simulate the pricing worker's result: estimated, rates saved, queue drained.
+	if _, err := db.Exec(`INSERT INTO pricing_snapshots (rates_json) VALUES ('{}')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`UPDATE generations SET cost = 1.5, cost_source = 'openrouter',
+		pricing_snapshot_id = (SELECT id FROM pricing_snapshots WHERE rates_json = '{}'),
+		pricing_pending = 0, pricing_revision = 5 WHERE id = 'abc'`); err != nil {
+		t.Fatal(err)
+	}
+
+	state := func() (pending, revision int, cost any, source string, harness int, rates any) {
+		err := db.QueryRow(`SELECT pricing_pending, pricing_revision, cost, cost_source,
+			cost_reported_by_harness, pricing_snapshot_id FROM generations WHERE id = 'abc'`).
+			Scan(&pending, &revision, &cost, &source, &harness, &rates)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return
+	}
+
+	// Retried batch, same information: the pricing state is untouched. The
+	// revision still counts every merge, so enrichment racing a re-delivered
+	// record cannot land stale results.
+	if inserted, err := InsertGeneration(ctx, db, gen); err != nil || inserted {
+		t.Fatalf("retry: inserted=%v err=%v", inserted, err)
+	}
+	if pending, revision, cost, _, _, snapshot := state(); pending != 0 || revision != 6 || cost != 1.5 || snapshot != int64(1) {
+		t.Fatalf("no-op merge re-queued pricing: pending=%d revision=%d cost=%v snapshot=%v", pending, revision, cost, snapshot)
+	}
+
+	// A retry carrying more tokens re-queues the row for re-estimation.
+	more := gen
+	more.CacheReadTokens = ptr(int64(30))
+	if inserted, err := InsertGeneration(ctx, db, more); err != nil || inserted {
+		t.Fatalf("token merge: inserted=%v err=%v", inserted, err)
+	}
+	if pending, revision, cost, _, _, _ := state(); pending != 1 || revision != 7 || cost != 1.5 {
+		t.Fatalf("token merge must re-queue: pending=%d revision=%d cost=%v", pending, revision, cost)
+	}
+
+	// A retry carrying a harness cost finalizes the row instead.
+	paid := gen
+	paid.Cost = ptr(0.75)
+	if inserted, err := InsertGeneration(ctx, db, paid); err != nil || inserted {
+		t.Fatalf("cost merge: inserted=%v err=%v", inserted, err)
+	}
+	if pending, revision, cost, source, harness, snapshot := state(); pending != 0 || revision != 8 ||
+		cost != 0.75 || source != "harness" || harness != 1 || snapshot != nil {
+		t.Fatalf("cost merge must finalize: pending=%d revision=%d cost=%v source=%s harness=%d snapshot=%v",
+			pending, revision, cost, source, harness, snapshot)
+	}
+}
+
 // Phase 7 item 7: a generation with only input_tokens set keeps the other
 // token columns NULL in the DB, summary/timeseries treat them as absent, and
 // no phantom values appear.

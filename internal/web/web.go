@@ -627,6 +627,9 @@ func totalBreakdown(rows []storage.Breakdown) storage.Breakdown {
 		t.CacheCreationTokens += b.CacheCreationTokens
 		t.ReasoningTokens += b.ReasoningTokens
 		t.CostKnownCount += b.CostKnownCount
+		t.CostReportedCount += b.CostReportedCount
+		t.CostEstimatedCount += b.CostEstimatedCount
+		t.CostFreeCount += b.CostFreeCount
 		t.CostUnknownCount += b.CostUnknownCount
 		if b.CostTotal != nil {
 			costSum += *b.CostTotal

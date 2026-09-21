@@ -327,7 +327,7 @@ func TestDetailPage(t *testing.T) {
 	}
 	wantContains(t, body,
 		"gpt-4.1", "trace-c1", "span-c1", "conv-copilot",
-		"Not reported by this source", "Click to copy",
+		"<dt>Cost</dt><dd>—</dd>", "Click to copy",
 		`href="/sessions?conversation=conv-copilot"`,
 		"Back to sessions",
 	)

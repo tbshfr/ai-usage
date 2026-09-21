@@ -20,6 +20,7 @@ func TestMigrateCreatesSchema(t *testing.T) {
 
 	for _, obj := range []struct{ typ, name string }{
 		{"table", "generations"},
+		{"table", "pricing_snapshots"},
 		{"table", "schema_migrations"},
 		{"index", "idx_generations_timestamp"},
 		{"index", "idx_generations_source"},
@@ -57,8 +58,8 @@ func TestMigrateTwiceIsNoop(t *testing.T) {
 	if err := db.QueryRow(`SELECT COUNT(*) FROM schema_migrations`).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
-	if count != 4 {
-		t.Errorf("schema_migrations rows = %d, want 4", count)
+	if count != 5 {
+		t.Errorf("schema_migrations rows = %d, want 5", count)
 	}
 }
 

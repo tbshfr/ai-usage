@@ -21,6 +21,7 @@ var funcs = template.FuncMap{
 	"commas":           commas,
 	"tokens":           tokens,
 	"cost":             cost,
+	"generationCost":   generationCost,
 	"costLine":         costLine,
 	"costCell":         costCell,
 	"dur":              dur,
@@ -138,20 +139,28 @@ func costDecimals(v float64) int {
 }
 
 // costLine is the card-level cost line: only meaningful when at least one
-// row in range reported cost; all-unknown renders "—", never "$0.00".
-func costLine(known, unknown int64, total *float64) string {
+// row in range has a known cost; all-unknown renders "—", never "$0.00".
+func costLine(known, unknown int64, total *float64, estimated ...int64) string {
 	if known == 0 {
 		return emDash
 	}
-	return "≈ " + cost(total) + fmt.Sprintf(" (%d known, %d without cost data)", known, unknown)
+	label := ""
+	if len(estimated) > 0 && estimated[0] > 0 {
+		label = fmt.Sprintf(", %d estimated", estimated[0])
+	}
+	return "≈ " + cost(total) + fmt.Sprintf(" (%d known%s, %d without cost data)", known, label, unknown)
 }
 
-// costCell is the table-level cost cell: total when any row reported cost.
-func costCell(known int64, total *float64) string {
+// costCell is the table-level cost cell: total when any row has a known cost.
+// The estimate marker carries the explanation so repeated rows stay compact.
+func costCell(known int64, total *float64, estimated ...int64) template.HTML {
 	if known == 0 {
 		return emDash
 	}
-	return cost(total)
+	if len(estimated) > 0 && estimated[0] > 0 {
+		return template.HTML(`<abbr class="cost-estimate" title="Includes estimated costs from OpenRouter or manual rates">≈</abbr> ` + cost(total))
+	}
+	return template.HTML(cost(total))
 }
 
 func dur(d time.Duration) string {
@@ -266,4 +275,20 @@ func convSub(c storage.ConversationSummary) string {
 		return c.Model
 	}
 	return shortConv(c.Key)
+}
+
+func generationCost(g normalize.Generation) string {
+	if g.Cost == nil {
+		return emDash
+	}
+	switch g.CostSource {
+	case "manual":
+		return "≈ " + cost(g.Cost) + " (manual estimate)"
+	case "openrouter":
+		return "≈ " + cost(g.Cost) + " (estimated)"
+	case "free":
+		return cost(g.Cost) + " (free)"
+	default:
+		return cost(g.Cost) + " (reported)"
+	}
 }

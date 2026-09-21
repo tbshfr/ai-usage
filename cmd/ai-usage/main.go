@@ -22,6 +22,7 @@ import (
 	"github.com/tbshfr/ai-usage/internal/config"
 	"github.com/tbshfr/ai-usage/internal/ingest"
 	"github.com/tbshfr/ai-usage/internal/live"
+	"github.com/tbshfr/ai-usage/internal/pricing"
 	"github.com/tbshfr/ai-usage/internal/storage"
 	"google.golang.org/grpc"
 )
@@ -95,6 +96,15 @@ func run(cfg *config.Config, logger *slog.Logger) error {
 	}
 	defer func() { stopBackup(); <-backupDone }()
 	pipeline := ingest.NewPipeline(db, logger, hub)
+	prices := pricing.New(db, logger, hub.Notify)
+	if err := prices.LoadManualFile(cfg.PricingFile); err != nil {
+		return err
+	}
+	pricingCtx, stopPricing := context.WithCancel(context.Background())
+	pricingDone := make(chan struct{})
+	go func() { defer close(pricingDone); prices.Run(pricingCtx) }()
+	defer func() { stopPricing(); <-pricingDone }()
+	pipeline.AfterCommit = prices.Notify
 	// Continue today's persisted counters across restarts and keep them
 	// saved periodically; a final save happens on shutdown. A failed
 	// restore is fatal: running with a zero base would let the next save

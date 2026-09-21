@@ -51,6 +51,9 @@ func TestFromOpenCodeSpanFixtures(t *testing.T) {
 		if gen.Cost == nil || *gen.Cost != 0.00061761 {
 			t.Errorf("cost = %v, want 0.00061761 passthrough", gen.Cost)
 		}
+		if !gen.CostReportedByHarness || gen.CostSource != "harness" {
+			t.Errorf("cost provenance = %v/%q, want harness", gen.CostReportedByHarness, gen.CostSource)
+		}
 		if gen.ConversationID != "ses_fac3fa8eaffeoO6k1Mhzqggc1F" {
 			t.Errorf("conversation = %q", gen.ConversationID)
 		}
@@ -76,6 +79,9 @@ func TestFromOpenCodeSpanFixtures(t *testing.T) {
 			}
 			if gen.Cost == nil || *gen.Cost != 0.00062145 {
 				t.Errorf("cost = %v", gen.Cost)
+			}
+			if !gen.CostReportedByHarness || gen.CostSource != "harness" {
+				t.Errorf("fallback cost provenance = %v/%q, want harness", gen.CostReportedByHarness, gen.CostSource)
 			}
 		}
 	})
@@ -134,5 +140,8 @@ func TestFromOpenCodeSpanProviderFallback(t *testing.T) {
 	}
 	if gen.Cost != nil {
 		t.Errorf("cost = %v, want nil when unreported", gen.Cost)
+	}
+	if gen.CostReportedByHarness || gen.CostSource != "" {
+		t.Errorf("unreported cost provenance = %v/%q, want unset", gen.CostReportedByHarness, gen.CostSource)
 	}
 }

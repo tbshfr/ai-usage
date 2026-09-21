@@ -11,7 +11,15 @@
   <dt>Reasoning tokens</dt><dd>{{tokens .D.ReasoningTokens}}</dd>
   <dt>Cache read tokens</dt><dd>{{tokens .D.CacheReadTokens}}</dd>
   <dt>Cache creation tokens</dt><dd>{{tokens .D.CacheCreationTokens}}</dd>
-  <dt>Cost</dt><dd>{{if .D.Cost}}{{cost .D.Cost}}{{else}}<span class="muted">Not reported by this source</span>{{end}}</dd>
+  <dt>Cost</dt><dd>{{generationCost .D}}</dd>
+  {{if and .D.PricingFetchedAt (or (eq .D.CostSource "openrouter") (eq .D.CostSource "manual"))}}
+  <dt>Pricing model</dt><dd>{{.D.PricingModelID}}</dd>
+  {{if eq .D.CostSource "manual"}}
+  <dt>Prices updated</dt><dd>{{utc .D.PricingFetchedAt}} — manual pricing date.</dd>
+  {{else}}
+  <dt>Prices fetched</dt><dd>{{utc .D.PricingFetchedAt}} — estimate uses rates fetched on this date, including for older requests.</dd>
+  {{end}}
+  {{end}}
   <dt>Duration</dt><dd>{{dur .D.Duration}}</dd>
   <dt>Agent</dt><dd>{{or .D.AgentName "—"}}</dd>
   <dt>Git repo</dt><dd>{{or .D.GitRepo "—"}}</dd>

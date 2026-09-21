@@ -203,13 +203,14 @@ function renderChart(id, d) {
   const xs = d.labels.map(ms => ms / 1000);
   const rows = [xs].concat(d.series.map(s => s.values));
   const isPct = d.series.some(s => s.fmt === 'pct');
+  const isCost = d.series.some(s => s.fmt === 'cost');
   const series = [{ label: 'Date' }].concat(d.series.map((s, i) => ({
     label: s.name,
     stroke: PALETTE[i % PALETTE.length],
     width: 2,
-    spanGaps: false,
-    points: { show: d.labels.length < 40 },
-    value: (u, v) => v == null ? '' : (s.fmt === 'pct' ? v.toFixed(1) + '%' : v.toLocaleString()),
+    spanGaps: s.spanGaps === true,
+    points: { show: d.labels.length < 40 || s.values.filter(v => v != null).length === 1 },
+    value: (u, v) => v == null ? '' : (s.fmt === 'pct' ? v.toFixed(1) + '%' : s.fmt === 'cost' ? formatCost(v) : v.toLocaleString()),
   })));
   // Keep the time axis meaningful: pad it to at least one bucket span, so
   // single-bucket ranges (e.g. one day of data on week/month buckets) still
@@ -240,7 +241,7 @@ function renderChart(id, d) {
         stroke: '#94836f',
         grid: { stroke: 'rgba(233,220,203,0.6)' },
         ticks: { stroke: 'rgba(233,220,203,0.9)' },
-        values: (u, vs) => vs.map(v => v == null ? '' : (isPct ? v + '%' : abbrev(v))),
+        values: (u, vs) => vs.map(v => v == null ? '' : (isPct ? v + '%' : isCost ? formatCostAxis(v) : abbrev(v))),
       },
     ],
     legend: { show: d.series.length > 1, live: false },
@@ -270,6 +271,15 @@ window.addEventListener('resize', () => {
     }
   });
 });
+
+function formatCost(v) {
+  return '$' + v.toFixed(Math.abs(v) < 10 ? 4 : 2);
+}
+
+function formatCostAxis(v) {
+  if (Math.abs(v) >= 1000) return '$' + abbrev(v);
+  return '$' + Number(v.toFixed(Math.abs(v) < 10 ? 3 : 2));
+}
 
 function abbrev(v) {
   if (Math.abs(v) >= 1e9) return (v / 1e9).toFixed(1) + 'B';

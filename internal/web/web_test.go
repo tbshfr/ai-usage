@@ -156,19 +156,27 @@ func TestTrendsPageAndFragment(t *testing.T) {
 		t.Fatalf("status %d", status)
 	}
 	wantContains(t, body,
-		"Tokens over time", "Tokens by source", "Cache hit rate",
-		`data-chart="chart-tokens"`, `data-chart="chart-sources"`, `data-chart="chart-cache"`,
+		"Tokens over time", "Tokens by source", "Cache hit rate", "Approximate cost over time",
+		`data-chart="chart-tokens"`, `data-chart="chart-sources"`, `data-chart="chart-cache"`, `data-chart="chart-cost"`,
 		`class="filter-settings"`, `<summary>Filters</summary>`,
 	)
 
 	_, body = get(t, srv.URL+"/trends?range=30d")
 	wantContains(t, body, `<input type="hidden" name="range" value="30d">`)
 
-	// fragment with month bucket; cost series is gone, pct series is present
+	// Month grouping preserves the cost and cache series in fragments.
 	_, body = get(t, srv.URL+"/fragments/trends?"+fullRangeQuery+"&bucket=month")
-	wantContains(t, body, `"name":"Cache hit rate","fmt":"pct"`, `value="month" checked`)
+	wantContains(t, body,
+		`"name":"Cache hit rate","fmt":"pct","spanGaps":true`,
+		`"name":"Cost","fmt":"cost"`,
+		`value="month" checked`,
+	)
 	wantNotContains(t, body, `<select name="bucket"`)
-	wantNotContains(t, body, "Cost (reported only)", `"scale":"cost"`)
+
+	// With only unknown costs, the chart must not imply zero spending.
+	_, body = get(t, srv.URL+"/fragments/trends?"+fullRangeQuery+"&source=copilot")
+	wantContains(t, body, "No cost data in this range.")
+	wantNotContains(t, body, `data-chart="chart-cost"`)
 
 	// hour buckets are valid and carry the bucket span for axis padding
 	_, body = get(t, srv.URL+"/fragments/trends?"+fullRangeQuery+"&bucket=hour")
@@ -185,6 +193,50 @@ func TestTrendsPageAndFragment(t *testing.T) {
 	status, _ = get(t, srv.URL+"/trends?"+fullRangeQuery+"&bucket=year")
 	if status != http.StatusBadRequest {
 		t.Fatalf("invalid bucket: status %d, want 400", status)
+	}
+}
+
+func TestCostChartDistinguishesIdleAndUnknownBuckets(t *testing.T) {
+	cost := 0.25
+	pts := []storage.TimeseriesPoint{
+		{BucketStart: 1, Requests: 1, CostKnownCount: 1, CostTotal: &cost},
+		{BucketStart: 2, Requests: 1}, // used, but no cost data
+		{BucketStart: 3},              // idle, so cost is zero
+		{BucketStart: 4, Requests: 1, CostEstimatedCount: 1, CostKnownCount: 1, CostTotal: &cost},
+	}
+	chart, ok := buildCostChart(pts, storage.BucketDay)
+	if !ok || chart.Span != storage.BucketDay.SpanSeconds() {
+		t.Fatalf("chart = %+v, visible = %v", chart, ok)
+	}
+	want := []any{cost, nil, float64(0), cost}
+	if len(chart.Series) != 1 || chart.Series[0].Fmt != "cost" || chart.Series[0].SpanGaps {
+		t.Fatalf("series = %+v", chart.Series)
+	}
+	for i, got := range chart.Series[0].Values {
+		if got != want[i] {
+			t.Errorf("bucket %d = %v, want %v", i, got, want[i])
+		}
+	}
+	if _, ok := buildCostChart(pts[1:3], storage.BucketDay); ok {
+		t.Fatal("unknown-only range must not show a cost chart")
+	}
+}
+
+func TestCacheChartSpansUnusedBuckets(t *testing.T) {
+	pts := []storage.TimeseriesPoint{
+		{BucketStart: 1, InputTokens: 50, CacheReadTokens: 50},
+		{BucketStart: 2},
+		{BucketStart: 3, InputTokens: 100},
+	}
+	chart, ok := buildCacheChart(pts, storage.BucketDay)
+	if !ok || len(chart.Series) != 1 || !chart.Series[0].SpanGaps {
+		t.Fatalf("chart = %+v, visible = %v", chart, ok)
+	}
+	want := []any{float64(50), nil, float64(0)}
+	for i, got := range chart.Series[0].Values {
+		if got != want[i] {
+			t.Errorf("bucket %d = %v, want %v", i, got, want[i])
+		}
 	}
 }
 

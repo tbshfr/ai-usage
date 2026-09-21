@@ -16,6 +16,16 @@
 {{else}}
 <p class="muted">No usage in this range.</p>
 {{end}}
+{{if .Charts.HasCost}}
+<section class="panel">
+  <h3>Approximate cost over time</h3>
+  <p class="chart-help muted">Reported and estimated costs are included. Gaps have no known costs; totals may be low when some requests lack prices.</p>
+  <div id="chart-cost" class="chart"></div>
+  <script type="application/json" data-chart="chart-cost">{{toJSON .Charts.CostData}}</script>
+</section>
+{{else if .Charts.HasTokens}}
+<p class="muted">No cost data in this range.</p>
+{{end}}
 {{if .Charts.HasSource}}
 <section class="panel">
   <h3>Tokens by source</h3>

@@ -212,6 +212,8 @@ type trendsView struct {
 	Buckets    []bucketOption
 	TokenData  chartJSON
 	HasTokens  bool
+	CostData   chartJSON
+	HasCost    bool
 	SourceData chartJSON
 	HasSource  bool
 	CacheData  chartJSON
@@ -233,9 +235,10 @@ type chartJSON struct {
 }
 
 type chartSeries struct {
-	Name   string `json:"name"`
-	Fmt    string `json:"fmt,omitempty"` // "pct" appends % to values; cost keeps $ formatting
-	Values []any  `json:"values"`
+	Name     string `json:"name"`
+	Fmt      string `json:"fmt,omitempty"`
+	SpanGaps bool   `json:"spanGaps,omitempty"`
+	Values   []any  `json:"values"`
 }
 
 type recentView struct {
@@ -535,8 +538,7 @@ func (s *server) heatmap(ctx context.Context, u uiFilter) (heatmapView, error) {
 	return v, nil
 }
 
-// trends renders the charts page: tokens over time, tokens by source, and
-// the cache hit rate over time.
+// trends renders the charts page.
 func (s *server) trends(w http.ResponseWriter, r *http.Request) {
 	d, err := s.trendsData(r)
 	if err != nil {
@@ -576,6 +578,7 @@ func (s *server) trendsData(r *http.Request) (*pageData, error) {
 	}
 	pts = fillTimeseries(pts, f, bucket, time.Now().UTC())
 	d.Charts.TokenData, d.Charts.HasTokens = buildTokenChart(pts, bucket)
+	d.Charts.CostData, d.Charts.HasCost = buildCostChart(pts, bucket)
 	spts, err := storage.TimeseriesBySource(r.Context(), s.db, f, bucket)
 	if err != nil {
 		return nil, err
@@ -1229,6 +1232,31 @@ func buildTokenChart(pts []storage.TimeseriesPoint, bucket storage.Bucket) (char
 	return c, len(pts) > 0
 }
 
+// buildCostChart includes reported and estimated costs. Unknown-only buckets
+// remain gaps; an idle bucket is a known zero for the chart's timeline.
+func buildCostChart(pts []storage.TimeseriesPoint, bucket storage.Bucket) (chartJSON, bool) {
+	c := chartJSON{Span: bucket.SpanSeconds()}
+	vals := make([]any, 0, len(pts))
+	anyCost := false
+	for _, p := range pts {
+		c.Labels = append(c.Labels, p.BucketStart)
+		switch {
+		case p.CostTotal != nil:
+			vals = append(vals, *p.CostTotal)
+			anyCost = true
+		case p.Requests == 0:
+			vals = append(vals, float64(0))
+		default:
+			vals = append(vals, nil)
+		}
+	}
+	if !anyCost {
+		return chartJSON{}, false
+	}
+	c.Series = []chartSeries{{Name: "Cost", Fmt: "cost", Values: vals}}
+	return c, true
+}
+
 // buildSourceChart renders one line of total tokens per source per bucket.
 func buildSourceChart(pts []storage.TimeseriesSourcePoint, totals []storage.TimeseriesPoint, bucket storage.Bucket) (chartJSON, bool) {
 	if len(pts) == 0 {
@@ -1351,7 +1379,7 @@ func buildCacheChart(pts []storage.TimeseriesPoint, bucket storage.Bucket) (char
 	if !anyRate {
 		return chartJSON{}, false
 	}
-	c.Series = []chartSeries{{Name: "Cache hit rate", Fmt: "pct", Values: vals}}
+	c.Series = []chartSeries{{Name: "Cache hit rate", Fmt: "pct", SpanGaps: true, Values: vals}}
 	return c, len(pts) > 0
 }
 

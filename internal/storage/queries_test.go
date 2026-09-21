@@ -41,6 +41,7 @@ func TestSummaryMixedCost(t *testing.T) {
 		CacheReadTokens:     410,
 		CacheCreationTokens: 56,
 		ReasoningTokens:     35,
+		CostReportedCount:   8,
 		CostKnownCount:      8,
 		CostUnknownCount:    12,
 	}
@@ -231,12 +232,12 @@ func TestTimeseriesDayBuckets(t *testing.T) {
 		return time.Date(y, m, d, 0, 0, 0, 0, time.UTC).UnixMilli()
 	}
 	want := []storage.TimeseriesPoint{
-		{BucketStart: mid(2024, 2, 29), Requests: 2, InputTokens: 1016, OutputTokens: 532, CacheCreationTokens: 11, CostKnownCount: 1},
-		{BucketStart: mid(2026, 1, 31), Requests: 4, InputTokens: 311, OutputTokens: 172, CacheCreationTokens: 5, ReasoningTokens: 30, CostKnownCount: 2},
-		{BucketStart: mid(2026, 2, 1), Requests: 4, InputTokens: 183, OutputTokens: 121, CacheCreationTokens: 13, CostKnownCount: 2},
-		{BucketStart: mid(2026, 2, 28), Requests: 3, InputTokens: 313, OutputTokens: 226, CacheReadTokens: 400, CacheCreationTokens: 8, CostKnownCount: 1},                  // c5 cache folded out of input: 700→300
-		{BucketStart: mid(2026, 3, 1), Requests: 3, InputTokens: 94, OutputTokens: 133, CacheReadTokens: 10, CacheCreationTokens: 9, ReasoningTokens: 5, CostKnownCount: 1}, // c12 40→30
-		{BucketStart: mid(2026, 3, 2), Requests: 4, InputTokens: 60, OutputTokens: 55, CacheCreationTokens: 10, CostKnownCount: 1},
+		{BucketStart: mid(2024, 2, 29), Requests: 2, InputTokens: 1016, OutputTokens: 532, CacheCreationTokens: 11, CostReportedCount: 1, CostKnownCount: 1},
+		{BucketStart: mid(2026, 1, 31), Requests: 4, InputTokens: 311, OutputTokens: 172, CacheCreationTokens: 5, ReasoningTokens: 30, CostReportedCount: 2, CostKnownCount: 2},
+		{BucketStart: mid(2026, 2, 1), Requests: 4, InputTokens: 183, OutputTokens: 121, CacheCreationTokens: 13, CostReportedCount: 2, CostKnownCount: 2},
+		{BucketStart: mid(2026, 2, 28), Requests: 3, InputTokens: 313, OutputTokens: 226, CacheReadTokens: 400, CacheCreationTokens: 8, CostReportedCount: 1, CostKnownCount: 1},                  // c5 cache folded out of input: 700→300
+		{BucketStart: mid(2026, 3, 1), Requests: 3, InputTokens: 94, OutputTokens: 133, CacheReadTokens: 10, CacheCreationTokens: 9, ReasoningTokens: 5, CostReportedCount: 1, CostKnownCount: 1}, // c12 40→30
+		{BucketStart: mid(2026, 3, 2), Requests: 4, InputTokens: 60, OutputTokens: 55, CacheCreationTokens: 10, CostReportedCount: 1, CostKnownCount: 1},
 	}
 	if len(pts) != len(want) {
 		t.Fatalf("got %d day buckets, want %d: %+v", len(pts), len(want), pts)
@@ -268,10 +269,10 @@ func TestTimeseriesWeekBuckets(t *testing.T) {
 	// Monday-anchored weeks: leap week, jan31+feb01 (same Mon-anchored week),
 	// feb28+mar01 (Sat+Sun, same week, spanning the month boundary), mar02.
 	want := []storage.TimeseriesPoint{
-		{BucketStart: mid(2024, 2, 26), Requests: 2, InputTokens: 1016, OutputTokens: 532, CacheCreationTokens: 11, CostKnownCount: 1},
-		{BucketStart: mid(2026, 1, 26), Requests: 8, InputTokens: 494, OutputTokens: 293, CacheCreationTokens: 18, ReasoningTokens: 30, CostKnownCount: 4},
-		{BucketStart: mid(2026, 2, 23), Requests: 6, InputTokens: 407, OutputTokens: 359, CacheReadTokens: 410, CacheCreationTokens: 17, ReasoningTokens: 5, CostKnownCount: 2},
-		{BucketStart: mid(2026, 3, 2), Requests: 4, InputTokens: 60, OutputTokens: 55, CacheCreationTokens: 10, CostKnownCount: 1},
+		{BucketStart: mid(2024, 2, 26), Requests: 2, InputTokens: 1016, OutputTokens: 532, CacheCreationTokens: 11, CostReportedCount: 1, CostKnownCount: 1},
+		{BucketStart: mid(2026, 1, 26), Requests: 8, InputTokens: 494, OutputTokens: 293, CacheCreationTokens: 18, ReasoningTokens: 30, CostReportedCount: 4, CostKnownCount: 4},
+		{BucketStart: mid(2026, 2, 23), Requests: 6, InputTokens: 407, OutputTokens: 359, CacheReadTokens: 410, CacheCreationTokens: 17, ReasoningTokens: 5, CostReportedCount: 2, CostKnownCount: 2},
+		{BucketStart: mid(2026, 3, 2), Requests: 4, InputTokens: 60, OutputTokens: 55, CacheCreationTokens: 10, CostReportedCount: 1, CostKnownCount: 1},
 	}
 	if len(pts) != len(want) {
 		t.Fatalf("got %d week buckets, want %d: %+v", len(pts), len(want), pts)
@@ -301,10 +302,10 @@ func TestTimeseriesMonthBuckets(t *testing.T) {
 		return time.Date(y, m, d, 0, 0, 0, 0, time.UTC).UnixMilli()
 	}
 	want := []storage.TimeseriesPoint{
-		{BucketStart: mid(2024, 2, 1), Requests: 2, InputTokens: 1016, OutputTokens: 532, CacheCreationTokens: 11, CostKnownCount: 1},
-		{BucketStart: mid(2026, 1, 1), Requests: 4, InputTokens: 311, OutputTokens: 172, CacheCreationTokens: 5, ReasoningTokens: 30, CostKnownCount: 2},
-		{BucketStart: mid(2026, 2, 1), Requests: 7, InputTokens: 496, OutputTokens: 347, CacheReadTokens: 400, CacheCreationTokens: 21, CostKnownCount: 3},
-		{BucketStart: mid(2026, 3, 1), Requests: 7, InputTokens: 154, OutputTokens: 188, CacheReadTokens: 10, CacheCreationTokens: 19, ReasoningTokens: 5, CostKnownCount: 2},
+		{BucketStart: mid(2024, 2, 1), Requests: 2, InputTokens: 1016, OutputTokens: 532, CacheCreationTokens: 11, CostReportedCount: 1, CostKnownCount: 1},
+		{BucketStart: mid(2026, 1, 1), Requests: 4, InputTokens: 311, OutputTokens: 172, CacheCreationTokens: 5, ReasoningTokens: 30, CostReportedCount: 2, CostKnownCount: 2},
+		{BucketStart: mid(2026, 2, 1), Requests: 7, InputTokens: 496, OutputTokens: 347, CacheReadTokens: 400, CacheCreationTokens: 21, CostReportedCount: 3, CostKnownCount: 3},
+		{BucketStart: mid(2026, 3, 1), Requests: 7, InputTokens: 154, OutputTokens: 188, CacheReadTokens: 10, CacheCreationTokens: 19, ReasoningTokens: 5, CostReportedCount: 2, CostKnownCount: 2},
 	}
 	if len(pts) != len(want) {
 		t.Fatalf("got %d month buckets, want %d: %+v", len(pts), len(want), pts)

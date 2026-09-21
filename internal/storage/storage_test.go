@@ -57,8 +57,8 @@ func TestMigrateTwiceIsNoop(t *testing.T) {
 	if err := db.QueryRow(`SELECT COUNT(*) FROM schema_migrations`).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
-	if count != 4 {
-		t.Errorf("schema_migrations rows = %d, want 4", count)
+	if count != 5 {
+		t.Errorf("schema_migrations rows = %d, want 5", count)
 	}
 }
 

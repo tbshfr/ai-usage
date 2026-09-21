@@ -71,7 +71,7 @@ func (b Bucket) SpanSeconds() int64 {
 }
 
 // SummaryResult holds totals for a filter range. CostTotal is nil when no
-// row in the range reported cost ("no cost data" must never surface as 0).
+// row in the range has a known cost ("no cost data" must never surface as 0).
 type SummaryResult struct {
 	Requests            int64
 	InputTokens         int64
@@ -79,6 +79,9 @@ type SummaryResult struct {
 	CacheReadTokens     int64
 	CacheCreationTokens int64
 	ReasoningTokens     int64
+	CostReportedCount   int64
+	CostEstimatedCount  int64
+	CostFreeCount       int64
 	CostKnownCount      int64
 	CostTotal           *float64
 	CostUnknownCount    int64
@@ -93,6 +96,9 @@ type TimeseriesPoint struct {
 	CacheReadTokens     int64
 	CacheCreationTokens int64
 	ReasoningTokens     int64
+	CostReportedCount   int64
+	CostEstimatedCount  int64
+	CostFreeCount       int64
 	CostKnownCount      int64
 	CostTotal           *float64
 }
@@ -106,6 +112,9 @@ type Breakdown struct {
 	CacheReadTokens     int64
 	CacheCreationTokens int64
 	ReasoningTokens     int64
+	CostReportedCount   int64
+	CostEstimatedCount  int64
+	CostFreeCount       int64
 	CostKnownCount      int64
 	CostUnknownCount    int64
 	CostTotal           *float64
@@ -188,6 +197,9 @@ func Summary(ctx context.Context, db *sql.DB, f Filter) (SummaryResult, error) {
 	COALESCE(SUM(cache_read_tokens), 0),
 	COALESCE(SUM(cache_creation_tokens), 0),
 	COALESCE(SUM(reasoning_tokens), 0),
+	COALESCE(SUM(cost_source = 'harness' AND cost IS NOT NULL), 0),
+	COALESCE(SUM(cost_source = 'openrouter' AND cost IS NOT NULL), 0),
+	COALESCE(SUM(cost_source = 'free' AND cost IS NOT NULL), 0),
 	COUNT(cost),
 	SUM(cost),
 	COUNT(*) - COUNT(cost)
@@ -201,6 +213,9 @@ FROM generations WHERE ` + where
 		&s.CacheReadTokens,
 		&s.CacheCreationTokens,
 		&s.ReasoningTokens,
+		&s.CostReportedCount,
+		&s.CostEstimatedCount,
+		&s.CostFreeCount,
 		&s.CostKnownCount,
 		&costTotal,
 		&s.CostUnknownCount,
@@ -260,6 +275,9 @@ func Timeseries(ctx context.Context, db *sql.DB, f Filter, bucket Bucket) ([]Tim
 	COALESCE(SUM(cache_read_tokens), 0),
 	COALESCE(SUM(cache_creation_tokens), 0),
 	COALESCE(SUM(reasoning_tokens), 0),
+	COALESCE(SUM(cost_source = 'harness' AND cost IS NOT NULL), 0),
+	COALESCE(SUM(cost_source = 'openrouter' AND cost IS NOT NULL), 0),
+	COALESCE(SUM(cost_source = 'free' AND cost IS NOT NULL), 0),
 	COUNT(cost),
 	SUM(cost)
 FROM generations WHERE ` + where + ` GROUP BY ` + expr + ` ORDER BY 1`
@@ -281,6 +299,9 @@ FROM generations WHERE ` + where + ` GROUP BY ` + expr + ` ORDER BY 1`
 			&d.point.CacheReadTokens,
 			&d.point.CacheCreationTokens,
 			&d.point.ReasoningTokens,
+			&d.point.CostReportedCount,
+			&d.point.CostEstimatedCount,
+			&d.point.CostFreeCount,
 			&d.point.CostKnownCount,
 			&costTotal,
 		); err != nil {
@@ -335,6 +356,9 @@ func mergeDays(days []dayRow, bucket Bucket) []TimeseriesPoint {
 		cur.CacheCreationTokens += d.point.CacheCreationTokens
 		cur.ReasoningTokens += d.point.ReasoningTokens
 		cur.CostKnownCount += d.point.CostKnownCount
+		cur.CostReportedCount += d.point.CostReportedCount
+		cur.CostEstimatedCount += d.point.CostEstimatedCount
+		cur.CostFreeCount += d.point.CostFreeCount
 		curCost += d.cost
 	}
 	if cur != nil && cur.CostKnownCount > 0 {
@@ -396,6 +420,9 @@ func breakdown(ctx context.Context, db *sql.DB, f Filter, column string) ([]Brea
 	COALESCE(SUM(cache_read_tokens), 0),
 	COALESCE(SUM(cache_creation_tokens), 0),
 	COALESCE(SUM(reasoning_tokens), 0),
+	COALESCE(SUM(cost_source = 'harness' AND cost IS NOT NULL), 0),
+	COALESCE(SUM(cost_source = 'openrouter' AND cost IS NOT NULL), 0),
+	COALESCE(SUM(cost_source = 'free' AND cost IS NOT NULL), 0),
 	COUNT(cost),
 	COUNT(*) - COUNT(cost),
 	SUM(cost)
@@ -426,6 +453,9 @@ FROM generations WHERE ` + where + ` GROUP BY ` + groupKey
 			&b.CacheReadTokens,
 			&b.CacheCreationTokens,
 			&b.ReasoningTokens,
+			&b.CostReportedCount,
+			&b.CostEstimatedCount,
+			&b.CostFreeCount,
 			&b.CostKnownCount,
 			&b.CostUnknownCount,
 			&costTotal,
@@ -494,7 +524,8 @@ const generationColumns = `
 	id, timestamp, source, service_name, provider, model,
 	input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens, reasoning_tokens,
 	cost, conversation_id, trace_id, span_id, duration_ms,
-	agent_name, git_repo, git_branch`
+	agent_name, git_repo, git_branch, cost_reported_by_harness, cost_source,
+	COALESCE(pricing_model_id, ''), pricing_fetched_at, COALESCE(pricing_rates, ''), pricing_revision`
 
 func RecentGenerations(ctx context.Context, db *sql.DB, f Filter, order Order, limit, offset int) ([]normalize.Generation, error) {
 	if limit <= 0 {
@@ -554,6 +585,7 @@ func scanGeneration(row interface{ Scan(dest ...any) error }) (*normalize.Genera
 	var input, output, cacheRead, cacheCreation, reasoning sql.NullInt64
 	var cost sql.NullFloat64
 	var duration sql.NullInt64
+	var pricingFetchedAt sql.NullInt64
 	var timestamp int64
 	if err := row.Scan(
 		&g.ID,
@@ -575,10 +607,15 @@ func scanGeneration(row interface{ Scan(dest ...any) error }) (*normalize.Genera
 		&agentName,
 		&gitRepo,
 		&gitBranch,
+		&g.CostReportedByHarness, &g.CostSource, &g.PricingModelID, &pricingFetchedAt, &g.PricingRates, &g.PricingRevision,
 	); err != nil {
 		return nil, err
 	}
 	g.Timestamp = time.UnixMilli(timestamp).UTC()
+	if pricingFetchedAt.Valid {
+		t := time.UnixMilli(pricingFetchedAt.Int64).UTC()
+		g.PricingFetchedAt = &t
+	}
 	g.ServiceName = serviceName.String
 	g.Provider = provider.String
 	g.Model = model.String

@@ -43,7 +43,7 @@ func ParseOrder(s string) (Order, error) {
 //     Day holding the group's UTC date.
 //
 // Source/Model/Agent/Repo come from the group's most recent request.
-// CostTotal is nil when no row in the group reported cost.
+// CostTotal is nil when no row in the group has a known cost.
 type ConversationSummary struct {
 	Key                 string
 	Day                 string
@@ -53,6 +53,9 @@ type ConversationSummary struct {
 	CacheReadTokens     int64
 	CacheCreationTokens int64
 	ReasoningTokens     int64
+	CostReportedCount   int64
+	CostEstimatedCount  int64
+	CostFreeCount       int64
 	CostKnownCount      int64
 	CostUnknownCount    int64
 	CostTotal           *float64
@@ -160,7 +163,7 @@ func Conversations(ctx context.Context, db *sql.DB, f Filter, order Order, limit
 		timestamp, source, model, agent_name, git_repo,
 		` + uncachedInputSQL + ` AS uncached_input,
 		` + outputTokensSQL + ` AS canonical_output,
-		cache_read_tokens, cache_creation_tokens, reasoning_tokens, cost
+		cache_read_tokens, cache_creation_tokens, reasoning_tokens, cost, cost_source
 	FROM generations WHERE ` + where + `
 )
 SELECT
@@ -171,6 +174,9 @@ SELECT
 	COALESCE(SUM(cache_read_tokens), 0),
 	COALESCE(SUM(cache_creation_tokens), 0),
 	COALESCE(SUM(reasoning_tokens), 0),
+	COALESCE(SUM(cost_source = 'harness' AND cost IS NOT NULL), 0),
+	COALESCE(SUM(cost_source = 'openrouter' AND cost IS NOT NULL), 0),
+	COALESCE(SUM(cost_source = 'free' AND cost IS NOT NULL), 0),
 	COUNT(cost),
 	COUNT(*) - COUNT(cost),
 	SUM(cost),
@@ -206,6 +212,9 @@ GROUP BY k ORDER BY MAX(timestamp) ` + string(dir) + ` LIMIT ? OFFSET ?`
 			&c.CacheReadTokens,
 			&c.CacheCreationTokens,
 			&c.ReasoningTokens,
+			&c.CostReportedCount,
+			&c.CostEstimatedCount,
+			&c.CostFreeCount,
 			&c.CostKnownCount,
 			&c.CostUnknownCount,
 			&costTotal,

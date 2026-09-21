@@ -8,9 +8,26 @@ get `401` with `{"error":"unauthorized","status":401}` instead of data.
 `GET /health` and `GET /ready` stay unauthenticated for probes.
 
 All responses are `application/json`, UTF-8, lowerCamelCase. Nullable
-numerics serialize as JSON `null` when unknown — never `0`. Cost is
-passthrough only: it appears only when the source reported it (OpenCode),
-never computed.
+numerics serialize as JSON `null` when unknown — never `0`. Costs prefer harness-reported values. Missing costs may be estimated from
+OpenRouter pricing or set to zero for names ending in `free`; otherwise they
+remain `null`.
+
+Generation responses add `costReportedByHarness` (boolean), `costSource`
+(`harness`, `openrouter`, `free`, or `unknown`), `pricingModelId` (empty when
+not applicable), and `pricingFetchedAt` (UTC RFC3339 timestamp or `null`).
+The pricing timestamp describes the rates used, including historical backfill
+and estimates made with a stale catalog during an outage.
+
+Summary, timeseries, and breakdown responses add `costReportedCount`,
+`costEstimatedCount`, and `costFreeCount`. Their sum is `costKnownCount`;
+`costTotal` includes all three sources. Free-name costs have source `free`;
+zero harness reports retain source `harness`, while zero catalog estimates
+retain source `openrouter`.
+
+Prices refresh on usage after 24 hours. Existing missing costs receive a one-time
+backfill using then-current prices; later catalog refreshes do not rerun history
+or reprice existing estimates. See [cost estimates](../README.md#cost-estimates)
+for matching, token calculation, and outage behavior.
 
 ## Shared filter parameters
 

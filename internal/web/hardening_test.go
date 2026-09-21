@@ -52,7 +52,7 @@ func TestDetailRendersUnknownModel(t *testing.T) {
 		"mystery-model-9000", // raw model kept, no rewrite
 		"acme-cloud",         // raw provider kept
 		"123",                // input tokens shown
-		"Not reported by this source",
+		"<dt>Cost</dt><dd>—</dd>",
 	)
 	wantNotContains(t, body, "anthropic", "openai", "$")
 
@@ -90,7 +90,7 @@ func TestDetailRendersSparseTokens(t *testing.T) {
 	if status != http.StatusOK {
 		t.Fatalf("status %d", status)
 	}
-	wantContains(t, body, ">10<", "Not reported by this source")
+	wantContains(t, body, ">10<", "<dt>Cost</dt><dd>—</dd>")
 	for _, absent := range []string{"Output tokens</dt><dd>0", "Reasoning tokens</dt><dd>0"} {
 		if strings.Contains(body, absent) {
 			t.Errorf("sparse detail renders %q as 0; want em dash", absent)

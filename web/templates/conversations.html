@@ -31,7 +31,7 @@
       <span><b>{{commas .Requests}}</b> requests</span>
       <span><b>{{commas .TotalTokens}}</b> tokens</span>
       <span>cache hit {{pct .CacheHitRate}}</span>
-      {{if .CostKnownCount}}<span class="conv-cost">{{costCell .CostKnownCount .CostTotal}}</span>{{end}}
+      {{if .CostKnownCount}}<span class="conv-cost">{{costCell .CostKnownCount .CostTotal .CostEstimatedCount}}</span>{{end}}
     </div>
     <div class="conv-time muted">
       {{if eq (utcDate .FirstTimestamp) (utcDate .LastTimestamp)}}

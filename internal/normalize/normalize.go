@@ -24,25 +24,32 @@ const (
 // docs/plans/README.md). Nullable fields stay nil when the source did not
 // report the value; missing is never coerced to zero.
 type Generation struct {
-	ID                  string
-	Timestamp           time.Time
-	Source              string
-	ServiceName         string
-	Provider            string
-	Model               string
-	InputTokens         *int64
-	OutputTokens        *int64
-	CacheReadTokens     *int64
-	CacheCreationTokens *int64
-	ReasoningTokens     *int64
-	Cost                *float64
-	ConversationID      string
-	TraceID             string
-	SpanID              string
-	Duration            time.Duration
-	AgentName           string
-	GitRepo             string
-	GitBranch           string
+	ID                    string
+	Timestamp             time.Time
+	Source                string
+	ServiceName           string
+	Provider              string
+	Model                 string
+	InputTokens           *int64
+	OutputTokens          *int64
+	CacheReadTokens       *int64
+	CacheCreationTokens   *int64
+	ReasoningTokens       *int64
+	Cost                  *float64
+	CostReportedByHarness bool
+	CostSource            string
+	PricingModelID        string
+	PricingFetchedAt      *time.Time
+	// PricingRates preserves the rates used when later telemetry fills missing tokens.
+	PricingRates    string
+	PricingRevision int64
+	ConversationID  string
+	TraceID         string
+	SpanID          string
+	Duration        time.Duration
+	AgentName       string
+	GitRepo         string
+	GitBranch       string
 }
 
 // UncachedInput returns the canonical prompt input with cached tokens

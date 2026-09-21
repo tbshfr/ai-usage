@@ -8,10 +8,12 @@ Go binary. A small web dashboard and JSON API on `:8080` show today's
 token usage up front with weekly/monthly/all-time totals beside it (each
 with the cache hit rate; click a card for details), a **Trends** page with
 charts, per-source/provider/model breakdowns, and a **Sessions** view that
-groups requests by conversation with a sortable request list. Cost is
-displayed **only where the source itself reports it** (OpenCode reports a
-USD estimate; Copilot and Codex report none) — this project has no pricing
-subsystem and never computes cost.
+groups requests by conversation with a sortable request list.
+
+Harness-reported costs take priority. When a cost is missing, the dashboard
+estimates it using OpenRouter pricing, or records zero for model names ending
+in `free` (including `:free` and `-free`). Unmatched models remain unknown.
+Reported, estimated, and free costs are labeled in the dashboard and JSON API.
 
 ```
 OpenCode / VS Code Copilot / Codex ──OTLP──▶ ai-usage ──▶ SQLite ──▶ dashboard + JSON API
@@ -154,14 +156,16 @@ plain HTTP.
 
 ## Data location & privacy
 
-By default, data stays on your machine and the binary makes no outbound
-network connections. Optional [daily backups](docs/backups.md) send the stored
+Usage data stays on your machine. After usage first arrives, the binary
+fetches the public OpenRouter model catalog over HTTPS, without an API key
+or any telemetry in the request. Optional [daily backups](docs/backups.md) send the stored
 SQLite database to your configured S3 destination.
 
 What is collected: **metadata and token counts only** — timestamps,
 source (opencode/copilot/codex), provider, model, input/output/reasoning/cache
 token counts, duration, conversation/trace IDs, and (from OpenCode) the
-cost the source itself reports.
+cost the source itself reports, or an estimated cost with its pricing source
+and the rates used.
 
 What is **not** collected: your prompts and completions. No prompt or
 completion content is captured, stored, or logged. Raw telemetry payloads
@@ -169,6 +173,37 @@ are never persisted; logs are structured JSON containing no telemetry
 data. To delete your history, stop the app and remove `usage.db` (and its
 `-wal`/`-shm` companions) from the data directory. If backups were enabled,
 remote copies remain until lifecycle expiration or operator deletion.
+
+## Cost estimates
+
+OpenRouter prices are cached in SQLite for 24 hours and reused across restarts.
+The first usage batch triggers a background fetch; subsequent usage triggers a
+refresh after expiry. Fetch failures never reject telemetry: the last successful
+catalog is used when available, and refresh retries are throttled to five minutes.
+Without cached prices, paid usage stays pending until a successful fetch.
+
+Reported costs, including zero, always win. Otherwise a name ending in `free`
+(case-insensitive, after trimming whitespace) costs zero. Paid estimates use input,
+output, reasoning, cache, and per-request rates. Missing cache rates fall back to
+normal input rates. Input and output counts are required; absent optional token
+counts are treated as zero. Matching uses exact model IDs, unique bare IDs, and
+explicit aliases for known harness names. Ambiguous or unmatched models stay unknown.
+
+Conditional rates use the request's full prompt count and UTC timestamp. Estimates
+cover token usage and fixed request charges, not unreported image, search, or other
+billable units. They may differ from charges by the actual provider or subscription.
+The request detail shows when prices were fetched. Daily catalog changes do not
+reprice stored costs. Later token enrichment uses the saved rates, and a later
+harness-reported cost replaces an estimate.
+
+Existing requests with missing costs are backfilled **once per database**, after
+usage arrives and a fresh catalog is available. Historical estimates use prices
+available at backfill time, not reconstructed historical prices. Unknown historical
+models remain unknown after the job completes. Progress is safe to retry after an
+interruption; completion is recorded in `pricing_jobs` as `historical-costs-v1`.
+The removable job lives in `internal/pricing/backfill.go` and
+`internal/storage/pricing_backfill.go`; removal instructions are in the worker file.
+Keep migration `0005_pricing.sql` for database upgrades after retiring the job.
 
 ## Development
 

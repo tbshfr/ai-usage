@@ -16,7 +16,7 @@
         <td>{{commas .CacheReadTokens}}</td>
         <td>{{commas .CacheCreationTokens}}</td>
         <td>{{pct .CacheHitRate}}</td>
-        <td>{{costCell .CostKnownCount .CostTotal}}</td>
+        <td>{{costCell .CostKnownCount .CostTotal .CostEstimatedCount}}</td>
       </tr>
       {{else}}
       <tr><td colspan="10" class="muted">No requests in this range.</td></tr>
@@ -32,7 +32,7 @@
         <td>{{commas .Breaks.SourceTotal.CacheReadTokens}}</td>
         <td>{{commas .Breaks.SourceTotal.CacheCreationTokens}}</td>
         <td>{{pct .Breaks.SourceTotal.CacheHitRate}}</td>
-        <td>{{costCell .Breaks.SourceTotal.CostKnownCount .Breaks.SourceTotal.CostTotal}}</td>
+        <td>{{costCell .Breaks.SourceTotal.CostKnownCount .Breaks.SourceTotal.CostTotal .Breaks.SourceTotal.CostEstimatedCount}}</td>
       </tr>
       {{end}}
     </tbody>
@@ -57,7 +57,7 @@
         <td>{{commas .CacheReadTokens}}</td>
         <td>{{commas .CacheCreationTokens}}</td>
         <td>{{pct .CacheHitRate}}</td>
-        <td>{{costCell .CostKnownCount .CostTotal}}</td>
+        <td>{{costCell .CostKnownCount .CostTotal .CostEstimatedCount}}</td>
       </tr>
       {{else}}
       <tr><td colspan="10" class="muted">No requests in this range.</td></tr>
@@ -73,7 +73,7 @@
         <td>{{commas .Breaks.ProviderTotal.CacheReadTokens}}</td>
         <td>{{commas .Breaks.ProviderTotal.CacheCreationTokens}}</td>
         <td>{{pct .Breaks.ProviderTotal.CacheHitRate}}</td>
-        <td>{{costCell .Breaks.ProviderTotal.CostKnownCount .Breaks.ProviderTotal.CostTotal}}</td>
+        <td>{{costCell .Breaks.ProviderTotal.CostKnownCount .Breaks.ProviderTotal.CostTotal .Breaks.ProviderTotal.CostEstimatedCount}}</td>
       </tr>
       {{end}}
     </tbody>
@@ -98,7 +98,7 @@
         <td>{{commas .CacheReadTokens}}</td>
         <td>{{commas .CacheCreationTokens}}</td>
         <td>{{pct .CacheHitRate}}</td>
-        <td>{{costCell .CostKnownCount .CostTotal}}</td>
+        <td>{{costCell .CostKnownCount .CostTotal .CostEstimatedCount}}</td>
       </tr>
       {{else}}
       <tr><td colspan="11" class="muted">No requests in this range.</td></tr>
@@ -115,7 +115,7 @@
         <td>{{commas .Breaks.ModelTotal.CacheReadTokens}}</td>
         <td>{{commas .Breaks.ModelTotal.CacheCreationTokens}}</td>
         <td>{{pct .Breaks.ModelTotal.CacheHitRate}}</td>
-        <td>{{costCell .Breaks.ModelTotal.CostKnownCount .Breaks.ModelTotal.CostTotal}}</td>
+        <td>{{costCell .Breaks.ModelTotal.CostKnownCount .Breaks.ModelTotal.CostTotal .Breaks.ModelTotal.CostEstimatedCount}}</td>
       </tr>
       {{end}}
     </tbody>

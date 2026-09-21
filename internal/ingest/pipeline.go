@@ -128,9 +128,11 @@ type Stats struct {
 // stored at least one new generation notifies it once, so the dashboard
 // can refresh its live fragments.
 type Pipeline struct {
-	db     *sql.DB
-	logger *slog.Logger
-	hub    *live.Hub
+	// AfterCommit is configured before listeners start; it must not block.
+	AfterCommit func()
+	db          *sql.DB
+	logger      *slog.Logger
+	hub         *live.Hub
 
 	received   atomic.Uint64
 	normalized atomic.Uint64
@@ -539,7 +541,10 @@ func (p *Pipeline) storeGenerations(ctx context.Context, gens []normalize.Genera
 	}
 	// One notification per stored batch: bursts of spans coalesce into a
 	// single "data changed" signal for the dashboard's SSE stream.
-	if p.hub != nil && stored > 0 {
+	if p.AfterCommit != nil && len(gens) > 0 {
+		p.AfterCommit()
+	}
+	if p.hub != nil && (stored > 0 || (p.AfterCommit != nil && len(gens) > 0)) {
 		p.hub.Notify()
 	}
 	return nil

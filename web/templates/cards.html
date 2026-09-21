@@ -70,7 +70,7 @@
     <div><dt>Cache creation</dt><dd>{{tokens .Detail.S.CacheCreationTokens}}</dd></div>
     <div><dt>Cache hit rate</dt><dd>{{pct .Detail.S.CacheHitRate}}</dd></div>
     {{if .Detail.Since}}<div><dt>Since</dt><dd>{{utcDate .Detail.Since}}</dd></div>{{end}}
-    <div><dt>Cost</dt><dd>{{costLine .Detail.S.CostKnownCount .Detail.S.CostUnknownCount .Detail.S.CostTotal}}</dd></div>
+    <div><dt>Cost</dt><dd>{{costLine .Detail.S.CostKnownCount .Detail.S.CostUnknownCount .Detail.S.CostTotal .Detail.S.CostEstimatedCount}}</dd></div>
   </dl>
 </section>
 {{end}}

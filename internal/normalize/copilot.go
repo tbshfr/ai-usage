@@ -73,7 +73,7 @@ func FromCopilotSpan(resource pcommon.Map, span ptrace.Span) (Generation, bool, 
 		// when the new attribute is absent.
 		gen.ReasoningTokens = attrIntPtr(attrs, "gen_ai.usage.reasoning_tokens")
 	}
-	// Copilot telemetry carries no cost attribute; Cost is never computed.
+	// Copilot telemetry carries no cost attribute; pricing enrichment runs after storage.
 	gen.Cost = nil
 	if IsSessionlessAgent(gen.AgentName) {
 		// Autocomplete and title/progress helpers have no session: ignore

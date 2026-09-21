@@ -175,7 +175,7 @@ SELECT
 	COALESCE(SUM(cache_creation_tokens), 0),
 	COALESCE(SUM(reasoning_tokens), 0),
 	COALESCE(SUM(cost_source = 'harness' AND cost IS NOT NULL), 0),
-	COALESCE(SUM(cost_source = 'openrouter' AND cost IS NOT NULL), 0),
+	COALESCE(SUM(cost_source IN ('openrouter', 'manual') AND cost IS NOT NULL), 0),
 	COALESCE(SUM(cost_source = 'free' AND cost IS NOT NULL), 0),
 	COUNT(cost),
 	COUNT(*) - COUNT(cost),

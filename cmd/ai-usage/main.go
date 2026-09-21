@@ -97,6 +97,9 @@ func run(cfg *config.Config, logger *slog.Logger) error {
 	defer func() { stopBackup(); <-backupDone }()
 	pipeline := ingest.NewPipeline(db, logger, hub)
 	prices := pricing.New(db, logger, hub.Notify)
+	if err := prices.LoadManualFile(cfg.PricingFile); err != nil {
+		return err
+	}
 	pricingCtx, stopPricing := context.WithCancel(context.Background())
 	pricingDone := make(chan struct{})
 	go func() { defer close(pricingDone); prices.Run(pricingCtx) }()

@@ -67,3 +67,24 @@ func TestBackfillWaitsForCatalog(t *testing.T) {
 		t.Fatalf("backfill marked complete without fresh catalog: %v %v", complete, err)
 	}
 }
+
+func TestBackfillGLMAndManualMAI(t *testing.T) {
+	db := seedtest.EmptyDB(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `{"data":[{"id":"z-ai/glm-5.3-flash","pricing":{"prompt":"0.00000009","completion":"0.0000003"}}]}`)
+	}))
+	defer srv.Close()
+	for _, model := range []string{"glm-5.3-flash", "z-ai/glm-5.3-flash", "mai-code-1.1-flash"} {
+		insert(t, db, usage(model, model))
+	}
+	if _, err := db.Exec(`UPDATE generations SET pricing_pending=0`); err != nil {
+		t.Fatal(err)
+	}
+	s := New(db, quiet(), nil)
+	s.url = srv.URL
+	process(t, s)
+	for _, model := range []string{"glm-5.3-flash", "z-ai/glm-5.3-flash"} {
+		checkCost(t, read(t, db, model), .000015, "openrouter")
+	}
+	checkCost(t, read(t, db, "mai-code-1.1-flash"), .000044, "manual")
+}

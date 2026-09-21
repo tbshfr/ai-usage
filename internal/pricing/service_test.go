@@ -381,3 +381,21 @@ func TestWorkerCancelsInflightFetch(t *testing.T) {
 		t.Fatal("canceled fetch priced usage")
 	}
 }
+
+func TestQwenMaxAlias(t *testing.T) {
+	c, err := parseCatalog([]byte(`{"data":[{"id":"qwen/qwen3.8-max-0902","pricing":{"prompt":"0.000002","completion":"0.000006"}}]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, model := range []string{"qwen3.8-max", "qwen/qwen3.8-max", "qwen3.8-max-0902"} {
+		id, _, ok := c.match(model)
+		if !ok || id != "qwen/qwen3.8-max-0902" {
+			t.Errorf("match %s = %s %v", model, id, ok)
+		}
+	}
+	// If the catalog begins listing the exact ID, it takes priority over the alias.
+	c["qwen/qwen3.8-max"] = rates{Prompt: 1, Completion: 2}
+	if id, _, ok := c.match("qwen/qwen3.8-max"); !ok || id != "qwen/qwen3.8-max" {
+		t.Fatalf("exact ID lost priority: %s %v", id, ok)
+	}
+}

@@ -12,7 +12,8 @@ groups requests by conversation with a sortable request list.
 
 Harness-reported costs take priority. When a cost is missing, the dashboard
 estimates it using OpenRouter pricing, or records zero for model names ending
-in `free` (including `:free` and `-free`). Unmatched models remain unknown.
+in `free` (including `:free` and `-free`). A manual pricing JSON file provides
+fallback rates; models without a matching price remain unknown.
 Reported, estimated, and free costs are labeled in the dashboard and JSON API.
 
 ```
@@ -74,6 +75,7 @@ Flags override environment variables, which override defaults.
 | `--otlp-grpc`                   | `AI_USAGE_OTLP_GRPC_ADDR`              | _(disabled)_                  | OTLP gRPC listen address (starts only when set)      |
 | `--data-dir`                    | `AI_USAGE_DATA_DIR`                    | OS user-data dir + `ai-usage` | Data directory                                       |
 | `--database`                    | `AI_USAGE_DATABASE`                    | `<data-dir>/usage.db`         | SQLite database path                                 |
+| `--pricing-file`                 | `AI_USAGE_PRICING_FILE`                 | _(bundled prices only)_      | JSON file with additional manual model prices         |
 | `--log-level`                   | `AI_USAGE_LOG_LEVEL`                   | `info`                        | `debug`, `info`, `warn`, or `error`                  |
 | `--dashboard-user`              | `AI_USAGE_DASHBOARD_USER`              | _(auth off)_                  | Dashboard login username                             |
 | `--dashboard-password`          | `AI_USAGE_DASHBOARD_PASSWORD`          | _(auth off)_                  | Dashboard login password                             |
@@ -187,7 +189,8 @@ Reported costs, including zero, always win. Otherwise a name ending in `free`
 output, reasoning, cache, and per-request rates. Missing cache rates fall back to
 normal input rates. Input and output counts are required; absent optional token
 counts are treated as zero. Matching uses exact model IDs, unique bare IDs, and
-explicit aliases for known harness names. Ambiguous or unmatched models stay unknown.
+explicit aliases for known harness names. When OpenRouter has no match, manual
+prices are checked; models without a usable price stay unknown.
 
 Conditional rates use the request's full prompt count and UTC timestamp. Estimates
 cover token usage and fixed request charges, not unreported image, search, or other
@@ -204,6 +207,46 @@ interruption; completion is recorded in `pricing_jobs` as `historical-costs-v1`.
 The removable job lives in `internal/pricing/backfill.go` and
 `internal/storage/pricing_backfill.go`; removal instructions are in the worker file.
 Keep migration `0005_pricing.sql` for database upgrades after retiring the job.
+
+### Manual prices
+
+[`internal/pricing/manual-prices.json`](internal/pricing/manual-prices.json)
+contains bundled fallback prices.
+Editing the bundled file requires rebuilding. To add or update prices without a
+rebuild, supply another JSON file with `--pricing-file /path/to/prices.json`
+or `AI_USAGE_PRICING_FILE`. Restart after changing that file. Its entries supplement
+the bundled entries; an identical model ID replaces the bundled entry.
+
+```json
+{
+  "models": {
+    "mai-code-1.1-flash": {
+      "inputPerMillion": 0.20,
+      "outputPerMillion": 1.20,
+      "cacheReadPerMillion": 0.02,
+      "updatedAt": "2026-09-21",
+      "sourceURL": "https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing"
+    }
+  }
+}
+```
+
+All numbers are **USD per million tokens**. `inputPerMillion`,
+`outputPerMillion`, and `updatedAt` (YYYY-MM-DD) are required for each model.
+Optional `cacheReadPerMillion` and `cacheWritePerMillion` default to the input
+rate; `reasoningPerMillion` defaults to the output rate. Explicit zero is valid.
+`sourceURL` is an optional reference for people maintaining the file. Invalid
+configured files fail startup with an error instead of silently ignoring typos.
+
+Manual entries match exact stored model IDs after trimming surrounding whitespace.
+They apply when OpenRouter cannot match a model. Harness-reported costs and the
+free-name rule still take priority. Manual costs are labeled **manual estimate**,
+count toward estimated totals, and preserve their rates and `updatedAt` date in
+SQLite. They work even when OpenRouter is unavailable. The detail page shows
+"Prices updated" for manual estimates.
+
+Manual prices also apply during the existing one-time historical backfill.
+Adding prices does **not** restart a completed backfill or change saved estimates.
 
 ## Development
 

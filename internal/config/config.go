@@ -12,6 +12,7 @@ import (
 )
 
 type Config struct {
+	PricingFile             string
 	BackupS3SessionToken    string
 	BackupS3SecretAccessKey string
 	BackupS3AccessKeyID     string
@@ -38,6 +39,7 @@ func Load(args []string, lookup envFunc, goos, homeDir string) (*Config, error) 
 	otlpHTTP := fs.String("otlp-http", "", "OTLP/HTTP listen address (disabled unless set)")
 	otlpGRPC := fs.String("otlp-grpc", "", "OTLP gRPC listen address (disabled unless set)")
 	dataDir := fs.String("data-dir", "", "data directory")
+	pricingFile := fs.String("pricing-file", "", "JSON file with manual model prices (supplements bundled prices)")
 	database := fs.String("database", "", "SQLite database path")
 	logLevel := fs.String("log-level", "", "log level (debug|info|warn|error)")
 	dashUser := fs.String("dashboard-user", "", "dashboard login username (required for non-loopback binds)")
@@ -59,6 +61,7 @@ func Load(args []string, lookup envFunc, goos, homeDir string) (*Config, error) 
 	fs.Visit(func(f *flag.Flag) { set[f.Name] = true })
 
 	c := &Config{}
+	c.PricingFile, _ = flagOrEnv("pricing-file", *pricingFile, set, lookup)
 	c.BackupS3Bucket, _ = flagOrEnv("backup-s3-bucket", *backupBucket, set, lookup)
 	c.BackupS3Region, _ = flagOrEnv("backup-s3-region", *backupRegion, set, lookup)
 	c.BackupS3Prefix, _ = flagOrEnv("backup-s3-prefix", *backupPrefix, set, lookup)
@@ -240,6 +243,7 @@ var envNames = map[string]string{
 	"otlp-grpc":                   "AI_USAGE_OTLP_GRPC_ADDR",
 	"data-dir":                    "AI_USAGE_DATA_DIR",
 	"database":                    "AI_USAGE_DATABASE",
+	"pricing-file":                "AI_USAGE_PRICING_FILE",
 	"log-level":                   "AI_USAGE_LOG_LEVEL",
 	"dashboard-user":              "AI_USAGE_DASHBOARD_USER",
 	"dashboard-password":          "AI_USAGE_DASHBOARD_PASSWORD",

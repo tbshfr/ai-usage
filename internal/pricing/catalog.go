@@ -89,6 +89,9 @@ func parseCatalog(body []byte) (catalog, error) {
 
 // Explicit aliases avoid guessing across model versions and similarly named models.
 var aliases = map[string]string{
+	// OpenRouter's single-model lookup resolves this alias to the dated entry.
+	"qwen3.8-max":                "qwen/qwen3.8-max-0902",
+	"qwen/qwen3.8-max":           "qwen/qwen3.8-max-0902",
 	"claude-haiku-4-5":           "anthropic/claude-haiku-4.5",
 	"claude-haiku-4-5-20251001":  "anthropic/claude-haiku-4.5",
 	"claude-sonnet-4-5":          "anthropic/claude-sonnet-4.5",

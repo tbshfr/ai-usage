@@ -281,6 +281,8 @@ func generationCost(g normalize.Generation) string {
 		return emDash
 	}
 	switch g.CostSource {
+	case "manual":
+		return "≈ " + cost(g.Cost) + " (manual estimate)"
 	case "openrouter":
 		return "≈ " + cost(g.Cost) + " (estimated)"
 	case "free":

@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/tbshfr/ai-usage/internal/normalize"
@@ -28,6 +29,7 @@ type Service struct {
 	client       *http.Client
 	url          string
 	now          func() time.Time
+	manual       map[string]manualPrice
 	catalog      catalog
 	fetched      time.Time
 	retryAt      time.Time
@@ -39,7 +41,11 @@ func New(db *sql.DB, logger *slog.Logger, notify func()) *Service {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &Service{db: db, logger: logger, notify: notify, wake: make(chan struct{}, 1), client: &http.Client{Timeout: 10 * time.Second}, url: catalogURL, now: time.Now}
+	manual, err := parseManualPrices(manualPricesJSON)
+	if err != nil {
+		panic(fmt.Sprintf("invalid bundled manual prices: %v", err))
+	}
+	return &Service{manual: manual, db: db, logger: logger, notify: notify, wake: make(chan struct{}, 1), client: &http.Client{Timeout: 10 * time.Second}, url: catalogURL, now: time.Now}
 }
 
 func (s *Service) Notify() {
@@ -128,26 +134,35 @@ func (s *Service) enrich(g normalize.Generation) normalize.Generation {
 		return g
 	}
 	original := g
+	origin := "openrouter"
 	var r rates
 	if g.PricingRates != "" {
+		if g.CostSource == "manual" {
+			origin = "manual"
+		}
 		// Existing estimates retain their original rates when telemetry is enriched.
 		if json.Unmarshal([]byte(g.PricingRates), &r) != nil {
 			return g
 		}
 	} else {
 		id, matched, ok := s.catalog.match(g.Model)
+		stamp := s.fetched
 		if !ok {
-			return g
+			id = strings.TrimSpace(g.Model)
+			manual, found := s.manual[id]
+			if !found {
+				return g
+			}
+			matched, stamp, origin = manual.Rates, manual.UpdatedAt, "manual"
 		}
 		r = matched
 		g.PricingModelID = id
-		stamp := s.fetched
 		g.PricingFetchedAt = &stamp
 		encoded, _ := json.Marshal(r)
 		g.PricingRates = string(encoded)
 	}
 	if cost := estimate(g, r); cost != nil {
-		g.Cost, g.CostSource = cost, "openrouter"
+		g.Cost, g.CostSource = cost, origin
 	} else {
 		return original
 	}
@@ -179,10 +194,11 @@ func (s *Service) process(ctx context.Context) error {
 		for _, g := range gens {
 			after = g.ID
 			// Keep pending paid records during a cold-cache outage for the next attempt.
-			if len(s.catalog) == 0 && g.PricingRates == "" && !freeModel(g.Model) {
+			enriched := s.enrich(g)
+			if len(s.catalog) == 0 && enriched.Cost == nil {
 				continue
 			}
-			updated, err := storage.ApplyPricing(ctx, s.db, s.enrich(g))
+			updated, err := storage.ApplyPricing(ctx, s.db, enriched)
 			if err != nil {
 				return err
 			}

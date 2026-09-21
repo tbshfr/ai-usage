@@ -414,6 +414,48 @@ func TestByModelOrderingAndSparseSums(t *testing.T) {
 	}
 }
 
+func TestByModelMergesOpenRouterCreatorPrefix(t *testing.T) {
+	db := seedtest.EmptyDB(t)
+	ctx := context.Background()
+	for _, g := range []normalize.Generation{
+		{ID: "openrouter-glm", Timestamp: time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC), Source: "opencode", Provider: "openrouter", Model: "z-ai/glm-5.3-flash", InputTokens: seedtest.IP(10), Cost: seedtest.FP(0.25)},
+		{ID: "direct-glm", Timestamp: time.Date(2026, 3, 1, 0, 1, 0, 0, time.UTC), Source: "opencode", Provider: "z-ai", Model: "glm-5.3-flash", InputTokens: seedtest.IP(20), OutputTokens: seedtest.IP(5)},
+		{ID: "other-prefixed", Timestamp: time.Date(2026, 3, 1, 0, 2, 0, 0, time.UTC), Source: "opencode", Provider: "other", Model: "z-ai/glm-5.3-flash", InputTokens: seedtest.IP(3)},
+	} {
+		if _, err := storage.InsertGeneration(ctx, db, g); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	rows, err := storage.ByModel(ctx, db, seedtest.FullRange())
+	if err != nil {
+		t.Fatal(err)
+	}
+	byKey := breakdownByKey(t, rows)
+	if len(byKey) != 2 {
+		t.Fatalf("models = %+v, want 2 groups", rows)
+	}
+	glm := byKey["glm-5.3-flash"]
+	if glm.Requests != 2 || glm.InputTokens != 30 || glm.OutputTokens != 5 || glm.CostKnownCount != 1 || glm.CostUnknownCount != 1 {
+		t.Errorf("merged glm = %+v", glm)
+	}
+	assertCost(t, glm.CostTotal, glm.CostKnownCount, 0.25, 1, "merged glm")
+	if other := byKey["z-ai/glm-5.3-flash"]; other.Requests != 1 || other.InputTokens != 3 {
+		t.Errorf("non-OpenRouter prefixed model = %+v", other)
+	}
+
+	f := seedtest.FullRange()
+	f.Model = "z-ai/glm-5.3-flash"
+	f.Provider = "openrouter"
+	filtered, err := storage.ByModel(ctx, db, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(filtered) != 1 || filtered[0].Key != "glm-5.3-flash" || filtered[0].Requests != 1 {
+		t.Errorf("raw model filter = %+v", filtered)
+	}
+}
+
 func TestDistinctValues(t *testing.T) {
 	db := seedtest.DB(t)
 	ctx := context.Background()

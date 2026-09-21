@@ -368,8 +368,9 @@ func ByProvider(ctx context.Context, db *sql.DB, f Filter) ([]Breakdown, error) 
 	return breakdown(ctx, db, f, "provider")
 }
 
-// ByModel returns totals grouped by raw stored model value, ordered by total
-// tokens descending. Display-provider derivation belongs to the UI layer.
+// ByModel groups OpenRouter's creator/model IDs with the same bare model ID
+// reported by other providers, ordered by total tokens descending. Stored
+// models and model filters retain their raw values.
 func ByModel(ctx context.Context, db *sql.DB, f Filter) ([]Breakdown, error) {
 	return breakdown(ctx, db, f, "model")
 }
@@ -380,8 +381,15 @@ func breakdown(ctx context.Context, db *sql.DB, f Filter, column string) ([]Brea
 		return nil, err
 	}
 	where, args := f.whereSQL()
+	groupKey := column
+	if column == "model" {
+		// OpenRouter prepends the model creator (for example z-ai/glm-5.3-flash).
+		// Strip only that provider's nonempty prefix so other model IDs stay raw.
+		groupKey = `CASE WHEN provider = 'openrouter' AND instr(model, '/') > 1
+			THEN substr(model, instr(model, '/') + 1) ELSE model END`
+	}
 	q := `SELECT
-	COALESCE(` + column + `, ''),
+	COALESCE(` + groupKey + `, ''),
 	COUNT(*),
 	COALESCE(SUM(` + uncachedInputSQL + `), 0),
 	COALESCE(SUM(` + outputTokensSQL + `), 0),
@@ -391,7 +399,7 @@ func breakdown(ctx context.Context, db *sql.DB, f Filter, column string) ([]Brea
 	COUNT(cost),
 	COUNT(*) - COUNT(cost),
 	SUM(cost)
-FROM generations WHERE ` + where + ` GROUP BY ` + column
+FROM generations WHERE ` + where + ` GROUP BY ` + groupKey
 	if column == "model" {
 		q += ` ORDER BY COALESCE(SUM(` + uncachedInputSQL + `), 0) + COALESCE(SUM(` + outputTokensSQL + `), 0)
 			+ COALESCE(SUM(cache_read_tokens), 0) + COALESCE(SUM(cache_creation_tokens), 0)

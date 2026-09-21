@@ -41,7 +41,7 @@
 </section>
 <section>
   <h2>By provider</h2>
-  <p class="muted">Raw provider as reported by the source (exception: Codex, whose rows always show <code>openai</code> — derived, not reported). The model table below groups by model across all sources; its creator column is derived from the model name prefix.</p>
+  <p class="muted">Raw provider as reported by the source (exception: Codex, whose rows always show <code>openai</code> — derived, not reported). The model table below groups matching models across sources, omitting OpenRouter creator prefixes; its creator column is derived from the grouped model name.</p>
   <div class="table-scroll">
   <table>
     <thead><tr><th>Provider</th><th>Requests</th><th>Total tokens</th><th>Input</th><th>Output</th><th>Reasoning</th><th>Cache read</th><th>Cache creation</th><th>Cache hit</th><th>Cost</th></tr></thead>

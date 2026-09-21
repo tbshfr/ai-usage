@@ -181,8 +181,8 @@ remote copies remain until lifecycle expiration or operator deletion.
 OpenRouter prices are cached in SQLite for 24 hours and reused across restarts.
 The first usage batch triggers a background fetch; subsequent usage triggers a
 refresh after expiry. Fetch failures never reject telemetry: the last successful
-catalog is used when available, and refresh retries are throttled to five minutes.
-Without cached prices, paid usage stays pending until a successful fetch.
+catalog is used when available. Without cached prices, paid usage stays pending;
+the worker retries after five minutes and resumes pending rows after a restart.
 
 Reported costs, including zero, always win. Otherwise a name ending in `free`
 (case-insensitive, after trimming whitespace) costs zero. Paid estimates use input,

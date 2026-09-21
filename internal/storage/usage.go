@@ -98,8 +98,9 @@ const (
 // filled in (docs/telemetry.md D2, README rule 3). A newly reported harness
 // cost supersedes an estimate; existing harness costs are preserved. A
 // merge re-queues pricing only when it fills previously-NULL model or token
-// columns, so a retried batch with no new information never re-enqueues an
-// already-enriched row; every merge still bumps pricing_revision so
+// columns or moves an OpenRouter estimate to an earlier timestamp (which may
+// change a conditional rate). A retried batch with no new information never
+// re-enqueues an already-enriched row; every merge still bumps pricing_revision so
 // enrichment racing a re-delivered record cannot land stale results.
 func InsertGeneration(ctx context.Context, db *sql.DB, gen normalize.Generation) (bool, error) {
 	return insertGeneration(ctx, db, gen)
@@ -190,6 +191,7 @@ const mergeSQL = `UPDATE generations SET
 			OR (cache_read_tokens IS NULL AND ? IS NOT NULL)
 			OR (cache_creation_tokens IS NULL AND ? IS NOT NULL)
 			OR (reasoning_tokens IS NULL AND ? IS NOT NULL)
+			OR (cost_source = 'openrouter' AND timestamp > ?)
 		THEN 1
 		ELSE pricing_pending
 	END,
@@ -246,13 +248,14 @@ func mergeArgs(gen normalize.Generation) []any {
 		nullableFloat(gen.Cost),
 		nullableFloat(gen.Cost),
 		nullableFloat(gen.Cost),
-		// pricing_pending: does the merge fill a pricing-relevant column?
+			// pricing_pending: did the merge add pricing inputs or move the timestamp?
 		nullableString(gen.Model),
 		nullableInt(gen.InputTokens),
 		nullableInt(gen.OutputTokens),
 		nullableInt(gen.CacheReadTokens),
 		nullableInt(gen.CacheCreationTokens),
 		nullableInt(gen.ReasoningTokens),
+		gen.Timestamp.UnixMilli(),
 		nullableString(gen.ConversationID),
 		nullableDuration(gen.Duration),
 		nullableString(gen.AgentName),

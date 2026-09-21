@@ -541,8 +541,9 @@ func (p *Pipeline) storeGenerations(ctx context.Context, gens []normalize.Genera
 	}
 	// The pricing worker wakes only when the batch can have queued pricing
 	// work: records without a harness-reported cost are pending when
-	// inserted, and only such a record re-queues a merged row — one carrying
-	// a cost finalizes the row instead. A costed batch never wakes it.
+	// inserted, and such a record can re-queue a merged row when it fills
+	// pricing inputs or moves an estimate's timestamp earlier. A costed
+	// batch finalizes the row and never wakes the worker.
 	if p.AfterCommit != nil && needsPricing(gens) {
 		p.AfterCommit()
 	}
@@ -557,8 +558,8 @@ func (p *Pipeline) storeGenerations(ctx context.Context, gens []normalize.Genera
 
 // needsPricing reports whether the batch can have queued pricing work.
 // Records without a harness-reported cost are marked pending at insert,
-// and a merge re-queues an already-priced row only when such a record
-// fills pricing-relevant columns. A pure retry of unpriced records still
+// and a merge re-queues an already-priced row when such a record fills
+// pricing-relevant columns or moves its timestamp earlier. A pure retry still
 // reports true: the wake is coalesced and the pending scan is indexed, so
 // the false positive costs one cheap check.
 func needsPricing(gens []normalize.Generation) bool {

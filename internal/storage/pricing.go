@@ -28,6 +28,14 @@ func PendingPricing(ctx context.Context, db *sql.DB, after string) ([]normalize.
 	return pricingRows(ctx, db, `pricing_pending = 1 AND id > ?`, after)
 }
 
+// HasPendingPricing supports startup recovery and retry scheduling without
+// loading a batch of generations.
+func HasPendingPricing(ctx context.Context, db *sql.DB) (bool, error) {
+	var pending bool
+	err := db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM generations WHERE pricing_pending = 1)`).Scan(&pending)
+	return pending, err
+}
+
 func pricingRows(ctx context.Context, db *sql.DB, where string, args ...any) ([]normalize.Generation, error) {
 	rows, err := db.QueryContext(ctx, `SELECT `+generationColumns+` FROM generations WHERE `+where+` ORDER BY id LIMIT 200`, args...)
 	if err != nil {

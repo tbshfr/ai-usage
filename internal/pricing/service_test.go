@@ -232,6 +232,72 @@ func TestFailureCooldownStalePricesAndRecovery(t *testing.T) {
 	}
 }
 
+func TestWorkerResumesPendingAndRetriesWithoutNewUsage(t *testing.T) {
+	db := seedtest.EmptyDB(t)
+	insert(t, db, usage("pending-after-restart", "test"))
+	var calls atomic.Int64
+	firstAttempt := make(chan struct{}, 1)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if calls.Add(1) == 1 {
+			firstAttempt <- struct{}{}
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		fmt.Fprint(w, priceBody)
+	}))
+	defer srv.Close()
+	changed := make(chan struct{}, 1)
+	s := New(db, quiet(), func() { changed <- struct{}{} })
+	s.url = srv.URL
+	s.retryDelay = 25 * time.Millisecond
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { defer close(done); s.Run(ctx) }()
+	defer func() { cancel(); <-done }()
+	select {
+	case <-firstAttempt:
+	case <-time.After(2 * time.Second):
+		t.Fatal("startup did not resume pending pricing")
+	}
+	select {
+	case <-changed:
+	case <-time.After(2 * time.Second):
+		t.Fatal("failed catalog fetch was not retried without new usage")
+	}
+	checkCost(t, read(t, db, "pending-after-restart"), 1.5, "openrouter")
+	if got := calls.Load(); got != 2 {
+		t.Fatalf("catalog fetches = %d, want failed attempt and one retry", got)
+	}
+}
+
+func TestEarlierTimestampRepricesConditionalEstimate(t *testing.T) {
+	db := seedtest.EmptyDB(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `{"data":[{"id":"openai/test","pricing":{"prompt":"1","completion":"2","overrides":[{"utc_days":["thursday"],"utc_start":0,"utc_end":100,"prompt":"3"}]}}]}`)
+	}))
+	defer srv.Close()
+	s := New(db, quiet(), nil)
+	s.url = srv.URL
+	g := usage("earlier-timestamp", "test") // Thursday, 2026-01-01 00:00 UTC.
+	insert(t, db, g)
+	process(t, s)
+	checkCost(t, read(t, db, g.ID), 340, "openrouter")
+
+	g.Timestamp = g.Timestamp.Add(-time.Hour) // Wednesday, outside the override.
+	insert(t, db, g)
+	pending, err := storage.PendingPricing(context.Background(), db, "")
+	if err != nil || len(pending) != 1 {
+		t.Fatalf("earlier timestamp must requeue estimate: %d pending, %v", len(pending), err)
+	}
+	process(t, s)
+	checkCost(t, read(t, db, g.ID), 140, "openrouter")
+	insert(t, db, g)
+	pending, err = storage.PendingPricing(context.Background(), db, "")
+	if err != nil || len(pending) != 0 {
+		t.Fatalf("identical retry requeued pricing: %d pending, %v", len(pending), err)
+	}
+}
+
 func TestWorkerCoalescesAndStops(t *testing.T) {
 	db := seedtest.EmptyDB(t)
 	var calls atomic.Int64

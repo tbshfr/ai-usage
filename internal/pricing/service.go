@@ -20,7 +20,7 @@ const cacheTTL = 24 * time.Hour
 const retryDelay = 5 * time.Minute
 
 // Service owns a single worker. Notify is safe to call concurrently after commits.
-// Construction and startup never make network requests.
+// Construction makes no network requests; Run resumes queued pricing at startup.
 type Service struct {
 	db           *sql.DB
 	logger       *slog.Logger
@@ -29,6 +29,7 @@ type Service struct {
 	client       *http.Client
 	url          string
 	now          func() time.Time
+	retryDelay   time.Duration
 	manual       map[string]manualPrice
 	catalog      catalog
 	fetched      time.Time
@@ -45,7 +46,7 @@ func New(db *sql.DB, logger *slog.Logger, notify func()) *Service {
 	if err != nil {
 		panic(fmt.Sprintf("invalid bundled manual prices: %v", err))
 	}
-	return &Service{manual: manual, db: db, logger: logger, notify: notify, wake: make(chan struct{}, 1), client: &http.Client{Timeout: 10 * time.Second}, url: catalogURL, now: time.Now}
+	return &Service{manual: manual, db: db, logger: logger, notify: notify, wake: make(chan struct{}, 1), client: &http.Client{Timeout: 10 * time.Second}, url: catalogURL, now: time.Now, retryDelay: retryDelay}
 }
 
 func (s *Service) Notify() {
@@ -56,13 +57,51 @@ func (s *Service) Notify() {
 }
 
 func (s *Service) Run(ctx context.Context) {
+	// Recover queued rows after a restart while leaving an empty database idle.
+	if pending, err := storage.HasPendingPricing(ctx, s.db); err != nil {
+		if ctx.Err() == nil {
+			s.logger.Warn("check pending pricing at startup", "error", err)
+		}
+	} else if pending {
+		s.Notify()
+	}
+	var retryTimer *time.Timer
+	var retry <-chan time.Time
+	defer func() {
+		if retryTimer != nil {
+			retryTimer.Stop()
+		}
+	}()
 	for {
 		select {
 		case <-ctx.Done():
 			return
+		case <-retry:
+			retry = nil
+			s.Notify()
 		case <-s.wake:
 			if err := s.process(ctx); err != nil && ctx.Err() == nil {
 				s.logger.Warn("pricing enrichment failed", "error", err)
+			}
+			if retryTimer != nil {
+				retryTimer.Stop()
+				retryTimer = nil
+				retry = nil
+			}
+			// A failed cold-cache fetch leaves paid rows pending. Wake again
+			// when its cooldown expires, even if no more telemetry arrives.
+			if ctx.Err() == nil && len(s.catalog) == 0 && !s.retryAt.IsZero() {
+				pending, err := storage.HasPendingPricing(ctx, s.db)
+				if err != nil {
+					s.logger.Warn("check pending pricing for retry", "error", err)
+				} else if pending {
+					delay := s.retryAt.Sub(s.now())
+					if delay < 0 {
+						delay = 0
+					}
+					retryTimer = time.NewTimer(delay)
+					retry = retryTimer.C
+				}
 			}
 		}
 	}
@@ -87,7 +126,7 @@ func (s *Service) refresh(ctx context.Context) error {
 		return nil
 	}
 	// Failure cooldown also coalesces failed requests during an outage.
-	s.retryAt = now.Add(retryDelay)
+	s.retryAt = now.Add(s.retryDelay)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.url, nil)
 	if err != nil {
 		return err

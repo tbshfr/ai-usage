@@ -2,7 +2,7 @@ CREATE TABLE generations (
     id TEXT PRIMARY KEY,
     timestamp INTEGER NOT NULL,          -- unix milliseconds, UTC
 
-    source TEXT NOT NULL,                -- "opencode" | "copilot" | "codex"
+    source TEXT NOT NULL,                -- "opencode" | "copilot" | "codex" | "maki"
     service_name TEXT,
 
     provider TEXT,                       -- raw gen_ai.provider.name

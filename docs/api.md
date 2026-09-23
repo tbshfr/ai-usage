@@ -40,7 +40,7 @@ All list/aggregate endpoints accept:
 |---------------|------------------------------------------------------------------------------|
 | `from`        | RFC3339 or `YYYY-MM-DD` (date-only = UTC midnight); optional                 |
 | `to`          | RFC3339 or `YYYY-MM-DD`; optional, defaults to now                           |
-| `source`      | exact match (`opencode`, `copilot`, `codex`); optional                       |
+| `source`      | exact match (`opencode`, `copilot`, `codex`, `maki`); optional               |
 | `provider`    | exact match on raw stored provider; optional                                 |
 | `model`       | exact match on raw stored model; optional                                    |
 | `conversation`| exact match on conversation/session ID, or one of the session-less sentinels: `none` (every session-less row), `autocomplete` (VS Code autocomplete), `titleprogress` (title/progress helpers); optional |

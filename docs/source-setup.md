@@ -1,11 +1,12 @@
-# Sending telemetry from OpenCode, VS Code Copilot, and Codex
+# Sending telemetry from OpenCode, Codex, Maki, and VS Code Copilot
 
 This dashboard consumes standard OTLP. The sources below are configured
 once and then report usage automatically. After configuring, verify with
 the checks at the end of each section.
 
 OpenCode and Copilot use OTLP/HTTP on `http://localhost:4318` by default;
-Codex needs the full `http://127.0.0.1:4318/v1/logs` path. The dashboard
+Codex needs the full `http://127.0.0.1:4318/v1/logs` path. Maki appends
+`/v1/logs` and `/v1/metrics` to the base endpoint. The dashboard
 only listens on the OTLP ports you explicitly enable, so start it with:
 
 ```bash
@@ -24,7 +25,7 @@ refuses to start a non-loopback OTLP listener without
 `AI_USAGE_DASHBOARD_USER`/`AI_USAGE_DASHBOARD_PASSWORD`. Pick one long
 random token, e.g. `openssl rand -hex 32`.
 
-All three sources can send `Authorization: Bearer <token>`.
+All four sources can send `Authorization: Bearer <token>`.
 
 ### OpenCode
 
@@ -89,6 +90,12 @@ headers = { "authorization" = "Bearer ${AI_USAGE_OTLP_TOKEN}" }
 
 Export `AI_USAGE_OTLP_TOKEN` before starting Codex. Keep the token in the
 environment, not in `config.toml`.
+
+### Maki
+
+Add `headers = { ["authorization"] = "Bearer <token>" }` to Maki's
+`telemetry` table in the Maki section when sending to an authenticated receiver.
+Keep the token out of a committed `init.lua`.
 
 ### Verify
 
@@ -197,6 +204,50 @@ curl -s 'localhost:8080/api/generations?source=codex' | jq '.[0] | {model,inputT
 The response should contain the selected model and token counts. If it is
 empty, check `/api/stats`: `normalized` and `stored` should increase when
 Codex flushes its asynchronous OTel batch on shutdown.
+
+## Maki
+
+Maki has built-in OTLP telemetry. Add this to your `init.lua`:
+
+```lua
+maki.setup({
+    telemetry = {
+        enabled = true,
+        metrics_exporter = "none",
+        logs_exporter = "otlp",
+        protocol = "http/protobuf",
+        endpoint = "http://localhost:4318",
+    },
+})
+```
+
+The dashboard stores one generation for each `maki.api_request` log event.
+Maki's token and cost metrics are interval aggregates and are ignored to
+avoid counting the same calls twice. The event reports input tokens
+separately from cache-read and cache-creation tokens, and its `cost_usd`
+estimate is stored as a harness-reported cost when positive. A zero estimate
+leaves cost unknown for the dashboard's pricing fallback. Other Maki events
+do not create generations. Leave `log_user_prompts` and `log_tool_details`
+disabled; the dashboard needs neither prompt text nor tool input.
+
+Maki also accepts `OTEL_METRICS_EXPORTER=none` as an environment override;
+environment variables take precedence over `init.lua`.
+
+Maki's [telemetry documentation](https://maki.sh/docs/telemetry/) also shows
+the gRPC alternative (`protocol = "grpc"`, endpoint
+`http://localhost:4317`); enable the dashboard's `--otlp-grpc :4317`
+listener if you choose it.
+
+### Verification
+
+After a Maki API call and a log export interval:
+
+```bash
+curl -s 'localhost:8080/api/generations?source=maki' | jq '.[0] | {model,inputTokens,cacheReadTokens,outputTokens,cost}'
+```
+
+The response should show the model and token counts. If it is empty,
+check `/api/stats` and Maki's log file for telemetry export errors.
 
 ## VS Code GitHub Copilot
 

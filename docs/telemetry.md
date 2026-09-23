@@ -15,6 +15,7 @@ v0.153.4 and the same OTLP/HTTP harness.
 | OpenCode (plugin `@devtheops/opencode-plugin-otel`, self-reports `service.version` 1.2.3; opencode `app.version` 1.5.1) | resource `service.name=opencode` | **always protobuf** (`application/x-protobuf`) | `/v1/traces`, `/v1/metrics`, `/v1/logs` |
 | VS Code GitHub Copilot (copilot-chat extension 0.63.0; VS Code version not recorded) | resource `service.name=copilot-chat` | **always JSON** (`application/json`) | `/v1/traces`, `/v1/metrics`, `/v1/logs` |
 | Codex CLI 0.153.4 (Rust OTel SDK 0.31.0) | resource `service.name=codex_cli_rs` | **JSON observed** (`application/json`) | `/v1/logs`, `/v1/traces`, `/v1/metrics` |
+| Maki 0.5.6 | resource `service.name=maki`, `telemetry.sdk.name=maki-otel` | **protobuf observed** (`application/x-protobuf`) | `/v1/logs`, `/v1/metrics` |
 
 Resource attributes:
 
@@ -211,7 +212,35 @@ The normalizer only reads the whitelisted response metadata above. Fixture
 sanitization additionally removes those fields plus paths and conversation,
 thread, turn, and call identifiers.
 
-## 5. Decisions
+## 5. Maki payloads (API request logs are the truth signal)
+
+Maki 0.5.6 was captured on 2026-09-23. Each `maki.api_request` log is one
+model call, with `session.id`, `event.sequence`, `timeUnixNano`, `model`,
+`provider`, `input_tokens`, `output_tokens`, `cache_read_tokens`,
+`cache_creation_tokens`, `cost_usd`, and `duration_ms`. The captured call
+with 826 input tokens and 15,360 cache-read tokens confirms that input is
+already the uncached bucket. No reasoning-token attribute was observed.
+Positive `cost_usd` is Maki's estimate and is treated as harness-reported cost.
+Maki also emits zero when its price table has no estimate; zero leaves cost
+unknown so the dashboard's pricing catalog can supply one.
+
+The log's trace/span IDs are empty. Dedup uses the session ID, record timestamp,
+and `event.sequence`. Maki resets the sequence when telemetry initializes, so
+the timestamp distinguishes calls after a session resumes. The OTLP timestamp
+also supplies the generation time.
+Maki's delta token and cost metrics are interval aggregates; other event
+types describe prompts, tools, errors, or decisions. None of those become
+generation rows. Resource `telemetry.sdk.name=maki-otel` identifies Maki
+when `service_name` has been customized.
+
+The captured Maki export has logs and metrics, but no traces. Its call event
+supplies the same core usage fields as OpenCode's `opencode.llm` span (model,
+provider, input/output/cache tokens, cost, duration, session). It does not
+report OpenCode's reasoning-token and agent-name attributes or trace/span
+IDs. Maki also emits tool and permission events and an active-time metric;
+these are not generation rows.
+
+## 6. Decisions
 
 ### D1 — opencode truth signal: `opencode.llm` spans
 
@@ -223,7 +252,8 @@ aggregates. **Ingest only `opencode.llm` spans; ignore session spans, logs,
 and metrics.** Copilot truth signal is its `chat` spans, for the same
 reasons. Codex uses its terminal `response.completed` log because the span and
 metric alternatives either aggregate a turn or lack model/conversation
-identity. Exactly one authoritative signal is ingested per source.
+identity. Maki uses its `maki.api_request` event for per-call usage. Exactly
+one authoritative signal is ingested per source.
 
 ### D2 — dedup keys
 
@@ -232,6 +262,7 @@ identity. Exactly one authoritative signal is ingested per source.
 - Codex: SHA-256 over length-prefixed source/conversation/full-precision UTC
   event timestamp/model fields plus explicit nil-or-value encodings for the
   five token buckets
+- Maki: `sha256("maki|" + session.id + "|" + decimal timeUnixNano + ":" + decimal event.sequence)`
 
 Trace/span IDs are stable across export batches: one Copilot agent turn was
 exported in four separate `traces` batches reusing the same traceID and span
@@ -270,10 +301,10 @@ For the two span-based sources, `Timestamp` = span start (UTC), `Duration` = end
 Filter rules: ingest only spans with `gen_ai.operation.name=chat` (Copilot)
 or `openinference.span.kind=LLM` / span name `opencode.llm` (opencode).
 Everything else (`invoke_agent`, `execute_tool`, `opencode.session`, metrics,
-and non-authoritative logs) is dropped before normalization. Codex is the one
-log-based source described above; all Codex spans are rejected.
+and non-authoritative logs) is dropped before normalization. Codex and Maki
+use the log events described above; Codex spans are rejected.
 
-## 6. Open questions and resolved accounting choices
+## 7. Open questions and resolved accounting choices
 
 1. **Cache accounting anomaly**: several opencode spans report
    `cache_read` > `prompt` (e.g. prompt 136, cache_read 6912), confirming
@@ -281,7 +312,7 @@ log-based source described above; all Codex spans are rejected.
    (OpenAI-style) includes them. Default: store both as reported; do not
    attempt to reconcile at ingest. *Resolved for display:* every aggregate
    sums `storage.uncachedInputSQL` — Copilot/Codex input minus cache tokens
-   (clamped at 0), OpenCode as stored — so `InputTokens` is the
+   (clamped at 0), OpenCode/Maki as stored — so `InputTokens` is the
    uncached prompt under one convention everywhere, `TotalTokens` no longer
    double-counts Copilot cache, and the cache hit rate
    (`storage.CacheHitRate`) is a single formula

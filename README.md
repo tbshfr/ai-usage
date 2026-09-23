@@ -2,7 +2,7 @@
 
 A local dashboard for your AI usage. It receives OpenTelemetry telemetry
 directly from **OpenCode** (via the community OTel plugin), **VS Code
-GitHub Copilot**, and **Codex CLI**, normalizes every LLM call into one
+GitHub Copilot**, **Codex CLI**, and **Maki**, normalizes every LLM call into one
 canonical record, and stores it in a single SQLite file — all inside one
 Go binary. A small web dashboard and JSON API on `:8080` show today's
 token usage up front with weekly/monthly/all-time totals beside it (each
@@ -17,8 +17,8 @@ fallback rates; models without a matching price remain unknown.
 Reported, estimated, and free costs are labeled in the dashboard and JSON API.
 
 ```
-OpenCode / VS Code Copilot / Codex ──OTLP──▶ ai-usage ──▶ SQLite ──▶ dashboard + JSON API
-                                              :4318 / :4317            :8080
+OpenCode / VS Code Copilot / Codex / Maki ──OTLP──▶ ai-usage ──▶ SQLite ──▶ dashboard + JSON API
+                                                     :4318 / :4317            :8080
 ```
 
 ## Quickstart
@@ -47,7 +47,7 @@ OpenCode / VS Code Copilot / Codex ──OTLP──▶ ai-usage ──▶ SQLite
    Only the dashboard starts by default; each OTLP listener starts only
    when its flag (or env var) is set.
 
-3. Point OpenCode, VS Code Copilot, and/or Codex at it — copy-paste configs are in
+3. Point OpenCode, VS Code Copilot, Codex, and/or Maki at it — copy-paste configs are in
    [`docs/source-setup.md`](docs/source-setup.md).
 4. Open <http://localhost:8080> and use your AI tools for a few minutes;
    requests appear as the tools report them.

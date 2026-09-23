@@ -1,0 +1,602 @@
+{
+  "resourceMetrics": [
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "host.arch",
+            "value": {
+              "stringValue": "x86_64"
+            }
+          },
+          {
+            "key": "os.type",
+            "value": {
+              "stringValue": "linux"
+            }
+          },
+          {
+            "key": "service.name",
+            "value": {
+              "stringValue": "maki"
+            }
+          },
+          {
+            "key": "service.version",
+            "value": {
+              "stringValue": "0.5.6"
+            }
+          },
+          {
+            "key": "telemetry.sdk.language",
+            "value": {
+              "stringValue": "rust"
+            }
+          },
+          {
+            "key": "telemetry.sdk.name",
+            "value": {
+              "stringValue": "maki-otel"
+            }
+          },
+          {
+            "key": "telemetry.sdk.version",
+            "value": {
+              "stringValue": "0.5.6"
+            }
+          }
+        ]
+      },
+      "scopeMetrics": [
+        {
+          "scope": {
+            "name": "maki",
+            "version": "0.5.6"
+          },
+          "metrics": [
+            {
+              "name": "maki.active_time.total",
+              "description": "Time the agent spent working",
+              "unit": "s",
+              "sum": {
+                "dataPoints": [
+                  {
+                    "attributes": [
+                      {
+                        "key": "type",
+                        "value": {
+                          "stringValue": "cli"
+                        }
+                      },
+                      {
+                        "key": "terminal.type",
+                        "value": {
+                          "stringValue": "vscode"
+                        }
+                      },
+                      {
+                        "key": "session.id",
+                        "value": {
+                          "stringValue": "[REDACTED]"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1790165130758480412",
+                    "timeUnixNano": "1790165190758637231",
+                    "asDouble": 50.940693354
+                  }
+                ],
+                "aggregationTemporality": 1,
+                "isMonotonic": true
+              }
+            },
+            {
+              "name": "maki.cost.usage",
+              "description": "Estimated cost of the session in USD",
+              "unit": "USD",
+              "sum": {
+                "dataPoints": [
+                  {
+                    "attributes": [
+                      {
+                        "key": "model",
+                        "value": {
+                          "stringValue": "glm-5.3-flash"
+                        }
+                      },
+                      {
+                        "key": "provider",
+                        "value": {
+                          "stringValue": "opencode-go"
+                        }
+                      },
+                      {
+                        "key": "terminal.type",
+                        "value": {
+                          "stringValue": "vscode"
+                        }
+                      },
+                      {
+                        "key": "session.id",
+                        "value": {
+                          "stringValue": "[REDACTED]"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1790165130758480412",
+                    "timeUnixNano": "1790165190758637231",
+                    "asDouble": 0.0024689
+                  }
+                ],
+                "aggregationTemporality": 1,
+                "isMonotonic": true
+              }
+            },
+            {
+              "name": "maki.session.count",
+              "description": "Sessions started",
+              "sum": {
+                "dataPoints": [
+                  {
+                    "attributes": [
+                      {
+                        "key": "terminal.type",
+                        "value": {
+                          "stringValue": "vscode"
+                        }
+                      },
+                      {
+                        "key": "start_type",
+                        "value": {
+                          "stringValue": "fresh"
+                        }
+                      },
+                      {
+                        "key": "session.id",
+                        "value": {
+                          "stringValue": "[REDACTED]"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1790165130758480412",
+                    "timeUnixNano": "1790165190758637231",
+                    "asInt": "1"
+                  }
+                ],
+                "aggregationTemporality": 1,
+                "isMonotonic": true
+              }
+            },
+            {
+              "name": "maki.token.usage",
+              "description": "Tokens billed, split by kind",
+              "unit": "tokens",
+              "sum": {
+                "dataPoints": [
+                  {
+                    "attributes": [
+                      {
+                        "key": "model",
+                        "value": {
+                          "stringValue": "glm-5.3-flash"
+                        }
+                      },
+                      {
+                        "key": "provider",
+                        "value": {
+                          "stringValue": "opencode-go"
+                        }
+                      },
+                      {
+                        "key": "type",
+                        "value": {
+                          "stringValue": "input"
+                        }
+                      },
+                      {
+                        "key": "terminal.type",
+                        "value": {
+                          "stringValue": "vscode"
+                        }
+                      },
+                      {
+                        "key": "session.id",
+                        "value": {
+                          "stringValue": "[REDACTED]"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1790165130758480412",
+                    "timeUnixNano": "1790165190758637231",
+                    "asInt": "14080"
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "model",
+                        "value": {
+                          "stringValue": "glm-5.3-flash"
+                        }
+                      },
+                      {
+                        "key": "provider",
+                        "value": {
+                          "stringValue": "opencode-go"
+                        }
+                      },
+                      {
+                        "key": "type",
+                        "value": {
+                          "stringValue": "cacheRead"
+                        }
+                      },
+                      {
+                        "key": "terminal.type",
+                        "value": {
+                          "stringValue": "vscode"
+                        }
+                      },
+                      {
+                        "key": "session.id",
+                        "value": {
+                          "stringValue": "[REDACTED]"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1790165130758480412",
+                    "timeUnixNano": "1790165190758637231",
+                    "asInt": "4480"
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "model",
+                        "value": {
+                          "stringValue": "glm-5.3-flash"
+                        }
+                      },
+                      {
+                        "key": "provider",
+                        "value": {
+                          "stringValue": "opencode-go"
+                        }
+                      },
+                      {
+                        "key": "type",
+                        "value": {
+                          "stringValue": "output"
+                        }
+                      },
+                      {
+                        "key": "terminal.type",
+                        "value": {
+                          "stringValue": "vscode"
+                        }
+                      },
+                      {
+                        "key": "session.id",
+                        "value": {
+                          "stringValue": "[REDACTED]"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1790165130758480412",
+                    "timeUnixNano": "1790165190758637231",
+                    "asInt": "445"
+                  }
+                ],
+                "aggregationTemporality": 1,
+                "isMonotonic": true
+              }
+            },
+            {
+              "name": "maki.tool.decision",
+              "description": "Permission decisions, accepted or rejected",
+              "sum": {
+                "dataPoints": [
+                  {
+                    "attributes": [
+                      {
+                        "key": "decision",
+                        "value": {
+                          "stringValue": "accept"
+                        }
+                      },
+                      {
+                        "key": "tool_name",
+                        "value": {
+                          "stringValue": "bash"
+                        }
+                      },
+                      {
+                        "key": "source",
+                        "value": {
+                          "stringValue": "rule"
+                        }
+                      },
+                      {
+                        "key": "terminal.type",
+                        "value": {
+                          "stringValue": "vscode"
+                        }
+                      },
+                      {
+                        "key": "session.id",
+                        "value": {
+                          "stringValue": "[REDACTED]"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1790165130758480412",
+                    "timeUnixNano": "1790165190758637231",
+                    "asInt": "1"
+                  }
+                ],
+                "aggregationTemporality": 1,
+                "isMonotonic": true
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "host.arch",
+            "value": {
+              "stringValue": "x86_64"
+            }
+          },
+          {
+            "key": "os.type",
+            "value": {
+              "stringValue": "linux"
+            }
+          },
+          {
+            "key": "service.name",
+            "value": {
+              "stringValue": "maki"
+            }
+          },
+          {
+            "key": "service.version",
+            "value": {
+              "stringValue": "0.5.6"
+            }
+          },
+          {
+            "key": "telemetry.sdk.language",
+            "value": {
+              "stringValue": "rust"
+            }
+          },
+          {
+            "key": "telemetry.sdk.name",
+            "value": {
+              "stringValue": "maki-otel"
+            }
+          },
+          {
+            "key": "telemetry.sdk.version",
+            "value": {
+              "stringValue": "0.5.6"
+            }
+          }
+        ]
+      },
+      "scopeMetrics": [
+        {
+          "scope": {
+            "name": "maki",
+            "version": "0.5.6"
+          },
+          "metrics": [
+            {
+              "name": "maki.active_time.total",
+              "description": "Time the agent spent working",
+              "unit": "s",
+              "sum": {
+                "dataPoints": [
+                  {
+                    "attributes": [
+                      {
+                        "key": "type",
+                        "value": {
+                          "stringValue": "cli"
+                        }
+                      },
+                      {
+                        "key": "terminal.type",
+                        "value": {
+                          "stringValue": "vscode"
+                        }
+                      },
+                      {
+                        "key": "session.id",
+                        "value": {
+                          "stringValue": "[REDACTED]"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1790165310758737374",
+                    "timeUnixNano": "1790165370758787131",
+                    "asDouble": 5.19683321
+                  }
+                ],
+                "aggregationTemporality": 1,
+                "isMonotonic": true
+              }
+            },
+            {
+              "name": "maki.cost.usage",
+              "description": "Estimated cost of the session in USD",
+              "unit": "USD",
+              "sum": {
+                "dataPoints": [
+                  {
+                    "attributes": [
+                      {
+                        "key": "model",
+                        "value": {
+                          "stringValue": "glm-5.3-flash"
+                        }
+                      },
+                      {
+                        "key": "provider",
+                        "value": {
+                          "stringValue": "opencode-go"
+                        }
+                      },
+                      {
+                        "key": "terminal.type",
+                        "value": {
+                          "stringValue": "vscode"
+                        }
+                      },
+                      {
+                        "key": "session.id",
+                        "value": {
+                          "stringValue": "[REDACTED]"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1790165310758737374",
+                    "timeUnixNano": "1790165370758787131",
+                    "asDouble": 0.0031941499999999998
+                  }
+                ],
+                "aggregationTemporality": 1,
+                "isMonotonic": true
+              }
+            },
+            {
+              "name": "maki.token.usage",
+              "description": "Tokens billed, split by kind",
+              "unit": "tokens",
+              "sum": {
+                "dataPoints": [
+                  {
+                    "attributes": [
+                      {
+                        "key": "model",
+                        "value": {
+                          "stringValue": "glm-5.3-flash"
+                        }
+                      },
+                      {
+                        "key": "provider",
+                        "value": {
+                          "stringValue": "opencode-go"
+                        }
+                      },
+                      {
+                        "key": "type",
+                        "value": {
+                          "stringValue": "input"
+                        }
+                      },
+                      {
+                        "key": "terminal.type",
+                        "value": {
+                          "stringValue": "vscode"
+                        }
+                      },
+                      {
+                        "key": "session.id",
+                        "value": {
+                          "stringValue": "[REDACTED]"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1790165310758737374",
+                    "timeUnixNano": "1790165370758787131",
+                    "asInt": "16269"
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "model",
+                        "value": {
+                          "stringValue": "glm-5.3-flash"
+                        }
+                      },
+                      {
+                        "key": "provider",
+                        "value": {
+                          "stringValue": "opencode-go"
+                        }
+                      },
+                      {
+                        "key": "type",
+                        "value": {
+                          "stringValue": "cacheRead"
+                        }
+                      },
+                      {
+                        "key": "terminal.type",
+                        "value": {
+                          "stringValue": "vscode"
+                        }
+                      },
+                      {
+                        "key": "session.id",
+                        "value": {
+                          "stringValue": "[REDACTED]"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1790165310758737374",
+                    "timeUnixNano": "1790165370758787131",
+                    "asInt": "15360"
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "model",
+                        "value": {
+                          "stringValue": "glm-5.3-flash"
+                        }
+                      },
+                      {
+                        "key": "provider",
+                        "value": {
+                          "stringValue": "opencode-go"
+                        }
+                      },
+                      {
+                        "key": "type",
+                        "value": {
+                          "stringValue": "output"
+                        }
+                      },
+                      {
+                        "key": "terminal.type",
+                        "value": {
+                          "stringValue": "vscode"
+                        }
+                      },
+                      {
+                        "key": "session.id",
+                        "value": {
+                          "stringValue": "[REDACTED]"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1790165310758737374",
+                    "timeUnixNano": "1790165370758787131",
+                    "asInt": "586"
+                  }
+                ],
+                "aggregationTemporality": 1,
+                "isMonotonic": true
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -4,6 +4,8 @@
 package sanitizeotel
 
 import (
+	"strings"
+
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/plog"
 	"go.opentelemetry.io/collector/pdata/pmetric"
@@ -38,6 +40,7 @@ var sensitiveKeys = map[string]struct{}{
 	"prompt":                         {},
 	"session.id":                     {},
 	"thread.id":                      {},
+	"tool_input":                     {},
 	"turn.id":                        {},
 	"user.account_id":                {},
 	"user.email":                     {},
@@ -91,7 +94,13 @@ func Logs(ld plog.Logs) {
 					name = value.Str()
 				}
 				attributes(record.Attributes())
-				if (name == "codex.user_prompt" || name == "codex.tool_result") && record.Body().Type() != pcommon.ValueTypeEmpty {
+				if strings.HasPrefix(name, "maki.") {
+					if _, ok := record.Attributes().Get("error"); ok {
+						record.Attributes().PutStr("error", Redacted)
+					}
+				}
+				if (name == "codex.user_prompt" || name == "codex.tool_result" ||
+					name == "maki.user_prompt" || name == "maki.tool_result") && record.Body().Type() != pcommon.ValueTypeEmpty {
 					record.Body().SetStr(Redacted)
 				}
 			}

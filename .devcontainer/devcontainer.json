@@ -1,20 +1,15 @@
 {
-	"name": "Go",
+	"name": "ai-usage",
 	"image": "mcr.microsoft.com/devcontainers/go:1.26",
-
-    "features": {
-    },
-
-    "customizations": {
-        "vscode": {
-            "settings": {},
-            "extensions": [
-                "golang.Go"
-            ]
-        }
-    },
-
-    "forwardPorts": [
-        8080
-    ]
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"golang.Go"
+			]
+		}
+	},
+	"forwardPorts": [
+		8080,
+		4318
+	]
 }

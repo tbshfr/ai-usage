@@ -18,9 +18,8 @@ import (
 	"github.com/tbshfr/ai-usage/internal/storage"
 )
 
-// Phase 7 item 5: start app → ingest → SIGTERM (clean shutdown logs) →
-// start again → rows intact, migrations idempotent, /ready green, re-ingest
-// → no duplicates.
+// TestRestartPersistence checks clean shutdown, migration idempotence, and
+// deduplication across a process restart.
 func TestRestartPersistence(t *testing.T) {
 	if _, err := exec.LookPath("go"); err != nil {
 		t.Skip("go toolchain not available")

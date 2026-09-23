@@ -15,9 +15,8 @@ import (
 	"time"
 )
 
-// Phase 6 acceptance criterion: run the binary from an empty working
-// directory and verify the full UI (pages, fragments, static assets) is
-// served — everything must come from the embedded assets.
+// TestServesUIFromEmptyWorkingDirectory checks that the complete UI is served
+// from embedded assets without repository files on disk.
 func TestServesUIFromEmptyWorkingDirectory(t *testing.T) {
 	if _, err := exec.LookPath("go"); err != nil {
 		t.Skip("go toolchain not available")
@@ -106,7 +105,6 @@ func TestServesUIFromEmptyWorkingDirectory(t *testing.T) {
 	stopProcess(t, cmd, logs)
 }
 
-// Listener gating: an empty address must disable that listener.
 func TestEmptyAddrDisablesListener(t *testing.T) {
 	if _, err := exec.LookPath("go"); err != nil {
 		t.Skip("go toolchain not available")

@@ -42,13 +42,8 @@
   </button>
 </header>
 <div class="nav-overlay"></div>
-<!-- Live updates ride one SSE stream per page (hx-sse:connect defaults to
-     hx-trigger="load" and to pauseOnBackground, which closes the stream
-     while the page is hidden — so background tabs never hold one of the
-     browser's six per-host connections). The named data-changed event
-     bubbles from here to <body>, where the fragments' hx-trigger specs
-     re-fetch whatever this page renders (other pages' fragments are not
-     in the DOM, so they never refetch). -->
+<!-- One SSE stream signals visible fragments to refresh. pauseOnBackground
+     closes it while the page is hidden, avoiding one idle connection per tab. -->
 <main hx-sse:connect="/events">{{template "content" .}}</main>
 <footer class="muted">All timestamps are UTC. · {{.Version}}</footer>
 </body>

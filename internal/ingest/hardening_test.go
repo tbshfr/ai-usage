@@ -81,7 +81,6 @@ func post(t *testing.T, url, ctype string, body []byte) int {
 	return resp.StatusCode
 }
 
-// Item 1: POST the same fixture batch 3× back-to-back → exactly one row set.
 func TestSameBatchThreeTimesBackToBack(t *testing.T) {
 	db, _, srv := startIngestStack(t)
 	defer db.Close()
@@ -105,8 +104,7 @@ func TestSameBatchThreeTimesBackToBack(t *testing.T) {
 	assertRowCounts(t, db, perSource)
 }
 
-// Item 2: every trace fixture through HTTP/JSON, HTTP/protobuf, and gRPC
-// must produce byte-identical Generation rows.
+// Every transport must produce byte-identical generation rows.
 func TestEncodingTransportMatrix(t *testing.T) {
 	snapshots := make(map[string][]string, 3)
 	for _, transport := range []string{"http-json", "http-protobuf", "grpc"} {
@@ -188,7 +186,6 @@ func TestEncodingTransportMatrix(t *testing.T) {
 	}
 }
 
-// Item 2: content-type edge cases per the OTLP spec.
 func TestContentTypeEdgeCases(t *testing.T) {
 	db, _, srv := startIngestStack(t)
 	defer db.Close()
@@ -318,8 +315,7 @@ func TestRequestBodySizeLimit(t *testing.T) {
 	}
 }
 
-// Item 3: an agent turn (invoke_agent + N chat spans) yields exactly N
-// generation rows, never N+1.
+// An agent turn yields one generation per chat span, excluding its aggregate.
 func TestAgentTurnYieldsExactlyChatSpans(t *testing.T) {
 	db, _, srv := startIngestStack(t)
 	defer db.Close()
@@ -349,8 +345,6 @@ func TestAgentTurnYieldsExactlyChatSpans(t *testing.T) {
 	}
 }
 
-// Item 3: an opencode metrics batch yields zero generations but nonzero
-// received counters; logs likewise.
 func TestNonTruthSignalsYieldZeroRows(t *testing.T) {
 	db, pipeline, srv := startIngestStack(t)
 	defer db.Close()
@@ -393,9 +387,7 @@ func TestNonTruthSignalsYieldZeroRows(t *testing.T) {
 	}
 }
 
-// Item 4: one corrupt span per batch (bad types, missing trace id, zero
-// span id) — batch succeeds, the corrupt record counts normalization_errors,
-// the valid record is stored.
+// A corrupt span does not prevent valid spans in the batch from being stored.
 func TestCorruptSpanVariants(t *testing.T) {
 	valid := func() ptrace.Span {
 		return syntheticCopilotChat("tv", "sv", map[string]any{
@@ -457,8 +449,6 @@ func TestCorruptSpanVariants(t *testing.T) {
 	}
 }
 
-// Item 4: a fully undecodable body → 400, the receiver keeps running, and a
-// follow-up good batch still succeeds.
 func TestUndecodableBodyThenGoodBatch(t *testing.T) {
 	db, _, srv := startIngestStack(t)
 	defer db.Close()
@@ -481,8 +471,6 @@ func TestUndecodableBodyThenGoodBatch(t *testing.T) {
 	assertRowCounts(t, db, perSource)
 }
 
-// Item 4: empty batch, empty resource spans, and a span with no attributes
-// at all — no panics, correct counters.
 func TestEmptyAndSparseBatches(t *testing.T) {
 	db, pipeline, srv := startIngestStack(t)
 	defer db.Close()
@@ -538,8 +526,7 @@ func TestEmptyAndSparseBatches(t *testing.T) {
 	}
 }
 
-// Item 6: a 5,000-span batch (mostly non-chat) + 500 chat spans completes
-// well within a generous timeout; rows = 500.
+// TestLargeBatch guards ingestion throughput against accidental regressions.
 func TestLargeBatch(t *testing.T) {
 	db, _, srv := startIngestStack(t)
 	defer db.Close()

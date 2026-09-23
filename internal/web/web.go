@@ -1,5 +1,5 @@
-// Package web serves the server-rendered dashboard: pages and HTMX
-// fragments that query the Phase 4 storage layer directly (no HTTP-to-self).
+// Package web serves the server-rendered dashboard and HTMX fragments backed
+// by the storage query layer.
 package web
 
 import (

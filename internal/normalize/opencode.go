@@ -7,9 +7,8 @@ import (
 	"go.opentelemetry.io/collector/pdata/ptrace"
 )
 
-// FromOpenCodeSpan maps an opencode span to a Generation. Per D1 the truth
-// signal is the `opencode.llm` span (openinference.span.kind=LLM); session
-// spans are aggregates and logs/metrics are never generation records.
+// FromOpenCodeSpan maps an opencode.llm span to a Generation. Session spans,
+// logs, and metrics are aggregate or duplicate signals and are not generations.
 func FromOpenCodeSpan(resource pcommon.Map, span ptrace.Span) (Generation, bool, error) {
 	attrs := span.Attributes()
 	kind, _ := attrString(attrs, "openinference.span.kind")

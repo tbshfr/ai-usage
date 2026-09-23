@@ -117,8 +117,7 @@ func TestInsertGenerationMergesNullsOnly(t *testing.T) {
 	}
 }
 
-// Phase 7 item 1: partial-then-complete retries fill the final row with all
-// fields; nothing is overwritten.
+// A complete retry fills missing fields without overwriting existing values.
 func TestInsertGenerationMergePartialThenComplete(t *testing.T) {
 	ctx := context.Background()
 	db := openedDB(t)
@@ -185,7 +184,7 @@ func TestInsertGenerationMergePartialThenComplete(t *testing.T) {
 	}
 }
 
-// Phase 7 item 1: complete first, partial retry → row unchanged.
+// A partial retry cannot erase fields from a complete row.
 func TestInsertGenerationCompleteFirstPartialRetry(t *testing.T) {
 	ctx := context.Background()
 	db := openedDB(t)
@@ -311,9 +310,7 @@ func TestInsertGenerationMergePricingQueue(t *testing.T) {
 	}
 }
 
-// Phase 7 item 7: a generation with only input_tokens set keeps the other
-// token columns NULL in the DB, summary/timeseries treat them as absent, and
-// no phantom values appear.
+// A generation with only input_tokens set keeps other token columns NULL.
 func TestSparseGenerationSummaryAndTimeseries(t *testing.T) {
 	ctx := context.Background()
 	db := openedDB(t)

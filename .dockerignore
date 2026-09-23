@@ -2,15 +2,20 @@
 .git
 .github
 
-# Local data — never bake usage history into image layers
+# Local data must not enter image layers
 *.db
 *.db-shm
 *.db-wal
-.env
+.env*
+data/
+ai-usage-capture/
 
 # Build artifacts
 dist/
 temp/
+/ai-usage
+*.test
+coverage.out
 
 # Docker / compose files themselves
 Dockerfile

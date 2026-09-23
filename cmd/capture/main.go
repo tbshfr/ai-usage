@@ -1,5 +1,5 @@
-// Command capture is a minimal OTLP/HTTP capture receiver as described in
-// docs/CAPTURE-INSTRUCTIONS.md.
+// Command capture is the local OTLP/HTTP receiver used to refresh fixtures.
+// See docs/development.md for the capture and sanitization workflow.
 //
 // It listens on 127.0.0.1:4318 for POST /v1/traces, /v1/metrics, /v1/logs
 // and writes every received batch to disk unchanged, so it can later be

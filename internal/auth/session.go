@@ -39,7 +39,7 @@ func NewSessions() (*Sessions, error) {
 
 // Issue sets a signed session cookie valid until now + ttl. The cookie is
 // always marked Secure: production deployments serve the dashboard over
-// HTTPS (docs/source-setup.md), and browsers exempt http://localhost, so
+// HTTPS (docs/configuration.md), and browsers exempt http://localhost, so
 // loopback development logins still work.
 func (s *Sessions) Issue(w http.ResponseWriter) {
 	expiry := time.Now().Add(s.ttl).Unix()

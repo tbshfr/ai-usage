@@ -15,9 +15,9 @@
   {{if and .D.PricingFetchedAt (or (eq .D.CostSource "openrouter") (eq .D.CostSource "manual"))}}
   <dt>Pricing model</dt><dd>{{.D.PricingModelID}}</dd>
   {{if eq .D.CostSource "manual"}}
-  <dt>Prices updated</dt><dd>{{utc .D.PricingFetchedAt}} — manual pricing date.</dd>
+  <dt>Prices updated</dt><dd>{{utc .D.PricingFetchedAt}}, the manual pricing date.</dd>
   {{else}}
-  <dt>Prices fetched</dt><dd>{{utc .D.PricingFetchedAt}} — estimate uses rates fetched on this date, including for older requests.</dd>
+  <dt>Prices fetched</dt><dd>{{utc .D.PricingFetchedAt}}. The estimate uses rates fetched on this date, including for older requests.</dd>
   {{end}}
   {{end}}
   <dt>Duration</dt><dd>{{dur .D.Duration}}</dd>

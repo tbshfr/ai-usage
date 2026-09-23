@@ -1,5 +1,4 @@
-// Package seedtest provides the shared Phase 4 seed fixture for tests that
-// need a populated generations table (storage, API, and UI layers).
+// Package seedtest provides the shared fixture for storage, API, and UI tests.
 package seedtest
 
 import (

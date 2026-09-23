@@ -1,14 +1,15 @@
 # JSON API
 
-Served on the dashboard port (default `127.0.0.1:8080`). Same-origin
-only — no CORS. When dashboard credentials are configured
+The API is served on the dashboard port, which defaults to `127.0.0.1:8080`.
+It is same-origin only and does not send CORS headers. When dashboard credentials are configured
 (`AI_USAGE_DASHBOARD_USER`/`AI_USAGE_DASHBOARD_PASSWORD`), every
 `/api/*` request requires a valid login session: unauthenticated calls
 get `401` with `{"error":"unauthorized","status":401}` instead of data.
 `GET /health` and `GET /ready` stay unauthenticated for probes.
 
-All responses are `application/json`, UTF-8, lowerCamelCase. Nullable
-numerics serialize as JSON `null` when unknown — never `0`. Costs prefer
+All responses are UTF-8 `application/json`. Most field names use lower camel
+case; the backup-status response uses snake case. Nullable numerics serialize
+as JSON `null` when unknown, never `0`. Costs prefer
 harness-reported values. Missing costs may be estimated from OpenRouter or manual
 fallback prices, or set to zero for names ending in `free`; otherwise they remain
 `null`.
@@ -29,7 +30,7 @@ retain source `openrouter`.
 
 Prices refresh on usage after 24 hours. Existing missing costs receive a one-time
 backfill using then-current prices; later catalog refreshes do not rerun history
-or reprice existing estimates. See [cost estimates](../README.md#cost-estimates)
+or reprice existing estimates. See [cost estimation](configuration.md#cost-estimation)
 for matching, token calculation, and outage behavior.
 
 ## Shared filter parameters
@@ -65,6 +66,9 @@ Totals for the filter range, plus the filter echo.
   "cacheCreationTokens": 21,
   "cacheHitRate": 0.65,
   "reasoningTokens": 0,
+  "costReportedCount": 1,
+  "costEstimatedCount": 1,
+  "costFreeCount": 1,
   "costKnownCount": 3,
   "costTotal": 0.9,
   "costUnknownCount": 4
@@ -102,6 +106,9 @@ week buckets start Monday, month buckets at the 1st; all UTC).
     "cacheReadTokens": 10,
     "cacheCreationTokens": 19,
     "reasoningTokens": 5,
+    "costReportedCount": 1,
+    "costEstimatedCount": 1,
+    "costFreeCount": 0,
     "costKnownCount": 2,
     "costTotal": 1.1
   }
@@ -123,6 +130,9 @@ One row per source (request/token totals, nullable cost).
     "cacheCreationTokens": 56,
     "cacheHitRate": null,
     "reasoningTokens": 0,
+    "costReportedCount": 8,
+    "costEstimatedCount": 0,
+    "costFreeCount": 0,
     "costKnownCount": 8,
     "costUnknownCount": 0,
     "costTotal": 2.85
@@ -169,6 +179,10 @@ the database.
     "cacheCreationTokens": 10,
     "reasoningTokens": null,
     "cost": 0.6,
+    "costReportedByHarness": true,
+    "costSource": "harness",
+    "pricingModelId": "",
+    "pricingFetchedAt": null,
     "conversationId": "ses_…",
     "traceId": "…",
     "spanId": "…",
@@ -182,12 +196,13 @@ the database.
 
 ### `GET /api/generations/{id}`
 
-One record, same shape as list rows. `cost` is `null` when the source did
-not report it. Unknown id → `404`.
+One record, with the same shape as list rows. `cost` is `null` when no reported,
+free-name, OpenRouter, or manual price applies. An unknown ID returns `404`.
 
 ### `GET /api/stats`
 
-Ingestion counters since process start — useful when "nothing shows up".
+Returns today's live ingestion counters, including counters restored after a
+restart. Use them to diagnose a client that is not appearing in the dashboard.
 
 ```json
 {
@@ -209,6 +224,32 @@ and metric datapoints. Codex `response.completed` logs are the exception: they
 are generation records. Both counters are part of the invariant
 `received == normalized + rejected + ignoredNotUsed + normalizationErrors`.
 
+### `GET /api/stats/daily?from&to&limit`
+
+Returns persisted ingestion counters by UTC day, newest first. `from` and `to`
+use `YYYY-MM-DD` and are inclusive. With neither bound, the endpoint returns
+the most recent days. `limit` defaults to 30 and is capped at 365.
+
+```json
+[
+  {
+    "day": "2026-09-23",
+    "received": 165,
+    "normalized": 118,
+    "stored": 117,
+    "deduplicated": 1,
+    "rejected": 2,
+    "ignoredNotUsed": 45,
+    "normalizationErrors": 0,
+    "ingestionErrors": 0,
+    "updatedAt": "2026-09-23T18:10:00Z"
+  }
+]
+```
+
+The current day's row is periodically saved and can lag live counters by up to
+one minute. The process also saves it during a clean shutdown.
+
 ### `GET /api/stats/reasons?day=YYYY-MM-DD`
 
 The per-reason breakdown behind the day rows on the `/stats` page: fixed
@@ -226,8 +267,8 @@ persisted rows.
 Kinds: `rejected` (spans that can never become records), `ignored` (unused log
 records and metric datapoints), `norm_error` (malformed generation spans/logs),
 `dedup` (duplicate records, broken down by source), and `http_reject`
-(requests rejected before the pipeline — auth failures, malformed
-requests — counted per request, not per record). Today's row serves the
+(authentication failures and malformed requests rejected before the pipeline,
+counted per request rather than per record). Today's row serves the
 live counters; older days serve persisted rows. A day with nothing
 recorded returns `[]`; a malformed `day` returns `400`.
 

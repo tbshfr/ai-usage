@@ -21,9 +21,8 @@ const (
 	SourceMaki     = "maki"
 )
 
-// Generation is the canonical usage record (single source of truth, see
-// docs/plans/README.md). Nullable fields stay nil when the source did not
-// report the value; missing is never coerced to zero.
+// Generation is the canonical usage record. Nullable fields stay nil when the
+// source did not report the value; missing is never coerced to zero.
 type Generation struct {
 	ID                    string
 	Timestamp             time.Time

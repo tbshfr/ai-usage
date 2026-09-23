@@ -14,8 +14,7 @@ import (
 // normalization errors by reason.
 var ErrMissingSpanIDs = fmt.Errorf("empty trace/span ID, cannot derive dedup key")
 
-// DedupID derives the deterministic record ID per D2:
-// sha256hex("<source>|" + traceID + "|" + spanID).
+// DedupID hashes the source, trace ID, and span ID into a deterministic record ID.
 func DedupID(source, traceID, spanID string) (string, error) {
 	if traceID == "" || spanID == "" {
 		return "", ErrMissingSpanIDs

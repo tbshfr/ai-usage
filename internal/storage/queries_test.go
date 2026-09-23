@@ -594,8 +594,7 @@ func TestGenerationByID(t *testing.T) {
 	}
 }
 
-// Migration continuity: Phase 2 migrations + InsertGeneration + query layer
-// must agree on column names and types.
+// Migrations, inserts, and queries must agree on column names and types.
 func TestMigrationContinuityInsertQuery(t *testing.T) {
 	db := seedtest.DB(t)
 	rows := seedtest.Rows(t)

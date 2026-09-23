@@ -1,4 +1,3 @@
-// Warm harmonic palette: terracotta, amber, sage, dusty rose, plum, sand.
 const PALETTE = ['#c96f4a', '#dfa14f', '#7d9b76', '#b06a6a', '#8b7d9b', '#a89f91'];
 
 // Live chart instances; stale ones (htmx-swapped away) are pruned on resize.
@@ -135,8 +134,6 @@ document.addEventListener('scroll', hideHeatmapTooltip, true);
 window.addEventListener('resize', hideHeatmapTooltip);
 document.addEventListener('htmx:beforeSwap', hideHeatmapTooltip);
 
-// Slide-over menu (mobile): the topbar nav turns into a right-hand drawer,
-// toggled by the hamburger and closed by the backdrop, any nav link, or Esc.
 function setNavOpen(open) {
   const nav = document.getElementById('site-nav');
   if (!nav) return;
@@ -267,7 +264,6 @@ function renderChart(id, d) {
   charts.push({ u, el });
 }
 
-// Keep charts fitted to the viewport (rotation, window resize).
 let resizeRAF = 0;
 window.addEventListener('resize', () => {
   cancelAnimationFrame(resizeRAF);

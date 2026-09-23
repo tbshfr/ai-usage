@@ -23,8 +23,7 @@ func serverOnDB(t *testing.T, db *sql.DB) *httptest.Server {
 	return srv
 }
 
-// Phase 7 item 7: unknown models fall back to the raw model/provider in the
-// UI; cost renders as never-reported; tokens shown.
+// Unknown models fall back to their raw model and provider values.
 func TestDetailRendersUnknownModel(t *testing.T) {
 	ctx := context.Background()
 	db := seedtest.EmptyDB(t)
@@ -65,8 +64,7 @@ func TestDetailRendersUnknownModel(t *testing.T) {
 	wantContains(t, body, "mystery-model-9000", "unknown", "acme-cloud")
 }
 
-// Phase 7 item 7: a generation with only input_tokens set renders the other
-// token columns as "—" in the detail view.
+// Missing token columns render as an em dash in the detail view.
 func TestDetailRendersSparseTokens(t *testing.T) {
 	ctx := context.Background()
 	db := seedtest.EmptyDB(t)

@@ -7,7 +7,6 @@ services:
       - no-new-privileges:true
 
     environment:
-      # The :? syntax makes `docker compose up` fail fast if .env is missing.
       AI_USAGE_HTTP_ADDR: ":8080"
       AI_USAGE_OTLP_HTTP_ADDR: ":4318"
       AI_USAGE_DASHBOARD_USER: ${AI_USAGE_DASHBOARD_USER:?set in .env}
@@ -25,21 +24,20 @@ services:
       # AI_USAGE_BACKUP_S3_SECRET_ACCESS_KEY: ${AI_USAGE_BACKUP_S3_SECRET_ACCESS_KEY:?set in .env}
 
     expose:
-      - 8080 # dashboard + JSON API
-      - 4318 # OTLP/HTTP
-      # - "4317:4317" # OTLP/gRPC (enable together with AI_USAGE_OTLP_GRPC_ADDR)
+      - 8080
+      - 4318
+      # Enable port 4317 together with AI_USAGE_OTLP_GRPC_ADDR.
+      # - 4317
 
     volumes:
       - ./data:/data
 
-    # --- resource limits ---
     deploy:
       resources:
         limits:
           cpus: "1.0"
           memory: 256M
 
-    # Hardening: the binary only writes to /data.
     read_only: true
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=16m

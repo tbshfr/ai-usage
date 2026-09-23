@@ -1,21 +1,18 @@
-# Telemetry ground truth
+# Telemetry mapping
 
-OpenCode and Copilot were captured 2026-08-30 with the Phase 1 capture harness (`cmd/ai-usage`,
-OTLP/HTTP on `:4318`, raw batch dumps). This document is built from real
-payloads; the committed fixtures under `testdata/` derive from the same
-captures. Attribute names here are the authoritative input for Phase 3
-normalizers. Where this document disagrees with `docs/plans/README.md`,
-this document wins. Codex was captured separately on 2026-09-07 with CLI
-v0.153.4 and the same OTLP/HTTP harness.
+This reference records the payloads used to implement and test the source
+normalizers. OpenCode and Copilot were captured on 2026-08-30. Codex was
+captured on 2026-09-07 with CLI v0.153.4. Maki was captured on 2026-09-23.
+The sanitized fixtures under `testdata` come from those captures.
 
-## 1. Sources & versions
+## Captured source versions
 
 | Source | Version evidence | Encoding observed | Endpoint paths |
 |---|---|---|---|
-| OpenCode (plugin `@devtheops/opencode-plugin-otel`, self-reports `service.version` 1.2.3; opencode `app.version` 1.5.1) | resource `service.name=opencode` | **always protobuf** (`application/x-protobuf`) | `/v1/traces`, `/v1/metrics`, `/v1/logs` |
-| VS Code GitHub Copilot (copilot-chat extension 0.63.0; VS Code version not recorded) | resource `service.name=copilot-chat` | **always JSON** (`application/json`) | `/v1/traces`, `/v1/metrics`, `/v1/logs` |
-| Codex CLI 0.153.4 (Rust OTel SDK 0.31.0) | resource `service.name=codex_cli_rs` | **JSON observed** (`application/json`) | `/v1/logs`, `/v1/traces`, `/v1/metrics` |
-| Maki 0.5.6 | resource `service.name=maki`, `telemetry.sdk.name=maki-otel` | **protobuf observed** (`application/x-protobuf`) | `/v1/logs`, `/v1/metrics` |
+| OpenCode (plugin `@devtheops/opencode-plugin-otel`, self-reports `service.version` 1.2.3; opencode `app.version` 1.5.1) | resource `service.name=opencode` | Always protobuf (`application/x-protobuf`) | `/v1/traces`, `/v1/metrics`, `/v1/logs` |
+| VS Code GitHub Copilot (copilot-chat extension 0.63.0; VS Code version not recorded) | resource `service.name=copilot-chat` | Always JSON (`application/json`) | `/v1/traces`, `/v1/metrics`, `/v1/logs` |
+| Codex CLI 0.153.4 (Rust OTel SDK 0.31.0) | resource `service.name=codex_cli_rs` | JSON observed (`application/json`) | `/v1/logs`, `/v1/traces`, `/v1/metrics` |
+| Maki 0.5.6 | resource `service.name=maki`, `telemetry.sdk.name=maki-otel` | Protobuf observed (`application/x-protobuf`) | `/v1/logs`, `/v1/metrics` |
 
 Resource attributes:
 
@@ -27,7 +24,7 @@ Resource attributes:
 - Codex: `service.name=codex_cli_rs`, `service.version=0.153.4`, `env`,
   `host.name`, and Rust OTel SDK metadata
 
-## 2. Copilot payloads (traces are the truth signal)
+## Copilot
 
 ### Span tree
 
@@ -45,15 +42,15 @@ invoke_agent "GitHub Copilot Chat"      (root; the agent turn)
 ```
 
 Title generation exports a standalone root `chat gpt-4o-mini-*` span in its
-own batch (own traceID) — a real usage record, not an aggregate.
+own batch with its own trace ID. It is a usage record, not an aggregate.
 
 Span types:
 
 | Span | `gen_ai.operation.name` | Role |
 |---|---|---|
-| `chat <model>` | `chat` | **generation record** (one per LLM API call) |
-| `invoke_agent <name>` | `invoke_agent` | session aggregate — MUST NOT become a generation record (no usage attributes; would double count) |
-| `execute_tool <name>` | `execute_tool` | tool call; not a usage record — ignore |
+| `chat <model>` | `chat` | Generation record (one per LLM API call) |
+| `invoke_agent <name>` | `invoke_agent` | Session aggregate; not a generation record |
+| `execute_tool <name>` | `execute_tool` | Tool call; not a generation record |
 
 ### `chat` span attributes
 
@@ -69,7 +66,7 @@ Span types:
 | `gen_ai.usage.cache_read.input_tokens` | Int | present on most models; 0 for non-cached |
 | `gen_ai.usage.cache_creation.input_tokens` | Int | present on Claude spans, absent on GPT spans |
 | `gen_ai.usage.reasoning.output_tokens` | Int | new convention |
-| `gen_ai.usage.reasoning_tokens` | Int | **legacy alias observed simultaneously** on the same spans |
+| `gen_ai.usage.reasoning_tokens` | Int | Legacy alias observed simultaneously on the same spans |
 | `gen_ai.request.stream` | Bool | |
 | `gen_ai.request.temperature` / `top_p` / `max_tokens` | Int/Double | |
 | `gen_ai.response.time_to_first_chunk` | Double | seconds |
@@ -83,8 +80,8 @@ Span types:
 | `github.copilot.agent.type` | Str | |
 | `error.type`, `exception.*` | | on failed tool-call spans |
 
-Content-bearing attributes **are present despite `captureContent` defaulting
-to false**: `gen_ai.input.messages`, `gen_ai.output.messages`,
+Content-bearing attributes were present even though `captureContent` defaults
+to false: `gen_ai.input.messages`, `gen_ai.output.messages`,
 `gen_ai.system_instructions`, `gen_ai.tool.definitions`,
 `gen_ai.tool.call.arguments`, `gen_ai.tool.call.result`,
 `copilot_chat.user_request`, `copilot_chat.reasoning_content`, and
@@ -99,7 +96,7 @@ was observed.
 `copilot_chat.session.count` (sum), `gen_ai.client.operation.duration`
 (histogram, seconds, dims incl. `gen_ai.provider.name=github`),
 `gen_ai.client.token.usage` (histogram, dims `gen_ai.token.type` ∈
-`input|output`), plus `copilot_chat.*` counters. Histograms are aggregates —
+`input|output`), plus `copilot_chat.*` counters. Histograms are aggregates, so
 ingesting them would double count.
 
 ### Logs (ignore for generation records)
@@ -110,7 +107,7 @@ reasons, usage ints, temperature/max tokens), `copilot_chat.agent.turn`
 (usage + `tool_call_count`), `copilot_chat.tool.call`. Redundant with `chat`
 spans; spans win because they carry duration and stable IDs.
 
-## 3. opencode payloads
+## OpenCode
 
 ### Signals compared
 
@@ -125,21 +122,21 @@ spans; spans win because they carry duration and stable IDs.
 | model | `llm.model_name` | `model` | dim `model` |
 | provider | `llm.system`/`llm.provider` + `gen_ai.provider.name` | `provider` | dim `provider` |
 | duration | span start/end (+ `duration_ms` attr) | `duration_ms` | histogram |
-| stable IDs | traceID + spanID | **none** | session.id dim only |
+| stable IDs | traceID + spanID | none | session.id dim only |
 | agent | `agent.name`, `agent.type` | `agent`, `agent.name` | dim `agent` |
-| finish reason | `llm.finish_reason` (e.g. `stop`, `tool-calls`) | — | — |
+| finish reason | `llm.finish_reason` (e.g. `stop`, `tool-calls`) | not reported | not reported |
 
-The plugin uses **OpenInference** conventions, not GenAI; `gen_ai.provider.name`
+The plugin uses OpenInference conventions, not GenAI; `gen_ai.provider.name`
 is the only GenAI bridge attribute it sets. Traces contain exactly two span
 shapes:
 
-- `opencode.llm` (`openinference.span.kind=LLM`, Client) — one per LLM call,
+- `opencode.llm` (`openinference.span.kind=LLM`, Client): one per LLM call,
   child of the session span.
-- `opencode.session` (`openinference.span.kind=AGENT`, Internal) — session
+- `opencode.session` (`openinference.span.kind=AGENT`, Internal): session
   aggregate: `session.total_tokens`, `session.total_cost_usd`,
-  `session.total_messages`. MUST NOT become a generation record.
+  `session.total_messages`. It does not become a generation record.
 
-Tool calls do **not** produce their own spans; a tool-using turn is just an
+Tool calls do not produce their own spans; a tool-using turn is just an
 `opencode.llm` span with `llm.finish_reason=tool-calls`.
 
 Content is captured by default on spans: `input.value`, `output.value`,
@@ -148,7 +145,7 @@ assumption; `OPENCODE_CAPTURE_PROMPT_IN_LOGS` only affects logs). Never store
 these.
 
 Log events (`event.name`): `session.created`, `user_prompt` (only
-`prompt_length` — privacy-clean), `api_request`, `session.idle` (aggregates).
+`prompt_length` only), `api_request`, and `session.idle` (aggregates).
 No trace/span IDs on log records.
 
 Metrics: `opencode.token.usage` (sum, dim `type`), `opencode.cost.usage`,
@@ -157,17 +154,17 @@ Metrics: `opencode.token.usage` (sum, dim `type`), `opencode.cost.usage`,
 (histograms), `opencode.lines_of_code.total` (gauge). Never generation
 records.
 
-## 4. Codex payloads (logs are the truth signal)
+## Codex
 
 ### Signals compared
 
 | Field | `codex.sse_event` / `response.completed` log | `handle_responses` span | `session_task.turn` span / metrics |
 |---|---|---|---|
-| per-LLM-response granularity | **yes** (12 captured) | transport spans (1009 captured; 10 token-bearing) | per-turn aggregates (5 captured) |
-| model + conversation | **both present** | absent on token-bearing spans | present on turn spans |
-| all token buckets | **yes** | yes on some spans | yes, but aggregated |
+| per-LLM-response granularity | yes (12 captured) | transport spans (1009 captured; 10 token-bearing) | per-turn aggregates (5 captured) |
+| model + conversation | both present | absent on token-bearing spans | present on turn spans |
+| all token buckets | yes | yes on some spans | yes, but aggregated |
 | stable trace/span IDs | empty | present | present |
-| chosen | **yes** | no | no |
+| chosen | yes | no | no |
 
 The selected log has `event.name=codex.sse_event` and
 `event.kind=response.completed`. Its mapping is:
@@ -209,10 +206,10 @@ Other Codex log types are privacy-sensitive even with
 `log_user_prompt=false`: tool results can contain `arguments` and `output`, and
 identity metadata includes `user.email`, `user.account_id`, and `host.name`.
 The normalizer only reads the whitelisted response metadata above. Fixture
-sanitization additionally removes those fields plus paths and conversation,
+Fixture sanitization also removes those fields, along with paths and conversation,
 thread, turn, and call identifiers.
 
-## 5. Maki payloads (API request logs are the truth signal)
+## Maki
 
 Maki 0.5.6 was captured on 2026-09-23. Each `maki.api_request` log is one
 model call, with `session.id`, `event.sequence`, `timeUnixNano`, `model`,
@@ -240,22 +237,21 @@ report OpenCode's reasoning-token and agent-name attributes or trace/span
 IDs. Maki also emits tool and permission events and an active-time metric;
 these are not generation rows.
 
-## 6. Decisions
+## Normalization decisions
 
-### D1 — opencode truth signal: `opencode.llm` spans
+### Authoritative signals
 
-Evaluation against the criteria: per-LLM-call granularity (yes), all five
-token types (yes), cost (yes), stable dedup IDs (yes — traceID+spanID;
-`api_request` logs have none), arrives exactly once per call (yes). Metrics
-are cumulative and would double count; `opencode.session` spans are
-aggregates. **Ingest only `opencode.llm` spans; ignore session spans, logs,
-and metrics.** Copilot truth signal is its `chat` spans, for the same
-reasons. Codex uses its terminal `response.completed` log because the span and
-metric alternatives either aggregate a turn or lack model/conversation
-identity. Maki uses its `maki.api_request` event for per-call usage. Exactly
-one authoritative signal is ingested per source.
+OpenCode uses `opencode.llm` spans because they provide per-call granularity,
+all five token types, cost, and stable trace and span IDs. `api_request` logs
+have no stable IDs, metrics are cumulative, and `opencode.session` spans are
+aggregates. Ingesting any of those alternatives would double count usage.
 
-### D2 — dedup keys
+Copilot uses `chat` spans for the same reasons. Codex uses its terminal
+`response.completed` log because its spans and metrics either aggregate a turn
+or lack model and conversation identity. Maki uses `maki.api_request` events.
+Each source therefore has one authoritative signal.
+
+### Deduplication keys
 
 - Copilot: `sha256("copilot|" + traceID + "|" + spanID)`
 - opencode: `sha256("opencode|" + traceID + "|" + spanID)`
@@ -266,8 +262,8 @@ one authoritative signal is ingested per source.
 
 Trace/span IDs are stable across export batches: one Copilot agent turn was
 exported in four separate `traces` batches reusing the same traceID and span
-IDs, so `INSERT ... ON CONFLICT DO NOTHING` (with non-nil-merge upsert, see
-`docs/plans/README.md` rule 3) deduplicates correctly.
+IDs. The non-nil merge upsert deduplicates those batches while retaining fields
+that arrive later.
 
 Codex log records have empty trace/span IDs. Its content-derived key is stable
 across exporter retries and distinguishes missing tokens from explicit zero.
@@ -275,7 +271,7 @@ Two genuinely separate responses with the same conversation, timestamp,
 model, and all token values remain a residual collision risk because Codex
 emits no response ID.
 
-### D3 — attribute → `Generation` mapping
+### Generation mapping
 
 For the two span-based sources, `Timestamp` = span start (UTC), `Duration` = end − start,
 `TraceID`/`SpanID` = OTLP IDs, missing values stay nil (never coerce to zero).
@@ -292,7 +288,7 @@ For the two span-based sources, `Timestamp` = span start (UTC), `Duration` = end
 | CacheReadTokens | `gen_ai.usage.cache_read.input_tokens` | `llm.token_count.prompt_details.cache_read` |
 | CacheCreationTokens | `gen_ai.usage.cache_creation.input_tokens` | `llm.token_count.prompt_details.cache_write` |
 | ReasoningTokens | `gen_ai.usage.reasoning.output_tokens`, fallback legacy `gen_ai.usage.reasoning_tokens` | `llm.token_count.completion_details.reasoning` |
-| Cost | **always nil** — no attribute exists | `llm.cost.total`, fallback `cost_usd` |
+| Cost | Always nil; no attribute exists | `llm.cost.total`, fallback `cost_usd` |
 | ConversationID | `gen_ai.conversation.id` | `session.id` |
 | AgentName | `gen_ai.agent.name` (absent on top-level chats) | `agent.name` |
 | GitRepo | `github.copilot.git.repository` (not observed in capture) | absent |
@@ -304,39 +300,39 @@ Everything else (`invoke_agent`, `execute_tool`, `opencode.session`, metrics,
 and non-authoritative logs) is dropped before normalization. Codex and Maki
 use the log events described above; Codex spans are rejected.
 
-## 7. Open questions and resolved accounting choices
+## Accounting decisions
 
-1. **Cache accounting anomaly**: several opencode spans report
+1. Several OpenCode spans report
    `cache_read` > `prompt` (e.g. prompt 136, cache_read 6912), confirming
    the plugin's prompt count excludes cached tokens while Copilot's
-   (OpenAI-style) includes them. Default: store both as reported; do not
-   attempt to reconcile at ingest. *Resolved for display:* every aggregate
-   sums `storage.uncachedInputSQL` — Copilot/Codex input minus cache tokens
-   (clamped at 0), OpenCode/Maki as stored — so `InputTokens` is the
+   (OpenAI-style) includes them. Both are stored as reported. The ingest path
+   does not try to reconcile them. Every aggregate
+   sums `storage.uncachedInputSQL`: Copilot/Codex input minus cache tokens
+   (clamped at 0), and OpenCode/Maki as stored. `InputTokens` is the
    uncached prompt under one convention everywhere, `TotalTokens` no longer
    double-counts Copilot cache, and the cache hit rate
    (`storage.CacheHitRate`) is a single formula
    (`cache_read / (input + cache_read + cache_creation)`) that is exact for
    mixed aggregates too. Single records expose the same value via
    `normalize.Generation.UncachedInput`.
-2. **Legacy + new reasoning attributes present simultaneously** with equal
-   values in capture. Default: prefer `gen_ai.usage.reasoning.output_tokens`,
+2. Legacy and new reasoning attributes appeared simultaneously with equal
+   values in the capture. Prefer `gen_ai.usage.reasoning.output_tokens`,
    fall back to the legacy alias; if both present they are equal, so either
    order is safe.
-3. **Copilot cache_creation absent for GPT models.** Default: nil, not 0.
-4. **Title-generation `chat` spans (gpt-4o-mini) are root spans** with no
-   `invoke_agent` parent. Default: ingest them — they are real usage.
-5. **`copilot_chat.copilot_usage_nano_aiu`** is a proprietary usage unit with
-   no `Generation` field. Default: ignore.
-6. **`github.copilot.git.repository` / `.commit_sha`** were not observed
-   despite docs. Default: map if present, else nil.
-7. **Content attributes are always present in real payloads** from both
-   sources. Default: normalizers whitelist attributes; content keys are
+3. Copilot `cache_creation` is absent for GPT models. Store nil, not 0.
+4. Title-generation `chat` spans (`gpt-4o-mini`) are root spans with no
+   `invoke_agent` parent. They are real usage, so they are ingested.
+5. `copilot_chat.copilot_usage_nano_aiu` is a proprietary usage unit with
+   no `Generation` field and is ignored.
+6. `github.copilot.git.repository` and `.commit_sha` were not observed
+   despite the client documentation. Map them when present, otherwise store nil.
+7. Content attributes are present in captured payloads from both
+   sources. Normalizers whitelist attributes; content keys are
    never read or stored.
-8. **Copilot duration units**: `copilot_chat.time_to_first_token` is ms,
-   `gen_ai.response.time_to_first_chunk` is seconds; span start/end is the
+8. Copilot uses milliseconds for `copilot_chat.time_to_first_token` and seconds
+   for `gen_ai.response.time_to_first_chunk`. Span start/end is the
    only duration source for `Generation`.
-9. **Codex reasoning is a subset of output.** Resolved for display: subtract
+9. Codex reasoning is a subset of output. Display logic subtracts
    reasoning from Codex output in every aggregate and single-record response,
    while preserving raw storage. OpenCode and Copilot remain passthrough.
 
@@ -369,7 +365,7 @@ both structure and redaction. Raw dumps were not committed.
 
 - pdata v1.65.0 API: unmarshalers/marshalers are structs
   (`&ptrace.JSONUnmarshaler{}`, `ptrace.ProtoUnmarshaler{}`) with pointer
-  receivers — no `New*Unmarshaler()` constructors. pdata's protobuf + JSON
+  receivers; there are no `New*Unmarshaler()` constructors. pdata's protobuf and JSON
   unmarshalers were sufficient; no fallback to raw
   `go.opentelemetry.io/proto/otlp` needed.
 - Helper commands committed: `cmd/inspect` (pretty-print any OTLP file), 

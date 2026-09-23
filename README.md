@@ -1,275 +1,135 @@
 # ai-usage
 
-A local dashboard for your AI usage. It receives OpenTelemetry telemetry
-directly from **OpenCode** (via the community OTel plugin), **VS Code
-GitHub Copilot**, **Codex CLI**, and **Maki**, normalizes every LLM call into one
-canonical record, and stores it in a single SQLite file — all inside one
-Go binary. A small web dashboard and JSON API on `:8080` show today's
-token usage up front with weekly/monthly/all-time totals beside it (each
-with the cache hit rate; click a card for details), a **Trends** page with
-charts, per-source/provider/model breakdowns, and a **Sessions** view that
-groups requests by conversation with a sortable request list.
+`ai-usage` is a self-hosted dashboard for AI coding-tool usage. It receives
+OpenTelemetry data from OpenCode, VS Code GitHub Copilot, Codex CLI, and Maki,
+normalizes each model call, and stores the result in SQLite.
 
-Harness-reported costs take priority. When a cost is missing, the dashboard
-estimates it using OpenRouter pricing, or records zero for model names ending
-in `free` (including `:free` and `-free`). A manual pricing JSON file provides
-fallback rates; models without a matching price remain unknown.
-Reported, estimated, and free costs are labeled in the dashboard and JSON API.
+The dashboard shows token use, cache hit rates, costs, trends, model and provider
+breakdowns, and requests grouped by session. The web UI, JSON API, OTLP
+receivers, database migrations, and static assets ship in one Go binary.
 
-```
-OpenCode / VS Code Copilot / Codex / Maki ──OTLP──▶ ai-usage ──▶ SQLite ──▶ dashboard + JSON API
-                                                     :4318 / :4317            :8080
-```
+## Quick start
 
-## Quickstart
+1. Download a binary from [GitHub Releases](https://github.com/tbshfr/ai-usage/releases)
+   or [build from source](#build-from-source).
+2. Start the OTLP/HTTP receiver:
 
-1. Download the binary for your OS/arch from
-   [releases](https://github.com/tbshfr/ai-usage/releases) (or
-   [build from source](#build-from-source)).
-2. Run it with the OTLP listener enabled:
-
-   ```bash
-   ./ai-usage --otlp-http :4318
+   ```sh
+   ./ai-usage --otlp-http 127.0.0.1:4318
    ```
 
-   You should see:
+3. Configure one or more [supported clients](docs/client-setup.md).
+4. Open <http://localhost:8080> and use the client. New requests appear after
+   the client exports its telemetry.
 
-   ```text
-   AI Usage Dashboard (v0.1.0)
+Only the dashboard starts by default. OTLP/HTTP and OTLP/gRPC listeners start
+when you configure their address.
 
-   Dashboard: http://localhost:8080
-   OTLP HTTP: http://localhost:4318
-   OTLP gRPC: (disabled)
-   Auth:      off
-   Database:  ~/.local/share/ai-usage/usage.db
-   ```
+## Supported clients
 
-   Only the dashboard starts by default; each OTLP listener starts only
-   when its flag (or env var) is set.
+| Client | Telemetry used | Cost handling |
+|---|---|---|
+| OpenCode | Per-call spans from `@devtheops/opencode-plugin-otel` | Uses the reported cost when present |
+| VS Code GitHub Copilot | Native per-call chat spans | Estimates missing costs when pricing is available |
+| Codex CLI | Native terminal response logs | Estimates missing costs when pricing is available |
+| Maki | Native `maki.api_request` logs | Uses positive reported costs, otherwise estimates when possible |
 
-3. Point OpenCode, VS Code Copilot, Codex, and/or Maki at it — copy-paste configs are in
-   [`docs/source-setup.md`](docs/source-setup.md).
-4. Open <http://localhost:8080> and use your AI tools for a few minutes;
-   requests appear as the tools report them.
+The receiver also accepts OTLP metrics and unused log records from these
+clients. It counts them for ingestion diagnostics but does not turn aggregate
+signals into duplicate usage rows.
 
-## Build from source
+## Installation
 
-Requires Go ≥ 1.26. No CGO, no Node, no other toolchain.
+### Release binary
 
-```bash
-go build ./cmd/ai-usage
+Download the binary for your operating system and architecture from
+[GitHub Releases](https://github.com/tbshfr/ai-usage/releases), then run the
+`ai-usage` executable.
+
+### Build from source
+
+Building requires Go 1.26.7 or newer. The project does not require CGO, Node,
+or a frontend toolchain.
+
+```sh
+git clone https://github.com/tbshfr/ai-usage.git
+cd ai-usage
+go build -o ai-usage ./cmd/ai-usage
+./ai-usage --otlp-http 127.0.0.1:4318
 ```
 
-Cross-compiled release builds for linux/darwin/windows are produced by
-[`scripts/release.sh`](scripts/release.sh) (outputs to `dist/` with
-SHA-256 checksums).
+### Container
 
-## Configuration
+The image is published at `ghcr.io/tbshfr/ai-usage`. The included
+[`compose-example.yaml`](compose-example.yaml) is intended for a deployment
+behind an HTTPS reverse proxy. Copy [`.env.example`](.env.example) to `.env`,
+set its credentials, and create the writable bind-mount directory. The image
+runs as UID and GID `65532`:
 
-Flags override environment variables, which override defaults.
+```sh
+mkdir -p data
+sudo chown 65532:65532 data
+```
 
-| Flag                            | Env var                                | Default                       | Meaning                                              |
-| ------------------------------- | -------------------------------------- | ----------------------------- | ---------------------------------------------------- |
-| `--http`                        | `AI_USAGE_HTTP_ADDR`                   | `127.0.0.1:8080`              | Dashboard + JSON API listen address (empty disables) |
-| `--otlp-http`                   | `AI_USAGE_OTLP_HTTP_ADDR`              | _(disabled)_                  | OTLP/HTTP listen address (starts only when set)      |
-| `--otlp-grpc`                   | `AI_USAGE_OTLP_GRPC_ADDR`              | _(disabled)_                  | OTLP gRPC listen address (starts only when set)      |
-| `--data-dir`                    | `AI_USAGE_DATA_DIR`                    | OS user-data dir + `ai-usage` | Data directory                                       |
-| `--database`                    | `AI_USAGE_DATABASE`                    | `<data-dir>/usage.db`         | SQLite database path                                 |
-| `--pricing-file`                 | `AI_USAGE_PRICING_FILE`                 | _(bundled prices only)_      | JSON file with additional manual model prices         |
-| `--log-level`                   | `AI_USAGE_LOG_LEVEL`                   | `info`                        | `debug`, `info`, `warn`, or `error`                  |
-| `--dashboard-user`              | `AI_USAGE_DASHBOARD_USER`              | _(auth off)_                  | Dashboard login username                             |
-| `--dashboard-password`          | `AI_USAGE_DASHBOARD_PASSWORD`          | _(auth off)_                  | Dashboard login password                             |
-| `--otlp-token`                  | `AI_USAGE_OTLP_TOKEN`                  | _(auth off)_                  | Bearer token OTLP clients must send                  |
-| `--backup-s3-bucket`            | `AI_USAGE_BACKUP_S3_BUCKET`            | _(disabled)_                  | Backup bucket                                        |
-| `--backup-s3-region`            | `AI_USAGE_BACKUP_S3_REGION`            | _(required when enabled)_     | Use `auto` for R2                                    |
-| `--backup-s3-prefix`            | `AI_USAGE_BACKUP_S3_PREFIX`            | _(required when enabled)_     | Dedicated prefix ending in `/`                       |
-| `--backup-s3-endpoint`          | `AI_USAGE_BACKUP_S3_ENDPOINT`          | AWS S3                        | R2 S3 API endpoint                                   |
-| `--backup-s3-access-key-id`     | `AI_USAGE_BACKUP_S3_ACCESS_KEY_ID`     | _(empty)_                     | Backup access key ID                                 |
-| `--backup-s3-secret-access-key` | `AI_USAGE_BACKUP_S3_SECRET_ACCESS_KEY` | _(empty)_                     | Backup secret access key                             |
-| `--backup-s3-session-token`     | `AI_USAGE_BACKUP_S3_SESSION_TOKEN`     | _(empty)_                     | Backup optional session token                        |
+Attach the Compose service to your proxy network, then start it with:
 
-See [backups, R2 lifecycle retention, and restore](docs/backups.md) for setup.
+```sh
+docker compose -f compose-example.yaml up -d
+```
 
-Default data directory per OS:
+See [configuration and deployment](docs/configuration.md) before exposing the
+dashboard or an OTLP receiver outside the local machine.
 
-- Linux: `~/.local/share/ai-usage` (honors `XDG_DATA_HOME`)
+## Privacy
+
+`ai-usage` stores request metadata and token counts, not prompts or model
+responses. Stored fields can include timestamps, source, provider, model,
+token counts, duration, conversation and trace identifiers, agent names,
+repository metadata, and cost information.
+
+Some clients send content-bearing attributes even when their content-capture
+option is disabled. The normalizers read an explicit allowlist of usage fields
+and never persist raw telemetry payloads. Application logs contain counts and
+operational metadata, not prompt or completion content.
+
+Usage stays on the host unless you enable S3-compatible backups. Cost
+estimation fetches the public OpenRouter model catalog after usage arrives; the
+request contains no API key or usage telemetry.
+
+## Cost data
+
+Costs reported by a client take priority. For requests without a reported
+cost, `ai-usage` tries the cached OpenRouter catalog, then the bundled or
+configured manual prices. Model names ending in `free`, including `:free` and
+`-free`, receive a zero cost. A request remains unpriced if no rule matches.
+
+The UI and API label reported, estimated, free, and unknown costs separately.
+See [cost estimation](docs/configuration.md#cost-estimation) for matching,
+refresh, and manual-price details.
+
+## Data location
+
+The default data directory is:
+
+- Linux: `~/.local/share/ai-usage` (or `$XDG_DATA_HOME/ai-usage`)
 - macOS: `~/Library/Application Support/ai-usage`
 - Windows: `%LOCALAPPDATA%\ai-usage`
 
-The dashboard defaults to loopback so nothing is exposed beyond your
-machine; use `--http 127.0.0.1:8080` (and likewise for the OTLP ports)
-to restrict access to localhost only. Passing an empty value to any
-listener flag (e.g. `--otlp-http ""`) disables that listener entirely.
+The SQLite database is `usage.db` inside that directory. To delete local
+history, stop the process and remove the database together with any
+`usage.db-wal` and `usage.db-shm` files. Remote backups remain until their
+retention policy or an operator removes them.
 
-## Android home screen
+## Documentation
 
-Open the dashboard over HTTPS in Chrome on Android, then choose **Add to
-Home screen → Install** from the browser menu. The installed app is named
-**AI Usage** and opens the dashboard in its own window. It requires a network
-connection; offline access is not provided. HTTPS is required for installation
-(except for localhost development).
-
-## Authentication
-
-Unauthenticated (no credential flags/env vars set), the dashboard and
-any enabled OTLP listener are only allowed to bind to loopback
-addresses. Binding to a non-loopback interface — `:8080`, `0.0.0.0`,
-a public IP or hostname — **refuses to start** until you provide the
-matching credentials. That makes the VPS setup safe by construction.
-
-- **Dashboard**: a server-rendered login page. Set
-  `AI_USAGE_DASHBOARD_USER` and `AI_USAGE_DASHBOARD_PASSWORD` (both
-  required together). Sessions are HMAC-signed `HttpOnly` cookies valid
-  for 7 days; restarting the process logs everyone out.
-- **OTLP**: clients must send `Authorization: Bearer <token>` where the
-  token comes from `AI_USAGE_OTLP_TOKEN`. Applies to both OTLP/HTTP and
-  OTLP/gRPC. Client-side configuration is in
-  [`docs/source-setup.md`](docs/source-setup.md).
-
-Minimal VPS configuration (put the values in a systemd unit's
-`Environment=` lines or an env file — do not commit them):
-
-```bash
-export AI_USAGE_HTTP_ADDR=":8080"
-export AI_USAGE_OTLP_HTTP_ADDR=":4318"
-export AI_USAGE_DASHBOARD_USER=admin
-export AI_USAGE_DASHBOARD_PASSWORD='...long random password...'
-export AI_USAGE_OTLP_TOKEN='...long random token...'
-./ai-usage
-```
-
-`/health` and `/ready` stay unauthenticated so load balancers and
-process supervisors can probe them. The comparison of credentials is
-constant-time, and credentials never appear in logs.
-
-Run the dashboard behind a TLS-terminating reverse proxy (nginx, Caddy)
-when exposing it beyond a trusted network; the binary itself serves
-plain HTTP.
-
-> Login rate limiting notes: per-IP limiting (`3/15m` per IP, `100/15m`
-> global) attributes attempts by the rightmost `X-Forwarded-For` entry,
-> which is only trustworthy behind an appending reverse proxy (Caddy and
-> nginx append the observed peer address by default, so the rightmost
-> entry is the one the proxy saw). Do not expose the binary directly to
-> untrusted clients: a direct client can rotate `X-Forwarded-For` to evade
-> the per-IP limit and, with 100 spoofed failures, lock out legitimate
-> logins until the window drains. Behind Caddy/nginx with default
-> appending behavior this rotation fails and the limits hold.
-
-## Data location & privacy
-
-Usage data stays on your machine. After usage first arrives, the binary
-fetches the public OpenRouter model catalog over HTTPS, without an API key
-or any telemetry in the request. Optional [daily backups](docs/backups.md) send the stored
-SQLite database to your configured S3 destination.
-
-What is collected: **metadata and token counts only** — timestamps,
-source (opencode/copilot/codex), provider, model, input/output/reasoning/cache
-token counts, duration, conversation/trace IDs, and (from OpenCode) the
-cost the source itself reports, or an estimated cost with its pricing source
-and the rates used.
-
-What is **not** collected: your prompts and completions. No prompt or
-completion content is captured, stored, or logged. Raw telemetry payloads
-are never persisted; logs are structured JSON containing no telemetry
-data. To delete your history, stop the app and remove `usage.db` (and its
-`-wal`/`-shm` companions) from the data directory. If backups were enabled,
-remote copies remain until lifecycle expiration or operator deletion.
-
-## Cost estimates
-
-OpenRouter prices are cached in SQLite for 24 hours and reused across restarts.
-The first usage batch triggers a background fetch; subsequent usage triggers a
-refresh after expiry. Fetch failures never reject telemetry: the last successful
-catalog is used when available. Without cached prices, paid usage stays pending;
-the worker retries after five minutes and resumes pending rows after a restart.
-
-Reported costs, including zero, always win. Otherwise a name ending in `free`
-(case-insensitive, after trimming whitespace) costs zero. Paid estimates use input,
-output, reasoning, cache, and per-request rates. Missing cache rates fall back to
-normal input rates. Input and output counts are required; absent optional token
-counts are treated as zero. Matching uses exact model IDs, unique bare IDs, and
-explicit aliases for known harness names. When OpenRouter has no match, manual
-prices are checked; models without a usable price stay unknown. That outcome
-is final for the row: later catalog refreshes never revisit unknown models
-(only retried fetches during a cold-cache outage keep rows pending), so a
-newly listed model prices only requests ingested after it appears.
-
-Conditional rates use the request's full prompt count and UTC timestamp. Estimates
-cover token usage and fixed request charges, not unreported image, search, or other
-billable units. They may differ from charges by the actual provider or subscription.
-The request detail shows when prices were fetched. Daily catalog changes do not
-reprice stored costs. Later token enrichment uses the saved rates, and a later
-harness-reported cost replaces an estimate.
-Only rates used by estimated requests are retained as shared price snapshots;
-requests reference their snapshot instead of storing duplicate rate JSON.
-
-Existing requests with missing costs are backfilled **once per database**, after
-usage arrives and a fresh catalog is available. Historical estimates use prices
-available at backfill time, not reconstructed historical prices. Unknown historical
-models remain unknown after the job completes. Progress is safe to retry after an
-interruption; completion is recorded in `pricing_jobs` as `historical-costs-v1`.
-The removable job lives in `internal/pricing/backfill.go` and
-`internal/storage/pricing_backfill.go`; removal instructions are in the worker file.
-Keep migration `0005_pricing.sql` for database upgrades after retiring the job.
-
-### Manual prices
-
-[`internal/pricing/manual-prices.json`](internal/pricing/manual-prices.json)
-contains bundled fallback prices.
-Editing the bundled file requires rebuilding. To add or update prices without a
-rebuild, supply another JSON file with `--pricing-file /path/to/prices.json`
-or `AI_USAGE_PRICING_FILE`. Restart after changing that file. Its entries supplement
-the bundled entries; an identical model ID replaces the bundled entry.
-
-```json
-{
-  "models": {
-    "mai-code-1.1-flash": {
-      "inputPerMillion": 0.20,
-      "outputPerMillion": 1.20,
-      "cacheReadPerMillion": 0.02,
-      "updatedAt": "2026-09-21",
-      "sourceURL": "https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing"
-    }
-  }
-}
-```
-
-All numbers are **USD per million tokens**. `inputPerMillion`,
-`outputPerMillion`, and `updatedAt` (YYYY-MM-DD) are required for each model.
-Optional `cacheReadPerMillion` and `cacheWritePerMillion` default to the input
-rate; `reasoningPerMillion` defaults to the output rate. Explicit zero is valid.
-`sourceURL` is an optional reference for people maintaining the file. Invalid
-configured files fail startup with an error instead of silently ignoring typos.
-
-Manual entries match exact stored model IDs after trimming surrounding whitespace.
-They apply when OpenRouter cannot match a model. Harness-reported costs and the
-free-name rule still take priority. Manual costs are labeled **manual estimate**,
-count toward estimated totals, and preserve their rates and `updatedAt` date in
-SQLite. They work even when OpenRouter is unavailable. The detail page shows
-"Prices updated" for manual estimates.
-
-Manual prices also apply during the existing one-time historical backfill.
-Adding prices does **not** restart a completed backfill or change saved estimates.
+- [Client setup](docs/client-setup.md)
+- [Configuration and deployment](docs/configuration.md)
+- [JSON API](docs/api.md)
+- [Backups and restore](docs/backups.md)
+- [Development](docs/development.md)
+- [Telemetry mapping](docs/telemetry.md)
 
 ## Development
 
-- Project structure and phase plans: [`docs/plans/README.md`](docs/plans/README.md)
-- Telemetry ground truth (what each source actually sends): [`docs/telemetry.md`](docs/telemetry.md)
-- JSON API reference: [`docs/api.md`](docs/api.md)
-- Source setup configs: [`docs/source-setup.md`](docs/source-setup.md)
-- Fixture capture/refresh process: [`docs/CAPTURE-INSTRUCTIONS.md`](docs/CAPTURE-INSTRUCTIONS.md)
-
-Files in `web/public/` are embedded at build time and served at root URLs
-(for example, `web/public/favicon.ico` becomes `/favicon.ico`), without adding
-routes or authentication exceptions. Rebuild after adding or changing files.
-Only put intentionally public files here; hidden files and directories are not served.
-First path segments reserved by API and dashboard routes (listed in
-`reservedSegments` in `assets.go`) are not served from this directory.
-
-Verify changes:
-
-```bash
-go build ./... && go vet ./... && go test ./... && gofmt -l .
-```
+Contributor notes, repository layout, fixture capture, and release commands are
+in [docs/development.md](docs/development.md).

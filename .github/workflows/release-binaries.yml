@@ -1,0 +1,50 @@
+name: Publish release binaries
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  release:
+    name: Build and publish binaries
+    runs-on: ubuntu-24.04-arm
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      - name: Verify
+        run: |
+          go vet ./...
+          go test ./...
+
+      - name: Extract tag name
+        id: tag
+        run: |
+          TAG=${GITHUB_REF#refs/tags/}
+          echo "version=${TAG}" >> $GITHUB_OUTPUT
+
+      - name: Build release artifacts
+        run: scripts/release.sh "${{ steps.tag.outputs.version }}"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          tag_name: ${{ steps.tag.outputs.version }}
+          generate_release_notes: true
+          working_directory: dist
+          files: |
+            ai-usage-linux-amd64
+            ai-usage-linux-arm64
+            ai-usage-darwin-arm64
+            ai-usage-windows-amd64.exe
+            checksums.txt

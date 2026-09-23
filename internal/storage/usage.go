@@ -95,7 +95,7 @@ const (
 // inserted. On ID conflict it merges: NULL columns are filled from the new
 // record and non-nil values are never overwritten with nil — retried OTLP
 // batches reuse the same trace/span IDs, possibly with more attributes
-// filled in (docs/telemetry.md D2, README rule 3). A newly reported harness
+// filled in (see docs/telemetry.md). A newly reported harness
 // cost supersedes an estimate; existing harness costs are preserved. A
 // merge re-queues pricing only when it fills previously-NULL model or token
 // columns or moves an OpenRouter estimate to an earlier timestamp (which may

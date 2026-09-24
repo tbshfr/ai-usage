@@ -36,9 +36,9 @@ func TestBackupStatus(t *testing.T) {
 				Status       string     `json:"status"`
 				Enabled      bool       `json:"enabled"`
 				Running      bool       `json:"running"`
-				LastSuccess  *time.Time `json:"last_success"`
-				FailedAt     *time.Time `json:"failed_at"`
-				FailureStage string     `json:"failure_stage"`
+				LastSuccess  *time.Time `json:"lastSuccess"`
+				FailedAt     *time.Time `json:"failedAt"`
+				FailureStage string     `json:"failureStage"`
 			}
 			if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
 				t.Fatal(err)
@@ -82,7 +82,7 @@ func TestBackupStatusWithoutWorker(t *testing.T) {
 	handler := New(seedtest.DB(t), testLogger(t), nil, nil, nil, "test")
 	w := httptest.NewRecorder()
 	handler.ServeHTTP(w, httptest.NewRequest("GET", "/api/backup", nil))
-	if w.Code != 200 || w.Body.String() != "{\"status\":\"disabled\",\"enabled\":false,\"running\":false,\"last_success\":null,\"failed_at\":null,\"failure_stage\":\"\"}\n" {
+	if w.Code != 200 || w.Body.String() != "{\"status\":\"disabled\",\"enabled\":false,\"running\":false,\"lastSuccess\":null,\"failedAt\":null,\"failureStage\":\"\"}\n" {
 		t.Fatalf("unexpected response: %d %s", w.Code, w.Body.String())
 	}
 }

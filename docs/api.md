@@ -7,9 +7,8 @@ It is same-origin only and does not send CORS headers. When dashboard credential
 get `401` with `{"error":"unauthorized","status":401}` instead of data.
 `GET /health` and `GET /ready` stay unauthenticated for probes.
 
-All responses are UTF-8 `application/json`. Most field names use lower camel
-case; the backup-status response uses snake case. Nullable numerics serialize
-as JSON `null` when unknown, never `0`. Costs prefer
+All responses are UTF-8 `application/json`. Field names use lower camel case.
+Nullable numerics serialize as JSON `null` when unknown, never `0`. Costs prefer
 harness-reported values. Missing costs may be estimated from OpenRouter or manual
 fallback prices, or set to zero for names ending in `free`; otherwise they remain
 `null`.
@@ -278,16 +277,16 @@ Returns the current backup worker status (with the same authentication as other
 API routes):
 
 ```json
-{"status":"failed","enabled":true,"running":false,"last_success":"2026-09-08T12:00:00Z","failed_at":"2026-09-09T12:00:00Z","failure_stage":"upload"}
+{"status":"failed","enabled":true,"running":false,"lastSuccess":"2026-09-08T12:00:00Z","failedAt":"2026-09-09T12:00:00Z","failureStage":"upload"}
 ```
 
 `status` is `disabled`, `pending` (waiting for the first backup), `running`,
 `ok`, or `failed`. A failure remains `failed` during retries (`running: true`)
-until success. Unset timestamps are `null`; `failure_stage` is empty without a
-failure. `last_success` is the successful completion time restored from local
+until success. Unset timestamps are `null`; `failureStage` is empty without a
+failure. `lastSuccess` is the successful completion time restored from local
 state; failures are tracked only for the current process. No credentials or raw
 errors are returned. This endpoint returns 200 even when a backup failed: alert
-on `status: failed` and on the age of `last_success`. `ok` does not guarantee
+on `status: failed` and on the age of `lastSuccess`. `ok` does not guarantee
 freshness or verify that the remote object still exists.
 
 ## Health probes

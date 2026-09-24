@@ -47,9 +47,9 @@ func NewWithAuth(db *sql.DB, logger *slog.Logger, stats StatsFunc, reasons Reaso
 			Status       string     `json:"status"`
 			Enabled      bool       `json:"enabled"`
 			Running      bool       `json:"running"`
-			LastSuccess  *time.Time `json:"last_success"`
-			FailedAt     *time.Time `json:"failed_at"`
-			FailureStage string     `json:"failure_stage"`
+			LastSuccess  *time.Time `json:"lastSuccess"`
+			FailedAt     *time.Time `json:"failedAt"`
+			FailureStage string     `json:"failureStage"`
 		}{state, s.Enabled, s.Running, lastSuccess, failedAt, s.FailureStage})
 	})
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {

@@ -34,6 +34,8 @@ func ModelCreator(model string) string {
 		return "moonshot"
 	case strings.HasPrefix(m, "mimo"):
 		return "xiaomi"
+	case strings.HasPrefix(m, "qwen"):
+		return "alibaba"
 	default:
 		return "unknown"
 	}

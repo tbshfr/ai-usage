@@ -237,6 +237,20 @@ report OpenCode's reasoning-token and agent-name attributes or trace/span
 IDs. Maki also emits tool and permission events and an active-time metric;
 these are not generation rows.
 
+Maki's subagents have their own model context, but their API call events do not
+carry a subagent/task identifier. They normally use the parent's `session.id`,
+so their calls appear in the parent session here. Maki reads `session.id` from
+a process-wide current-session slot when emitting each event; an overlapping
+top-level run can therefore misattribute a call to another session. A
+subagent's first call can have uncached input and no cache reads, which can
+lower the parent session's displayed cache hit rate.
+Splitting those calls into separate session cards would require Maki to export a
+stable identifier on each subagent API call (and preferably the parent session
+ID); the current events cannot be partitioned reliably by timing or model.
+Separate cards would not change the overall cache hit rate or provider caching.
+Maki's API call events also omit reasoning tokens, so their reasoning value is
+unknown rather than zero.
+
 ## Normalization decisions
 
 ### Authoritative signals
@@ -332,9 +346,10 @@ use the log events described above; Codex spans are rejected.
 8. Copilot uses milliseconds for `copilot_chat.time_to_first_token` and seconds
    for `gen_ai.response.time_to_first_chunk`. Span start/end is the
    only duration source for `Generation`.
-9. Codex reasoning is a subset of output. Display logic subtracts
-   reasoning from Codex output in every aggregate and single-record response,
-   while preserving raw storage. OpenCode and Copilot remain passthrough.
+9. Copilot and Codex reasoning are subsets of output. Display logic subtracts
+   reasoning from their output in every aggregate and single-record response,
+   while preserving raw storage. OpenCode remains passthrough because its
+   output and reasoning fields are separate buckets.
 
 ## Fixture provenance
 

@@ -140,6 +140,11 @@ Maki's [telemetry documentation](https://maki.sh/docs/telemetry/) also describes
 gRPC. Set `protocol = "grpc"`, use `http://127.0.0.1:4317`, and start
 `ai-usage` with `--otlp-grpc 127.0.0.1:4317`.
 
+Maki currently exports no reasoning-token count or subagent identifier on
+`maki.api_request` events. Reasoning appears as unknown in `ai-usage`, and
+subagent calls normally join the parent session's totals and cache hit rate.
+Separate subagent sessions start with empty context, so the session cache hit rate can appear lower than in other harnesses.
+
 Verify after a Maki API call and one export interval:
 
 ```sh

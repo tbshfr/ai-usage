@@ -158,8 +158,9 @@ Stored model values and the `model` filter remain exact and unchanged.
 Full records ordered by timestamp. `limit` defaults to 50, clamped to a
 max of 500; `offset` pages forward; `order` is `desc` (default, newest
 first) or `asc` (oldest first). `inputTokens` is the canonical uncached
-prompt (same rule as the aggregates); the raw as-reported value stays in
-the database.
+prompt, and `outputTokens` is the canonical output excluding reasoning tokens
+for Copilot and Codex (the same rules as the aggregates). Raw as-reported
+values stay in the database.
 
 `/api/generations?limit=1`
 

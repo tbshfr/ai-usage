@@ -164,8 +164,9 @@ const insertSQL = `INSERT INTO generations (
 	id, timestamp, source, service_name, provider, model,
 	input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens, reasoning_tokens,
 	cost, conversation_id, trace_id, span_id, duration_ms,
-	agent_name, git_repo, git_branch, created_at, cost_reported_by_harness, cost_source, pricing_pending
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	agent_name, git_repo, git_branch, created_at, cost_reported_by_harness, cost_source, pricing_pending,
+	reasoning_effort
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(id) DO NOTHING RETURNING id`
 
 const mergeSQL = `UPDATE generations SET
@@ -200,7 +201,8 @@ const mergeSQL = `UPDATE generations SET
 	duration_ms = COALESCE(duration_ms, ?),
 	agent_name = COALESCE(agent_name, ?),
 	git_repo = COALESCE(git_repo, ?),
-	git_branch = COALESCE(git_branch, ?)
+	git_branch = COALESCE(git_branch, ?),
+	reasoning_effort = COALESCE(reasoning_effort, ?)
 WHERE id = ?`
 
 func insertArgs(gen normalize.Generation) []any {
@@ -228,6 +230,7 @@ func insertArgs(gen normalize.Generation) []any {
 		gen.Cost != nil,
 		harnessCostSource(gen.Cost),
 		gen.Cost == nil,
+		nullableString(gen.ReasoningEffort),
 	}
 }
 
@@ -261,6 +264,7 @@ func mergeArgs(gen normalize.Generation) []any {
 		nullableString(gen.AgentName),
 		nullableString(gen.GitRepo),
 		nullableString(gen.GitBranch),
+		nullableString(gen.ReasoningEffort),
 		gen.ID,
 	}
 }

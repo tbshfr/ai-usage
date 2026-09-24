@@ -20,6 +20,7 @@
   <dt>Prices fetched</dt><dd>{{utc .D.PricingFetchedAt}}. The estimate uses rates fetched on this date, including for older requests.</dd>
   {{end}}
   {{end}}
+  <dt>Reasoning effort</dt><dd>{{or .D.ReasoningEffort "—"}}</dd>
   <dt>Duration</dt><dd>{{dur .D.Duration}}</dd>
   <dt>Agent</dt><dd>{{or .D.AgentName "—"}}</dd>
   <dt>Git repo</dt><dd>{{or .D.GitRepo "—"}}</dd>

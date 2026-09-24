@@ -1,7 +1,8 @@
 # ai-usage
 
 `ai-usage` is a self-hosted dashboard for AI coding-tool usage. It receives
-OpenTelemetry data from OpenCode, VS Code GitHub Copilot, Codex CLI, and Maki,
+OpenTelemetry data from OpenCode, VS Code GitHub Copilot, Codex CLI, Maki, and
+Claude Code,
 normalizes each model call, and stores the result in SQLite.
 
 The dashboard shows token use, cache hit rates, costs, trends, model and provider
@@ -33,6 +34,7 @@ when you configure their address.
 | VS Code GitHub Copilot | Native per-call chat spans | Estimates missing costs when pricing is available |
 | Codex CLI | Native terminal response logs | Estimates missing costs when pricing is available |
 | Maki | Native `maki.api_request` logs | Uses positive reported costs, otherwise estimates when possible |
+| Claude Code | Native `claude_code.api_request` logs | Uses positive reported costs, otherwise estimates when possible |
 
 The receiver also accepts OTLP metrics and unused log records from these
 clients. It counts them for ingestion diagnostics but does not turn aggregate

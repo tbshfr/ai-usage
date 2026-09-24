@@ -199,6 +199,8 @@ func friendlySource(s string) string {
 		return "Codex"
 	case "maki":
 		return "Maki"
+	case "claude-code":
+		return "Claude Code"
 	default:
 		return s
 	}

@@ -3,6 +3,7 @@
 This reference records the payloads used to implement and test the source
 normalizers. OpenCode and Copilot were captured on 2026-08-30. Codex was
 captured on 2026-09-07 with CLI v0.153.4. Maki was captured on 2026-09-23.
+Claude Code was captured on 2026-09-24.
 The sanitized fixtures under `testdata` come from those captures.
 
 ## Captured source versions
@@ -13,6 +14,7 @@ The sanitized fixtures under `testdata` come from those captures.
 | VS Code GitHub Copilot (copilot-chat extension 0.63.0; VS Code version not recorded) | resource `service.name=copilot-chat` | Always JSON (`application/json`) | `/v1/traces`, `/v1/metrics`, `/v1/logs` |
 | Codex CLI 0.153.4 (Rust OTel SDK 0.31.0) | resource `service.name=codex_cli_rs` | JSON observed (`application/json`) | `/v1/logs`, `/v1/traces`, `/v1/metrics` |
 | Maki 0.5.6 | resource `service.name=maki`, `telemetry.sdk.name=maki-otel` | Protobuf observed (`application/x-protobuf`) | `/v1/logs`, `/v1/metrics` |
+| Claude Code 2.1.280 | resource `service.name=claude-code`, `service.version=2.1.280` | Protobuf observed (`application/x-protobuf`) | `/v1/logs`, `/v1/metrics` |
 
 Resource attributes:
 
@@ -180,6 +182,7 @@ The selected log has `event.name=codex.sse_event` and
 | CacheReadTokens | `cached_token_count` (Int observed) |
 | CacheCreationTokens | `cache_write_token_count` (Int observed) |
 | ReasoningTokens | `reasoning_token_count` (Int observed; subset of output) |
+| ReasoningEffort | `model_reasoning_effort` (`medium` observed; absent on one captured response) |
 | ConversationID | `conversation.id` |
 | Cost / Duration / trace IDs | absent → nil / zero / empty |
 
@@ -251,6 +254,46 @@ Separate cards would not change the overall cache hit rate or provider caching.
 Maki's API call events also omit reasoning tokens, so their reasoning value is
 unknown rather than zero.
 
+## Claude Code
+
+Claude Code 2.1.280 was captured on 2026-09-24. Each `claude_code.api_request`
+log (attribute `event.name=api_request`) is one successful model call, with
+`session.id`, `prompt.id`, `request_id`, `event.sequence`, `model`,
+`input_tokens`, `output_tokens`, `cache_read_tokens`, `cache_creation_tokens`,
+`cost_usd`, `duration_ms`, `ttft_ms`, `speed`, `effort`, and `query_source`. Numeric
+token and duration values arrive as strings; `cost_usd` is a double. The
+captured Opus call with 2 input tokens, 26,473 cache-read tokens, and 13,072
+cache-creation tokens confirms that input is already the uncached bucket. No
+reasoning-token attribute was observed: the Anthropic API folds thinking
+tokens into `output_tokens`, so reasoning stays unknown and output includes
+it. `effort` (the reasoning-effort setting, `medium` in the capture) is stored
+in the `reasoning_effort` column. Calls without it, such as the Haiku title call in the
+capture, store NULL.
+
+Positive `cost_usd` is Claude Code's own estimate and is treated as
+harness-reported cost. Zero leaves cost unknown so the pricing catalog can
+supply one. Provider is always `anthropic`; the events do not say whether the
+call went to the Anthropic API, Bedrock, or Vertex.
+
+`query_source` separates main-thread calls (`repl_main_thread`) from helper
+calls such as `generate_session_title` (Haiku in the capture). Helper calls are
+real spend and are stored like any other call. `prompt.id` groups every event
+caused by one user prompt; `session.id` becomes the conversation ID.
+
+The log's trace/span IDs are empty. `request_id` (the Anthropic `req_…` ID) is
+unique per response, so dedup uses it alone. Without it, dedup falls back to
+the session ID, record timestamp, and `event.sequence`.
+`claude_code.assistant_response` repeats the request ID and model but has no
+usage, and the prompt, at-mention, plugin, settings, and MCP events describe
+the session. None of those become generation rows. The `claude_code.token.usage`
+and `claude_code.cost.usage` metrics aggregate the same calls and are ignored.
+
+Resource attributes carry no identity. Log records carry `user.email`,
+`user.account_id`, `user.account_uuid`, `user.id`, and `organization.id`;
+fixture sanitization redacts them along with `session.id`, `prompt`, and
+`tool_parameters`. The request, client-request, prompt, and message IDs in
+the fixtures were replaced with consistent random values.
+
 ## Normalization decisions
 
 ### Authoritative signals
@@ -262,7 +305,8 @@ aggregates. Ingesting any of those alternatives would double count usage.
 
 Copilot uses `chat` spans for the same reasons. Codex uses its terminal
 `response.completed` log because its spans and metrics either aggregate a turn
-or lack model and conversation identity. Maki uses `maki.api_request` events.
+or lack model and conversation identity. Maki uses `maki.api_request` events,
+and Claude Code uses `claude_code.api_request` events.
 Each source therefore has one authoritative signal.
 
 ### Deduplication keys
@@ -273,6 +317,8 @@ Each source therefore has one authoritative signal.
   event timestamp/model fields plus explicit nil-or-value encodings for the
   five token buckets
 - Maki: `sha256("maki|" + session.id + "|" + decimal timeUnixNano + ":" + decimal event.sequence)`
+- Claude Code: `sha256("claude-code|request|" + request_id)`, falling back to
+  `sha256("claude-code|" + session.id + "|" + decimal timeUnixNano + ":" + decimal event.sequence)`
 
 Trace/span IDs are stable across export batches: one Copilot agent turn was
 exported in four separate `traces` batches reusing the same traceID and span
@@ -311,8 +357,8 @@ For the two span-based sources, `Timestamp` = span start (UTC), `Duration` = end
 Filter rules: ingest only spans with `gen_ai.operation.name=chat` (Copilot)
 or `openinference.span.kind=LLM` / span name `opencode.llm` (opencode).
 Everything else (`invoke_agent`, `execute_tool`, `opencode.session`, metrics,
-and non-authoritative logs) is dropped before normalization. Codex and Maki
-use the log events described above; Codex spans are rejected.
+and non-authoritative logs) is dropped before normalization. Codex, Maki, and
+Claude Code use the log events described above; Codex spans are rejected.
 
 ## Accounting decisions
 
@@ -322,7 +368,7 @@ use the log events described above; Codex spans are rejected.
    (OpenAI-style) includes them. Both are stored as reported. The ingest path
    does not try to reconcile them. Every aggregate
    sums `storage.uncachedInputSQL`: Copilot/Codex input minus cache tokens
-   (clamped at 0), and OpenCode/Maki as stored. `InputTokens` is the
+   (clamped at 0), and OpenCode/Maki/Claude Code as stored. `InputTokens` is the
    uncached prompt under one convention everywhere, `TotalTokens` no longer
    double-counts Copilot cache, and the cache hit rate
    (`storage.CacheHitRate`) is a single formula
@@ -370,6 +416,12 @@ use the log events described above; Codex spans are rejected.
 | `testdata/codex/logs-other.json` | one `codex.user_prompt` and one `codex.tool_result`, sensitive values redacted |
 | `testdata/codex/traces-codex.json` | one token-bearing `handle_responses` and one aggregate `session_task.turn` span |
 | `testdata/codex/metrics-codex.json` | one `codex.turn.token_usage` metric |
+| `testdata/claude/logs-startup.json` | settings, plugin, and MCP startup events, first `user_prompt`, one Opus `api_request` + `assistant_response` |
+| `testdata/claude/logs-at-mention.json` | `at_mention` + `user_prompt`, Haiku `generate_session_title` `api_request` + `assistant_response` |
+| `testdata/claude/logs-api-request.json` | Opus `api_request` + `assistant_response` for the at-mention prompt (nonzero cache creation) |
+| `testdata/claude/logs-user-prompt.json` | a lone `user_prompt` |
+| `testdata/claude/logs-api-request-followup.json` | Opus `api_request` + `assistant_response` for that follow-up prompt |
+| `testdata/claude/metrics.json` | one metrics batch (`claude_code.*` token, cost, session, active-time) |
 
 Privacy audit: all fixtures redact content-bearing attributes and span status
 messages to `"[REDACTED]"` (`cmd/sanitize`); the `.pb` fixture is a re-marshal

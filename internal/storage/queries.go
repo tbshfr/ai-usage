@@ -155,10 +155,10 @@ const uncachedInputSQL = `CASE WHEN source IN ('` + normalize.SourceCopilot + `'
 		- COALESCE(cache_creation_tokens, 0), 0)
 	ELSE COALESCE(input_tokens, 0) END`
 
-// outputTokensSQL is the mutually exclusive output bucket. Codex's reported
-// output includes its reasoning subset; other sources report separate output
-// and reasoning buckets. Raw rows remain unchanged for provenance.
-const outputTokensSQL = `CASE WHEN source = '` + normalize.SourceCodex + `'
+// outputTokensSQL is the mutually exclusive output bucket. Copilot and Codex
+// include reasoning in reported output; OpenCode reports separate output and
+// reasoning buckets. Raw rows remain unchanged for provenance.
+const outputTokensSQL = `CASE WHEN source IN ('` + normalize.SourceCopilot + `', '` + normalize.SourceCodex + `')
 	THEN MAX(COALESCE(output_tokens, 0) - COALESCE(reasoning_tokens, 0), 0)
 	ELSE COALESCE(output_tokens, 0) END`
 

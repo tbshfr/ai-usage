@@ -49,6 +49,9 @@ OTLP receiver -> source normalizer -> SQLite -> dashboard and JSON API
 - Copilot and Codex input counts include cached tokens, while OpenCode and Maki
   report uncached input separately. API and UI output convert them to the same
   disjoint token buckets without changing raw stored values.
+- Copilot and Codex reasoning counts are included in their reported output;
+  OpenCode reports output and reasoning separately. Canonical totals and
+  estimated prices use each source's convention.
 - Raw OTLP payloads, prompt text, completions, tool data, and identity fields
   are never persisted or logged.
 - The project uses a pure-Go SQLite driver so release binaries do not depend on

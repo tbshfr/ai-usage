@@ -76,9 +76,9 @@ Totals for the filter range, plus the filter echo.
 
 `inputTokens` is the canonical uncached prompt: Copilot and Codex report
 prompt input including cached tokens, so cached parts are subtracted before
-aggregation (clamped at 0); OpenCode is stored uncached already. Codex also
-reports reasoning as a subset of output; `outputTokens` excludes that subset
-so `outputTokens + reasoningTokens` never double-counts it. Raw reported
+aggregation (clamped at 0); OpenCode is stored uncached already. Copilot and
+Codex report reasoning as a subset of output; `outputTokens` excludes that
+subset so `outputTokens + reasoningTokens` never double-counts it. Raw reported
 values remain unchanged in SQLite.
 
 `cacheHitRate` is the fraction of prompt tokens served from cache:
@@ -158,8 +158,9 @@ Stored model values and the `model` filter remain exact and unchanged.
 Full records ordered by timestamp. `limit` defaults to 50, clamped to a
 max of 500; `offset` pages forward; `order` is `desc` (default, newest
 first) or `asc` (oldest first). `inputTokens` is the canonical uncached
-prompt (same rule as the aggregates); the raw as-reported value stays in
-the database.
+prompt, and `outputTokens` is the canonical output excluding reasoning tokens
+for Copilot and Codex (the same rules as the aggregates). Raw as-reported
+values stay in the database.
 
 `/api/generations?limit=1`
 

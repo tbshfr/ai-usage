@@ -47,6 +47,9 @@ func TestCanonicalTokenSQLParity(t *testing.T) {
 		// Defensive output clamp for inconsistent producer data.
 		{ID: "p8", Timestamp: ts, Source: normalize.SourceCodex,
 			OutputTokens: i64(10), ReasoningTokens: i64(20)},
+		// Copilot also reports reasoning within its output count.
+		{ID: "p9", Timestamp: ts, Source: normalize.SourceCopilot,
+			OutputTokens: i64(132), ReasoningTokens: i64(19)},
 	}
 	for _, g := range rows {
 		if _, err := InsertGeneration(ctx, db, g); err != nil {

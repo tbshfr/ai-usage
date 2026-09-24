@@ -32,6 +32,11 @@ func TestUncachedInput(t *testing.T) {
 	if output := c.NonReasoningOutput(); output == nil || *output != 113 {
 		t.Errorf("codex non-reasoning output = %v, want 113", output)
 	}
+	g.OutputTokens = i64(132)
+	g.ReasoningTokens = i64(19)
+	if output := g.NonReasoningOutput(); output == nil || *output != 113 {
+		t.Errorf("copilot non-reasoning output = %v, want 113", output)
+	}
 
 	// clamp: cache can never exceed the prompt, but guard anyway.
 	g.CacheCreationTokens = i64(500)

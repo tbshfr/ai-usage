@@ -152,6 +152,46 @@ curl -s 'http://127.0.0.1:8080/api/generations?source=maki&limit=1' \
   | jq '.[0] | {model,inputTokens,cacheReadTokens,outputTokens,cost}'
 ```
 
+## Claude Code
+
+Claude Code has built-in OpenTelemetry support, configured with environment
+variables. Add them to the `env` block of `~/.claude/settings.json` so every
+session exports:
+
+```jsonc
+{
+  "env": {
+    "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
+    "OTEL_LOGS_EXPORTER": "otlp",
+    "OTEL_METRICS_EXPORTER": "none",
+    "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
+    "OTEL_EXPORTER_OTLP_ENDPOINT": "http://127.0.0.1:4318"
+  }
+}
+```
+
+For an authenticated remote receiver, change the endpoint to its HTTPS origin
+and add:
+
+```jsonc
+"OTEL_EXPORTER_OTLP_HEADERS": "Authorization=Bearer <token>"
+```
+
+Leave `OTEL_LOG_USER_PROMPTS` and `OTEL_LOG_TOOL_DETAILS` unset. `ai-usage`
+stores one generation for each `claude_code.api_request` event, including
+helper calls such as session-title generation, and ignores metrics and other
+events. Claude Code's reported `cost_usd` is used when positive; a zero
+estimate is left for the local pricing fallback. The `api_request` event has no
+reasoning-token count, so reasoning appears as unknown.
+
+Claude Code batches logs and exports every 5 seconds by default
+(`OTEL_LOGS_EXPORT_INTERVAL`, in milliseconds). Verify after a prompt:
+
+```sh
+curl -s 'http://127.0.0.1:8080/api/generations?source=claude-code&limit=1' \
+  | jq '.[0] | {model,inputTokens,cacheReadTokens,outputTokens,cost}'
+```
+
 ## VS Code GitHub Copilot
 
 Copilot Chat has native OpenTelemetry support. Open the VS Code user

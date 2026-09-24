@@ -290,6 +290,8 @@ func normErrorReason(err error) string {
 		return ReasonBadAttrs
 	case errors.Is(err, normalize.ErrInvalidMakiAttr):
 		return ReasonBadAttrs
+	case errors.Is(err, normalize.ErrInvalidClaudeCodeAttr):
+		return ReasonBadAttrs
 	case errors.Is(err, normalize.ErrMissingSpanIDs):
 		return ReasonBadIDs
 	case errors.Is(err, normalize.ErrMissingLogIdentity):

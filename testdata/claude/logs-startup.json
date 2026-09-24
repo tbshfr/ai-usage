@@ -1,0 +1,899 @@
+{
+  "resourceLogs": [
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "host.arch",
+            "value": {
+              "stringValue": "amd64"
+            }
+          },
+          {
+            "key": "os.type",
+            "value": {
+              "stringValue": "linux"
+            }
+          },
+          {
+            "key": "os.version",
+            "value": {
+              "stringValue": "7.2.6-arch2-1"
+            }
+          },
+          {
+            "key": "service.name",
+            "value": {
+              "stringValue": "claude-code"
+            }
+          },
+          {
+            "key": "service.version",
+            "value": {
+              "stringValue": "2.1.280"
+            }
+          }
+        ]
+      },
+      "scopeLogs": [
+        {
+          "scope": {
+            "name": "com.anthropic.claude_code.events",
+            "version": "2.1.280"
+          },
+          "logRecords": [
+            {
+              "timeUnixNano": "1790272899395000000",
+              "observedTimeUnixNano": "1790272899395000000",
+              "body": {
+                "stringValue": "claude_code.managed_settings_resolved"
+              },
+              "attributes": [
+                {
+                  "key": "managed_settings.helper.applied",
+                  "value": {
+                    "stringValue": "none"
+                  }
+                },
+                {
+                  "key": "user.id",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "session.id",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "organization.id",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "user.email",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "user.account_uuid",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "terminal.type",
+                  "value": {
+                    "stringValue": "tmux"
+                  }
+                },
+                {
+                  "key": "event.name",
+                  "value": {
+                    "stringValue": "managed_settings_resolved"
+                  }
+                },
+                {
+                  "key": "event.timestamp",
+                  "value": {
+                    "stringValue": "2026-09-24T18:01:39.395Z"
+                  }
+                },
+                {
+                  "key": "event.sequence",
+                  "value": {
+                    "intValue": "0"
+                  }
+                },
+                {
+                  "key": "managed_settings.trigger",
+                  "value": {
+                    "stringValue": "startup"
+                  }
+                },
+                {
+                  "key": "managed_settings.sources",
+                  "value": {
+                    "arrayValue": {}
+                  }
+                },
+                {
+                  "key": "managed_settings.source_behavior",
+                  "value": {
+                    "stringValue": "first-wins"
+                  }
+                },
+                {
+                  "key": "managed_settings.helper.state",
+                  "value": {
+                    "stringValue": "none"
+                  }
+                },
+                {
+                  "key": "user.account_id",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                }
+              ]
+            },
+            {
+              "timeUnixNano": "1790272899430000000",
+              "observedTimeUnixNano": "1790272899430000000",
+              "body": {
+                "stringValue": "claude_code.plugin_loaded"
+              },
+              "attributes": [
+                {
+                  "key": "safe_mode",
+                  "value": {
+                    "stringValue": "false"
+                  }
+                },
+                {
+                  "key": "user.id",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "session.id",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "organization.id",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "user.email",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "user.account_uuid",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "terminal.type",
+                  "value": {
+                    "stringValue": "tmux"
+                  }
+                },
+                {
+                  "key": "event.name",
+                  "value": {
+                    "stringValue": "plugin_loaded"
+                  }
+                },
+                {
+                  "key": "event.timestamp",
+                  "value": {
+                    "stringValue": "2026-09-24T18:01:39.430Z"
+                  }
+                },
+                {
+                  "key": "event.sequence",
+                  "value": {
+                    "intValue": "1"
+                  }
+                },
+                {
+                  "key": "plugin.name",
+                  "value": {
+                    "stringValue": "agents-md"
+                  }
+                },
+                {
+                  "key": "marketplace.name",
+                  "value": {
+                    "stringValue": "builtin"
+                  }
+                },
+                {
+                  "key": "plugin.scope",
+                  "value": {
+                    "stringValue": "default-bundle"
+                  }
+                },
+                {
+                  "key": "enabled_via",
+                  "value": {
+                    "stringValue": "default-enable"
+                  }
+                },
+                {
+                  "key": "plugin_id_hash",
+                  "value": {
+                    "stringValue": "0426e5d92e22a851"
+                  }
+                },
+                {
+                  "key": "has_hooks",
+                  "value": {
+                    "boolValue": false
+                  }
+                },
+                {
+                  "key": "has_mcp",
+                  "value": {
+                    "boolValue": false
+                  }
+                },
+                {
+                  "key": "host_owned_mcp",
+                  "value": {
+                    "boolValue": false
+                  }
+                },
+                {
+                  "key": "skill_path_count",
+                  "value": {
+                    "intValue": "0"
+                  }
+                },
+                {
+                  "key": "command_path_count",
+                  "value": {
+                    "intValue": "0"
+                  }
+                },
+                {
+                  "key": "agent_path_count",
+                  "value": {
+                    "intValue": "0"
+                  }
+                },
+                {
+                  "key": "user.account_id",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                }
+              ]
+            },
+            {
+              "timeUnixNano": "1790272899431000000",
+              "observedTimeUnixNano": "1790272899431000000",
+              "body": {
+                "stringValue": "claude_code.plugin_loaded"
+              },
+              "attributes": [
+                {
+                  "key": "user.account_id",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "user.id",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "session.id",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "organization.id",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "safe_mode",
+                  "value": {
+                    "stringValue": "false"
+                  }
+                },
+                {
+                  "key": "user.account_uuid",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "terminal.type",
+                  "value": {
+                    "stringValue": "tmux"
+                  }
+                },
+                {
+                  "key": "event.name",
+                  "value": {
+                    "stringValue": "plugin_loaded"
+                  }
+                },
+                {
+                  "key": "event.timestamp",
+                  "value": {
+                    "stringValue": "2026-09-24T18:01:39.431Z"
+                  }
+                },
+                {
+                  "key": "event.sequence",
+                  "value": {
+                    "intValue": "2"
+                  }
+                },
+                {
+                  "key": "plugin.name",
+                  "value": {
+                    "stringValue": "telemetry"
+                  }
+                },
+                {
+                  "key": "marketplace.name",
+                  "value": {
+                    "stringValue": "builtin"
+                  }
+                },
+                {
+                  "key": "plugin.scope",
+                  "value": {
+                    "stringValue": "default-bundle"
+                  }
+                },
+                {
+                  "key": "enabled_via",
+                  "value": {
+                    "stringValue": "default-enable"
+                  }
+                },
+                {
+                  "key": "plugin_id_hash",
+                  "value": {
+                    "stringValue": "38eab4bbc65110ea"
+                  }
+                },
+                {
+                  "key": "has_hooks",
+                  "value": {
+                    "boolValue": false
+                  }
+                },
+                {
+                  "key": "has_mcp",
+                  "value": {
+                    "boolValue": false
+                  }
+                },
+                {
+                  "key": "host_owned_mcp",
+                  "value": {
+                    "boolValue": false
+                  }
+                },
+                {
+                  "key": "skill_path_count",
+                  "value": {
+                    "intValue": "0"
+                  }
+                },
+                {
+                  "key": "command_path_count",
+                  "value": {
+                    "intValue": "0"
+                  }
+                },
+                {
+                  "key": "agent_path_count",
+                  "value": {
+                    "intValue": "0"
+                  }
+                },
+                {
+                  "key": "user.email",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                }
+              ]
+            },
+            {
+              "timeUnixNano": "1790272900637000000",
+              "observedTimeUnixNano": "1790272900637000000",
+              "body": {
+                "stringValue": "claude_code.user_prompt"
+              },
+              "attributes": [
+                {
+                  "key": "prompt",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "user.id",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "session.id",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "message.uuid",
+                  "value": {
+                    "stringValue": "af78077d-9456-438c-ab4b-0e124c0370a0"
+                  }
+                },
+                {
+                  "key": "user.email",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "user.account_uuid",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "terminal.type",
+                  "value": {
+                    "stringValue": "tmux"
+                  }
+                },
+                {
+                  "key": "event.name",
+                  "value": {
+                    "stringValue": "user_prompt"
+                  }
+                },
+                {
+                  "key": "event.timestamp",
+                  "value": {
+                    "stringValue": "2026-09-24T18:01:40.637Z"
+                  }
+                },
+                {
+                  "key": "event.sequence",
+                  "value": {
+                    "intValue": "3"
+                  }
+                },
+                {
+                  "key": "prompt.id",
+                  "value": {
+                    "stringValue": "bc7ff206-2d6e-4ec9-b086-e1c3c5a5fac2"
+                  }
+                },
+                {
+                  "key": "prompt_length",
+                  "value": {
+                    "stringValue": "5"
+                  }
+                },
+                {
+                  "key": "user.account_id",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "organization.id",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                }
+              ]
+            },
+            {
+              "timeUnixNano": "1790272900643000000",
+              "observedTimeUnixNano": "1790272900643000000",
+              "body": {
+                "stringValue": "claude_code.mcp_server_connection"
+              },
+              "attributes": [
+                {
+                  "key": "is_plugin",
+                  "value": {
+                    "boolValue": false
+                  }
+                },
+                {
+                  "key": "user.id",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "session.id",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "organization.id",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "user.email",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "user.account_uuid",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "terminal.type",
+                  "value": {
+                    "stringValue": "tmux"
+                  }
+                },
+                {
+                  "key": "event.name",
+                  "value": {
+                    "stringValue": "mcp_server_connection"
+                  }
+                },
+                {
+                  "key": "event.timestamp",
+                  "value": {
+                    "stringValue": "2026-09-24T18:01:40.643Z"
+                  }
+                },
+                {
+                  "key": "event.sequence",
+                  "value": {
+                    "intValue": "4"
+                  }
+                },
+                {
+                  "key": "prompt.id",
+                  "value": {
+                    "stringValue": "bc7ff206-2d6e-4ec9-b086-e1c3c5a5fac2"
+                  }
+                },
+                {
+                  "key": "status",
+                  "value": {
+                    "stringValue": "connected"
+                  }
+                },
+                {
+                  "key": "transport_type",
+                  "value": {
+                    "stringValue": "claudeai-proxy"
+                  }
+                },
+                {
+                  "key": "server_scope",
+                  "value": {
+                    "stringValue": "claudeai"
+                  }
+                },
+                {
+                  "key": "duration_ms",
+                  "value": {
+                    "stringValue": "682"
+                  }
+                },
+                {
+                  "key": "user.account_id",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                }
+              ]
+            },
+            {
+              "timeUnixNano": "1790272902767000000",
+              "observedTimeUnixNano": "1790272902767000000",
+              "body": {
+                "stringValue": "claude_code.api_request"
+              },
+              "attributes": [
+                {
+                  "key": "effort",
+                  "value": {
+                    "stringValue": "medium"
+                  }
+                },
+                {
+                  "key": "user.id",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "session.id",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "organization.id",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "user.email",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "user.account_uuid",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "terminal.type",
+                  "value": {
+                    "stringValue": "tmux"
+                  }
+                },
+                {
+                  "key": "event.name",
+                  "value": {
+                    "stringValue": "api_request"
+                  }
+                },
+                {
+                  "key": "event.timestamp",
+                  "value": {
+                    "stringValue": "2026-09-24T18:01:42.767Z"
+                  }
+                },
+                {
+                  "key": "event.sequence",
+                  "value": {
+                    "intValue": "5"
+                  }
+                },
+                {
+                  "key": "prompt.id",
+                  "value": {
+                    "stringValue": "bc7ff206-2d6e-4ec9-b086-e1c3c5a5fac2"
+                  }
+                },
+                {
+                  "key": "model",
+                  "value": {
+                    "stringValue": "claude-opus-5-5"
+                  }
+                },
+                {
+                  "key": "input_tokens",
+                  "value": {
+                    "intValue": "2"
+                  }
+                },
+                {
+                  "key": "output_tokens",
+                  "value": {
+                    "intValue": "46"
+                  }
+                },
+                {
+                  "key": "cache_read_tokens",
+                  "value": {
+                    "intValue": "26473"
+                  }
+                },
+                {
+                  "key": "cache_creation_tokens",
+                  "value": {
+                    "intValue": "8686"
+                  }
+                },
+                {
+                  "key": "cost_usd",
+                  "value": {
+                    "doubleValue": 0.07571059999999999
+                  }
+                },
+                {
+                  "key": "cost_usd_micros",
+                  "value": {
+                    "intValue": "75711"
+                  }
+                },
+                {
+                  "key": "duration_ms",
+                  "value": {
+                    "intValue": "1780"
+                  }
+                },
+                {
+                  "key": "ttft_ms",
+                  "value": {
+                    "intValue": "811"
+                  }
+                },
+                {
+                  "key": "request_id",
+                  "value": {
+                    "stringValue": "req_011CdqxRTo2ygI1vXO7mnTL8"
+                  }
+                },
+                {
+                  "key": "client_request_id",
+                  "value": {
+                    "stringValue": "d992aba5-1713-4fca-b0a9-54522d06533e"
+                  }
+                },
+                {
+                  "key": "speed",
+                  "value": {
+                    "stringValue": "normal"
+                  }
+                },
+                {
+                  "key": "query_source",
+                  "value": {
+                    "stringValue": "repl_main_thread"
+                  }
+                },
+                {
+                  "key": "user.account_id",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                }
+              ]
+            },
+            {
+              "timeUnixNano": "1790272902767000000",
+              "observedTimeUnixNano": "1790272902767000000",
+              "body": {
+                "stringValue": "claude_code.assistant_response"
+              },
+              "attributes": [
+                {
+                  "key": "user.account_id",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "user.id",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "query_source",
+                  "value": {
+                    "stringValue": "repl_main_thread"
+                  }
+                },
+                {
+                  "key": "organization.id",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "user.email",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "user.account_uuid",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                },
+                {
+                  "key": "terminal.type",
+                  "value": {
+                    "stringValue": "tmux"
+                  }
+                },
+                {
+                  "key": "event.name",
+                  "value": {
+                    "stringValue": "assistant_response"
+                  }
+                },
+                {
+                  "key": "event.timestamp",
+                  "value": {
+                    "stringValue": "2026-09-24T18:01:42.767Z"
+                  }
+                },
+                {
+                  "key": "event.sequence",
+                  "value": {
+                    "intValue": "6"
+                  }
+                },
+                {
+                  "key": "prompt.id",
+                  "value": {
+                    "stringValue": "bc7ff206-2d6e-4ec9-b086-e1c3c5a5fac2"
+                  }
+                },
+                {
+                  "key": "response_length",
+                  "value": {
+                    "intValue": "99"
+                  }
+                },
+                {
+                  "key": "response",
+                  "value": {
+                    "stringValue": "<REDACTED>"
+                  }
+                },
+                {
+                  "key": "request_id",
+                  "value": {
+                    "stringValue": "req_011CdqxRTo2ygI1vXO7mnTL8"
+                  }
+                },
+                {
+                  "key": "message.uuid",
+                  "value": {
+                    "stringValue": "8994993b-858f-450e-88bd-8e8a4f63f7ce"
+                  }
+                },
+                {
+                  "key": "model",
+                  "value": {
+                    "stringValue": "claude-opus-5-5"
+                  }
+                },
+                {
+                  "key": "session.id",
+                  "value": {
+                    "stringValue": "[REDACTED]"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

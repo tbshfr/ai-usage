@@ -15,10 +15,11 @@ import (
 )
 
 const (
-	SourceCopilot  = "copilot"
-	SourceOpenCode = "opencode"
-	SourceCodex    = "codex"
-	SourceMaki     = "maki"
+	SourceCopilot    = "copilot"
+	SourceOpenCode   = "opencode"
+	SourceCodex      = "codex"
+	SourceMaki       = "maki"
+	SourceClaudeCode = "claude-code"
 )
 
 // Generation is the canonical usage record. Nullable fields stay nil when the
@@ -55,8 +56,8 @@ type Generation struct {
 
 // UncachedInput returns the canonical prompt input with cached tokens
 // removed: Copilot and Codex report the prompt count including cached tokens
-// (OpenAI-style), so the cached parts are subtracted there; OpenCode and Maki
-// report input separately from cache. Nil stays nil when input was not reported.
+// (OpenAI-style), so the cached parts are subtracted there; OpenCode, Maki,
+// and Claude Code report input separately from cache. Nil stays nil when input was not reported.
 // This mirrors the storage layer's uncachedInputSQL so single records and
 // aggregates agree; the stored value stays as reported.
 func (g Generation) UncachedInput() *int64 {
@@ -125,6 +126,8 @@ func FromLog(source string, resource pcommon.Map, lr plog.LogRecord) (Generation
 		return FromCodexLog(resource, lr)
 	case SourceMaki:
 		return FromMakiLog(resource, lr)
+	case SourceClaudeCode:
+		return FromClaudeCodeLog(resource, lr)
 	default:
 		return Generation{}, false, fmt.Errorf("unknown source %q", source)
 	}
@@ -164,6 +167,9 @@ func DetectLogSource(resource pcommon.Map) string {
 	service := strings.ToLower(firstString(resource, "service.name"))
 	if service == "maki" {
 		return SourceMaki
+	}
+	if service == "claude-code" {
+		return SourceClaudeCode
 	}
 	if service == "codex_cli_rs" || strings.HasPrefix(service, "codex") {
 		return SourceCodex

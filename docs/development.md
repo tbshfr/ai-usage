@@ -46,8 +46,8 @@ OTLP receiver -> source normalizer -> SQLite -> dashboard and JSON API
 - Stable source identifiers produce deterministic record IDs. Retried exports
   merge newly reported fields without duplicating requests.
 - Missing token and cost fields remain `NULL`; an explicit zero remains zero.
-- Copilot and Codex input counts include cached tokens, while OpenCode and Maki
-  report uncached input separately. API and UI output convert them to the same
+- Copilot and Codex input counts include cached tokens, while OpenCode, Maki, and
+  Claude Code report uncached input separately. API and UI output convert them to the same
   disjoint token buckets without changing raw stored values.
 - Copilot and Codex reasoning counts are included in their reported output;
   OpenCode reports output and reasoning separately. Canonical totals and
@@ -111,7 +111,8 @@ Point one client at `http://127.0.0.1:4318` and generate:
 4. Any client-specific helper traffic, such as title generation or
    autocomplete.
 
-Use separate directories for OpenCode, Copilot, Codex, and Maki. Keep prompt
+Use separate directories for OpenCode, Copilot, Codex, Maki, and
+Claude Code. Keep prompt
 capture disabled where the client exposes that option.
 
 The receiver accepts `POST /v1/traces`, `/v1/metrics`, and `/v1/logs`. It writes

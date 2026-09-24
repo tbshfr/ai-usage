@@ -146,7 +146,7 @@ func CacheHitRate(input, cacheRead, cacheCreation int64) *float64 {
 // uncachedInputSQL is the canonical prompt input as a per-row SQL
 // expression, summed by every aggregate query. Copilot and Codex report the
 // prompt count including cached tokens (OpenAI-style), so cached parts are
-// subtracted there; OpenCode and Maki report input separately from cache. Stored
+// subtracted there; OpenCode, Maki, and Claude Code report input separately from cache. Stored
 // rows keep the raw as-reported values. A future source must declare whether
 // prompt count includes cache; defaulting to passthrough would double-count
 // an OpenAI-style source.

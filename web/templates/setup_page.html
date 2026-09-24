@@ -1,0 +1,122 @@
+{{define "content"}}
+<h2>Client setup</h2>
+<p class="muted setup-intro">Each client exports OpenTelemetry to the <code>ai-usage</code> OTLP receiver. Start the receiver with <code>--otlp-http 127.0.0.1:4318</code> (or <code>AI_USAGE_OTLP_HTTP_ADDR</code>), then configure a client below. The snippets update as you edit the receiver settings.</p>
+
+<form class="panel setup-receiver" id="setup-receiver">
+  <div class="setup-field">
+    <label for="setup-endpoint">Receiver URL</label>
+    <div class="setup-endpoint">
+      <input type="url" id="setup-endpoint" name="endpoint" value="http://127.0.0.1:4318" spellcheck="false" autocomplete="off">
+      <button type="button" data-setup-reset title="Forget saved settings and use this dashboard's host">Reset</button>
+    </div>
+  </div>
+  <label class="setup-check">
+    <input type="checkbox" name="auth">
+    <span>Receiver requires a bearer token (<code>AI_USAGE_OTLP_TOKEN</code>)</span>
+  </label>
+</form>
+
+<nav class="tabs setup-tabs" aria-label="Clients">
+  {{range .Setup.Agents}}<a class="tab{{if .Active}} active{{end}}" href="/setup?agent={{.Key}}"{{if .Active}} aria-current="page"{{end}}>{{.Name}}</a>
+  {{end}}
+</nav>
+
+<section class="panel setup-agent">
+{{if eq .Setup.Agent "claude-code"}}
+  <h3>Claude Code</h3>
+  <p>Claude Code has built-in OpenTelemetry support configured through environment variables. Add them to the <code>env</code> block of <code>~/.claude/settings.json</code> so every session exports:</p>
+  {{template "setup-snippet" "claude-code-settings"}}
+  <p class="muted">Leave <code>OTEL_LOG_USER_PROMPTS</code> and <code>OTEL_LOG_TOOL_DETAILS</code> unset. Logs are exported every 5 seconds by default (<code>OTEL_LOGS_EXPORT_INTERVAL</code>, in milliseconds). A positive reported <code>cost_usd</code> is used as-is; otherwise the local pricing fallback estimates the cost. Reasoning tokens are not reported and show as unknown.</p>
+{{else if eq .Setup.Agent "codex"}}
+  <h3>Codex CLI</h3>
+  <p>Codex has a native OTLP log exporter. Add this block to the user-level <code>~/.codex/config.toml</code>; project-level <code>.codex/config.toml</code> files cannot set <code>otel</code>.</p>
+  {{template "setup-snippet" "codex-config"}}
+  <div data-auth hidden>
+    <p>Export the token before starting Codex:</p>
+    {{template "setup-snippet" "codex-token"}}
+  </div>
+  <p class="muted">Keep <code>log_user_prompt = false</code>. Codex exports asynchronously in batches, which may only flush at shutdown.</p>
+{{else if eq .Setup.Agent "opencode"}}
+  <h3>OpenCode</h3>
+  <p>OpenCode exports telemetry through the third-party <a href="https://github.com/devtheops/opencode-plugin-otel" rel="noopener noreferrer" target="_blank"><code>@devtheops/opencode-plugin-otel</code></a> plugin. Add it to <code>~/.config/opencode/opencode.json</code>:</p>
+  {{template "setup-snippet" "opencode-config"}}
+  <div data-auth hidden>
+    <p>Export the header before starting OpenCode:</p>
+    {{template "setup-snippet" "opencode-token"}}
+  </div>
+  <p class="muted">Leave optional prompt capture disabled. The plugin may emit content-bearing span attributes; <code>ai-usage</code> reads only its usage-field allowlist and never stores them. Reported costs take priority.</p>
+{{else if eq .Setup.Agent "copilot"}}
+  <h3>VS Code GitHub Copilot</h3>
+  <p>Copilot Chat has native OpenTelemetry support. Add this to the VS Code user <code>settings.json</code>:</p>
+  {{template "setup-snippet" "copilot-settings"}}
+  <p>The default endpoint is <code>http://localhost:4318</code>, so a local receiver needs nothing else. For any other receiver, start VS Code with the standard OTLP variables:</p>
+  {{template "setup-snippet" "copilot-env"}}
+  <p class="muted">Keep <code>captureContent</code> at its <code>false</code> default. <code>COPILOT_OTEL_PROTOCOL</code> selects <code>otlp-http</code> (the default) or <code>otlp-grpc</code>. Copilot does not report a cost; <code>ai-usage</code> estimates one when pricing is available.</p>
+{{else if eq .Setup.Agent "maki"}}
+  <h3>Maki</h3>
+  <p>Maki has built-in OTLP telemetry. Add the telemetry table to <code>init.lua</code>:</p>
+  {{template "setup-snippet" "maki-config"}}
+  <p class="muted">Keep the token out of a committed <code>init.lua</code>. Leave <code>log_user_prompts</code> and <code>log_tool_details</code> disabled. Maki reports no reasoning-token count or subagent identifier, so reasoning shows as unknown.</p>
+{{end}}
+  <p>After a request, check <a href="/sessions?source={{.Setup.Agent}}&amp;view=requests">its requests</a>. If nothing arrives, the <a href="/stats">Stats</a> page shows whether telemetry was received, rejected or ignored.</p>
+</section>
+<p class="muted">For gRPC, start <code>ai-usage</code> with <code>--otlp-grpc 127.0.0.1:4317</code> and point the client at port 4317 with its gRPC protocol. Full notes are in <code>docs/client-setup.md</code>.</p>
+{{end}}
+
+{{/* Snippets keep their whitespace exactly: every newline inside <pre> is
+     rendered and copied. [data-endpoint] text is replaced with the receiver
+     URL, and [data-auth] lines only show when a bearer token is required. */}}
+{{define "setup-snippet"}}<div class="snippet"><button type="button" class="snippet-copy" data-copy-snippet>Copy</button>
+{{- if eq . "claude-code-settings"}}<pre><code>{
+  "env": {
+    "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
+    "OTEL_LOGS_EXPORTER": "otlp",
+    "OTEL_METRICS_EXPORTER": "none",
+    "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",<span data-auth hidden>
+    "OTEL_EXPORTER_OTLP_HEADERS": "Authorization=Bearer &lt;token&gt;",</span>
+    "OTEL_EXPORTER_OTLP_ENDPOINT": "<span data-endpoint>http://127.0.0.1:4318</span>"
+  }
+}</code></pre>
+{{- else if eq . "codex-config"}}<pre><code>[otel]
+environment = "production"
+log_user_prompt = false
+exporter = { otlp-http = {
+  endpoint = "<span data-endpoint>http://127.0.0.1:4318</span>/v1/logs",
+  protocol = "json"<span data-auth hidden>,
+  headers = { "authorization" = "Bearer ${AI_USAGE_OTLP_TOKEN}" }</span>
+} }</code></pre>
+{{- else if eq . "codex-token"}}<pre><code>export AI_USAGE_OTLP_TOKEN='&lt;token&gt;'</code></pre>
+{{- else if eq . "opencode-config"}}<pre><code>{
+  "plugin": [
+    [
+      "@devtheops/opencode-plugin-otel",
+      {
+        "enabled": true,
+        "endpoint": "<span data-endpoint>http://127.0.0.1:4318</span>",
+        "protocol": "http/protobuf",<span data-auth hidden>
+        "otlpHeaders": "{env:AI_USAGE_OTLP_HEADERS}",</span>
+        "metricPrefix": "opencode.",
+        "resourceAttributes": "deployment.environment=production",
+        "disabledTraces": ["tool"]
+      }
+    ]
+  ]
+}</code></pre>
+{{- else if eq . "opencode-token"}}<pre><code>export AI_USAGE_OTLP_HEADERS='Authorization=Bearer &lt;token&gt;'</code></pre>
+{{- else if eq . "copilot-settings"}}<pre><code>{
+  "github.copilot.chat.otel.enabled": true
+}</code></pre>
+{{- else if eq . "copilot-env"}}<pre><code>OTEL_EXPORTER_OTLP_ENDPOINT=<span data-endpoint>http://127.0.0.1:4318</span> \<span data-auth hidden>
+OTEL_EXPORTER_OTLP_HEADERS='Authorization=Bearer &lt;token&gt;' \</span>
+code</code></pre>
+{{- else if eq . "maki-config"}}<pre><code>maki.setup({
+    telemetry = {
+        enabled = true,
+        metrics_exporter = "none",
+        logs_exporter = "otlp",
+        protocol = "http/protobuf",
+        endpoint = "<span data-endpoint>http://127.0.0.1:4318</span>",<span data-auth hidden>
+        headers = { ["authorization"] = "Bearer &lt;token&gt;" },</span>
+    },
+})</code></pre>
+{{- end}}</div>{{end}}

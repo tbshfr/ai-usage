@@ -48,6 +48,7 @@ var pageTmpls = map[string]*template.Template{
 	"sessions":   mustParse("layout.html", "filterbar.html", "session_list.html", "conversations.html", "rows.html", "sessions_page.html"),
 	"detail":     mustParse("layout.html", "detail.html"),
 	"stats":      mustParse("layout.html", "filterbar.html", "stats_page.html", "stats.html", "backup-status.html"),
+	"setup":      mustParse("layout.html", "setup_page.html"),
 }
 
 // fragTmpls render bare page sections (no layout); the same named templates

@@ -30,7 +30,7 @@ var reservedSegments = map[string]bool{
 	"api": true, "static": true, "login": true, "logout": true,
 	"health": true, "ready": true, "trends": true, "breakdowns": true,
 	"sessions": true, "stats": true, "generations": true, "events": true,
-	"fragments": true,
+	"fragments": true, "setup": true,
 }
 
 // Embedded files have zero modtimes. Use one timestamp per process so clients

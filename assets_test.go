@@ -55,6 +55,7 @@ func TestServePublicReservedSegments(t *testing.T) {
 	for _, segment := range []string{
 		"api", "static", "login", "logout", "health", "ready", "trends",
 		"breakdowns", "sessions", "stats", "generations", "events", "fragments",
+		"setup",
 	} {
 		for _, name := range []string{segment, segment + "/x"} {
 			files["web/public/"+name] = &fstest.MapFile{Data: []byte("must not be served")}

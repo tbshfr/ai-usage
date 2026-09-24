@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/tbshfr/ai-usage"
@@ -62,6 +63,7 @@ func newMux(db *sql.DB, stats func() ingest.Stats, reasons func() ingest.ReasonC
 	mux.HandleFunc("GET /breakdowns", s.breakdowns)
 	mux.HandleFunc("GET /sessions", s.sessions)
 	mux.HandleFunc("GET /stats", s.statsPage)
+	mux.HandleFunc("GET /setup", s.setupPage)
 	mux.HandleFunc("GET /generations", s.redirectSessions)
 	mux.HandleFunc("GET /generations/{id}", s.detail)
 	mux.HandleFunc("GET /events", s.serveEvents)
@@ -124,6 +126,7 @@ type pageData struct {
 	Recent      recentView
 	Breaks      breaksView
 	S           statsView
+	Setup       setupView
 	Reasons     *reasonsDetailView
 	D           *normalize.Generation
 	View        string        // sessions page: "sessions" or "requests"
@@ -283,6 +286,22 @@ type statsView struct {
 	Chart    chartJSON
 	HasChart bool
 }
+
+// setupView is the client setup page: one tab per supported client.
+type setupView struct {
+	Agent  string
+	Agents []setupAgent
+}
+
+type setupAgent struct {
+	Key    string
+	Name   string
+	Active bool
+}
+
+// setupAgents lists the clients with setup instructions, in tab order. Keys
+// are the stored source values, so the page can link to their requests.
+var setupAgents = []string{"claude-code", "codex", "opencode", "copilot", "maki"}
 
 // reasonsDetailView is the per-day stats breakdown expansion: reason
 // counters grouped by kind, with human-readable labels.
@@ -1079,6 +1098,27 @@ func buildStatsChart(rows []statsRow) (chartJSON, bool) {
 		{Name: "Ingestion errors", Values: ingErrs},
 	}
 	return chart, anyNonZero
+}
+
+// setupPage renders per-client configuration instructions. The receiver URL
+// and token toggle are applied client-side, so the page needs no server state.
+func (s *server) setupPage(w http.ResponseWriter, r *http.Request) {
+	agent := r.URL.Query().Get("agent")
+	if agent == "" {
+		agent = setupAgents[0]
+	}
+	d := &pageData{Title: "Setup", Active: "setup", Setup: setupView{Agent: agent}}
+	found := false
+	for _, key := range setupAgents {
+		active := key == agent
+		found = found || active
+		d.Setup.Agents = append(d.Setup.Agents, setupAgent{Key: key, Name: friendlySource(key), Active: active})
+	}
+	if !found {
+		http.Error(w, "unknown agent (want "+strings.Join(setupAgents, ", ")+")", http.StatusBadRequest)
+		return
+	}
+	s.render(w, "setup", d)
 }
 
 // sessions renders the sessions page: conversation cards on top, drilling

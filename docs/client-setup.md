@@ -177,7 +177,8 @@ and add:
 "OTEL_EXPORTER_OTLP_HEADERS": "Authorization=Bearer <token>"
 ```
 
-Leave `OTEL_LOG_USER_PROMPTS` and `OTEL_LOG_TOOL_DETAILS` unset. `ai-usage`
+Leave `OTEL_LOG_USER_PROMPTS`, `OTEL_LOG_ASSISTANT_RESPONSES`,
+`OTEL_LOG_TOOL_DETAILS`, and `OTEL_LOG_RAW_API_BODIES` unset. `ai-usage`
 stores one generation for each `claude_code.api_request` event, including
 helper calls such as session-title generation, and ignores metrics and other
 events. Claude Code's reported `cost_usd` is used when positive; a zero

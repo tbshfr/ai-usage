@@ -16,6 +16,8 @@ const Redacted = "[REDACTED]"
 
 var sensitiveKeys = map[string]struct{}{
 	"arguments":                      {},
+	"body":                           {},
+	"body_ref":                       {},
 	"call_id":                        {},
 	"code.file.path":                 {},
 	"content":                        {},
@@ -39,6 +41,7 @@ var sensitiveKeys = map[string]struct{}{
 	"output":                         {},
 	"output.value":                   {},
 	"prompt":                         {},
+	"response":                       {},
 	"session.id":                     {},
 	"thread.id":                      {},
 	"tool_input":                     {},

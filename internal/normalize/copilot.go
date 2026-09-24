@@ -1,6 +1,7 @@
 package normalize
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 	"strings"
@@ -16,6 +17,8 @@ const (
 	AgentXtabProvider     = "XtabProvider"
 	AgentTitle            = "title"
 	AgentProgressMessages = "progressMessages"
+	// Bound per-span JSON decoding independently of the OTLP request limit.
+	maxCopilotOptionsLen = 16 << 10
 )
 
 // IsSessionlessAgent reports whether a Copilot agent name carries no
@@ -69,6 +72,7 @@ func FromCopilotSpan(resource pcommon.Map, span ptrace.Span) (Generation, bool, 
 		CacheReadTokens:     attrIntPtr(attrs, "gen_ai.usage.cache_read.input_tokens"),
 		CacheCreationTokens: attrIntPtr(attrs, "gen_ai.usage.cache_creation.input_tokens"),
 		ReasoningTokens:     attrIntPtr(attrs, "gen_ai.usage.reasoning.output_tokens"),
+		ReasoningEffort:     copilotReasoningEffort(attrs),
 	}
 	if gen.ReasoningTokens == nil {
 		// Legacy alias observed simultaneously on real spans; used only
@@ -133,4 +137,30 @@ func isCopilotInferenceHost(host string) bool {
 	return host == "copilot-proxy.githubusercontent.com" ||
 		strings.HasSuffix(host, ".githubcopilot.com") ||
 		(strings.HasPrefix(host, "copilot-proxy.") && strings.HasSuffix(host, ".ghe.com"))
+}
+
+func copilotReasoningEffort(attrs pcommon.Map) string {
+	options, ok := attrString(attrs, "copilot_chat.request.options")
+	if !ok || options == "" || len(options) > maxCopilotOptionsLen {
+		return ""
+	}
+	var request struct {
+		ReasoningEffort string `json:"reasoning_effort"`
+		Reasoning       struct {
+			Effort string `json:"effort"`
+		} `json:"reasoning"`
+		OutputConfig struct {
+			Effort string `json:"effort"`
+		} `json:"output_config"`
+	}
+	if err := json.Unmarshal([]byte(options), &request); err != nil {
+		return ""
+	}
+	if request.Reasoning.Effort != "" {
+		return truncateLabel(request.Reasoning.Effort)
+	}
+	if request.OutputConfig.Effort != "" {
+		return truncateLabel(request.OutputConfig.Effort)
+	}
+	return truncateLabel(request.ReasoningEffort)
 }

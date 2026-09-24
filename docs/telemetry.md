@@ -69,6 +69,7 @@ Span types:
 | `gen_ai.usage.cache_creation.input_tokens` | Int | present on Claude spans, absent on GPT spans |
 | `gen_ai.usage.reasoning.output_tokens` | Int | new convention |
 | `gen_ai.usage.reasoning_tokens` | Int | Legacy alias observed simultaneously on the same spans |
+| `copilot_chat.request.options` | JSON string | GPT-5.6 chat spans contain `reasoning.effort: "none"`; title generation has only `stream: true`, while `claude-haiku-4-5-20251001` spans contain `thinking.budget_tokens: 16000` |
 | `gen_ai.request.stream` | Bool | |
 | `gen_ai.request.temperature` / `top_p` / `max_tokens` | Int/Double | |
 | `gen_ai.response.time_to_first_chunk` | Double | seconds |
@@ -92,6 +93,11 @@ to false: `gen_ai.input.messages`, `gen_ai.output.messages`,
 
 No cost attribute exists anywhere in Copilot telemetry. No `server.address`
 was observed.
+The `reasoning.effort`, `output_config.effort`, or top-level
+`reasoning_effort` request setting is stored in the database's
+`reasoning_effort` column when present. The
+captured Claude Haiku 4.5 spans use `thinking.budget_tokens`, a token budget rather
+than an effort setting, so those calls leave the column NULL.
 
 ### Metrics (ignore for generation records)
 
@@ -253,6 +259,12 @@ ID); the current events cannot be partitioned reliably by timing or model.
 Separate cards would not change the overall cache hit rate or provider caching.
 Maki's API call events also omit reasoning tokens, so their reasoning value is
 unknown rather than zero.
+Maki supports budgeted and adaptive thinking in requests, but its documented
+`maki.api_request` attributes do not include the selected effort or thinking
+budget. The captured 0.5.6 events likewise include neither, so
+`reasoning_effort` remains NULL for Maki calls. See Maki's
+[provider](https://maki.sh/docs/providers/) and
+[telemetry](https://maki.sh/docs/telemetry/) documentation.
 
 ## Claude Code
 

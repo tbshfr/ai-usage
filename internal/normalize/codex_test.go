@@ -41,6 +41,9 @@ func TestFromCodexLogFixture(t *testing.T) {
 	assertToken(t, "cache read", withReasoning.CacheReadTokens, 23296)
 	assertToken(t, "cache create", withReasoning.CacheCreationTokens, 0)
 	assertToken(t, "reasoning", withReasoning.ReasoningTokens, 19)
+	if withReasoning.ReasoningEffort != "medium" {
+		t.Errorf("reasoning effort = %q, want medium", withReasoning.ReasoningEffort)
+	}
 	assertToken(t, "uncached input", withReasoning.UncachedInput(), 980)
 	assertToken(t, "non-reasoning output", withReasoning.NonReasoningOutput(), 113)
 	if got := *withReasoning.UncachedInput() + *withReasoning.NonReasoningOutput() +

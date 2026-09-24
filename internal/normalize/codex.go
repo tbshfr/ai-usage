@@ -24,7 +24,7 @@ func FromCodexLog(resource pcommon.Map, lr plog.LogRecord) (Generation, bool, er
 	if eventName != "codex.sse_event" || eventKind != "response.completed" {
 		return Generation{}, false, nil
 	}
-	if err := requireStrings(attrs, "model", "conversation.id", "event.timestamp"); err != nil {
+	if err := requireStrings(attrs, "model", "conversation.id", "event.timestamp", "model_reasoning_effort"); err != nil {
 		return Generation{}, true, err
 	}
 
@@ -80,6 +80,7 @@ func FromCodexLog(resource pcommon.Map, lr plog.LogRecord) (Generation, bool, er
 		CacheReadTokens:     cacheRead,
 		CacheCreationTokens: cacheCreate,
 		ReasoningTokens:     reasoning,
+		ReasoningEffort:     firstString(attrs, "model_reasoning_effort"),
 	}, true, nil
 }
 

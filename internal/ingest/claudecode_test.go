@@ -54,6 +54,22 @@ func TestConsumeClaudeCodeCapturedFixtures(t *testing.T) {
 		summary.CostTotal == nil || math.Abs(*summary.CostTotal-0.2177002) > 1e-9 {
 		t.Errorf("captured fixture summary = %+v total=%d", summary, summary.TotalTokens())
 	}
+	// Main-thread Opus calls report effort; the Haiku title call does not.
+	gens, err := storage.RecentGenerations(ctx, pipeline.db, storage.Filter{
+		From:   time.Date(2026, 9, 24, 0, 0, 0, 0, time.UTC),
+		To:     time.Date(2026, 9, 25, 0, 0, 0, 0, time.UTC),
+		Source: "claude-code",
+	}, storage.OrderDesc, 10, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	efforts := map[string]string{}
+	for _, gen := range gens {
+		efforts[gen.Model] += gen.ReasoningEffort + ","
+	}
+	if efforts["claude-opus-5-5"] != "medium,medium,medium," || efforts["claude-haiku-4-5-20251001"] != "," {
+		t.Errorf("stored efforts = %v", efforts)
+	}
 }
 
 func TestClaudeCodeCapturedFixturesAreSanitized(t *testing.T) {

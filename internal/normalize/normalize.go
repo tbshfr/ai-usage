@@ -52,6 +52,9 @@ type Generation struct {
 	AgentName       string
 	GitRepo         string
 	GitBranch       string
+	// ReasoningEffort is the reasoning-effort setting the harness reported
+	// for the call, such as "medium". Empty when the source does not report it.
+	ReasoningEffort string
 }
 
 // UncachedInput returns the canonical prompt input with cached tokens

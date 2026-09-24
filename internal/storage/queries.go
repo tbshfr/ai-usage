@@ -534,7 +534,8 @@ const generationColumns = `
 	cost, conversation_id, trace_id, span_id, duration_ms,
 	agent_name, git_repo, git_branch, cost_reported_by_harness, cost_source,
 	COALESCE(pricing_model_id, ''), pricing_fetched_at,
-	COALESCE((SELECT rates_json FROM pricing_snapshots WHERE id = pricing_snapshot_id), ''), pricing_revision`
+	COALESCE((SELECT rates_json FROM pricing_snapshots WHERE id = pricing_snapshot_id), ''), pricing_revision,
+	reasoning_effort`
 
 func RecentGenerations(ctx context.Context, db *sql.DB, f Filter, order Order, limit, offset int) ([]normalize.Generation, error) {
 	if limit <= 0 {
@@ -590,7 +591,7 @@ func GenerationByID(ctx context.Context, db *sql.DB, id string) (*normalize.Gene
 
 func scanGeneration(row interface{ Scan(dest ...any) error }) (*normalize.Generation, error) {
 	var g normalize.Generation
-	var serviceName, provider, model, conversationID, traceID, spanID, agentName, gitRepo, gitBranch sql.NullString
+	var serviceName, provider, model, conversationID, traceID, spanID, agentName, gitRepo, gitBranch, reasoningEffort sql.NullString
 	var input, output, cacheRead, cacheCreation, reasoning sql.NullInt64
 	var cost sql.NullFloat64
 	var duration sql.NullInt64
@@ -617,6 +618,7 @@ func scanGeneration(row interface{ Scan(dest ...any) error }) (*normalize.Genera
 		&gitRepo,
 		&gitBranch,
 		&g.CostReportedByHarness, &g.CostSource, &g.PricingModelID, &pricingFetchedAt, &g.PricingRates, &g.PricingRevision,
+		&reasoningEffort,
 	); err != nil {
 		return nil, err
 	}
@@ -645,6 +647,7 @@ func scanGeneration(row interface{ Scan(dest ...any) error }) (*normalize.Genera
 	g.AgentName = agentName.String
 	g.GitRepo = gitRepo.String
 	g.GitBranch = gitBranch.String
+	g.ReasoningEffort = reasoningEffort.String
 	return &g, nil
 }
 

@@ -181,7 +181,8 @@ Leave `OTEL_LOG_USER_PROMPTS` and `OTEL_LOG_TOOL_DETAILS` unset. `ai-usage`
 stores one generation for each `claude_code.api_request` event, including
 helper calls such as session-title generation, and ignores metrics and other
 events. Claude Code's reported `cost_usd` is used when positive; a zero
-estimate is left for the local pricing fallback. The `api_request` event has no
+estimate is left for the local pricing fallback. The reasoning-effort setting
+(`effort`) is shown on each request. The `api_request` event has no
 reasoning-token count, so reasoning appears as unknown.
 
 Claude Code batches logs and exports every 5 seconds by default

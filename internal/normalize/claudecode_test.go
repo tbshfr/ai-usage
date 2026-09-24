@@ -32,7 +32,7 @@ func TestFromClaudeCodeLog(t *testing.T) {
 		"input_tokens": "2", "output_tokens": "525",
 		"cache_read_tokens": "26473", "cache_creation_tokens": "13072",
 		"cost_usd": 0.1203786, "duration_ms": "5924",
-		"query_source": "repl_main_thread",
+		"query_source": "repl_main_thread", "effort": "medium",
 	})
 	if got := DetectLogSource(resource); got != SourceClaudeCode {
 		t.Fatalf("source = %q", got)
@@ -42,7 +42,7 @@ func TestFromClaudeCodeLog(t *testing.T) {
 		t.Fatalf("ok=%v err=%v", ok, err)
 	}
 	if gen.Source != SourceClaudeCode || gen.ServiceName != "claude-code" || gen.ConversationID != "session-1" ||
-		gen.Model != "claude-opus-5-5" || gen.Provider != "anthropic" || gen.Duration != 5924*time.Millisecond {
+		gen.Model != "claude-opus-5-5" || gen.Provider != "anthropic" || gen.Duration != 5924*time.Millisecond || gen.ReasoningEffort != "medium" {
 		t.Errorf("identity/duration = %+v", gen)
 	}
 	assertToken(t, "input", gen.UncachedInput(), 2)
@@ -121,6 +121,11 @@ func TestFromClaudeCodeLogIgnoresOtherEventsAndValidates(t *testing.T) {
 		t.Fatalf("invalid tokens: ok=%v err=%v", ok, err)
 	}
 	record.Attributes().Remove("input_tokens")
+	record.Attributes().PutInt("effort", 2)
+	if _, ok, err := FromClaudeCodeLog(resource, record); !ok || !errors.Is(err, ErrNonStringAttrs) {
+		t.Fatalf("non-string effort: ok=%v err=%v", ok, err)
+	}
+	record.Attributes().Remove("effort")
 	record.Attributes().PutInt("request_id", 1)
 	if _, ok, err := FromClaudeCodeLog(resource, record); !ok || !errors.Is(err, ErrNonStringAttrs) {
 		t.Fatalf("non-string request_id: ok=%v err=%v", ok, err)

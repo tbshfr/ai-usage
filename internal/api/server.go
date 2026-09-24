@@ -491,6 +491,7 @@ type generation struct {
 	AgentName             string     `json:"agentName"`
 	GitRepo               string     `json:"gitRepo"`
 	GitBranch             string     `json:"gitBranch"`
+	ReasoningEffort       string     `json:"reasoningEffort"`
 }
 
 func generationJSON(g normalize.Generation) generation {
@@ -523,6 +524,7 @@ func generationJSON(g normalize.Generation) generation {
 		AgentName:             g.AgentName,
 		GitRepo:               g.GitRepo,
 		GitBranch:             g.GitBranch,
+		ReasoningEffort:       g.ReasoningEffort,
 	}
 }
 

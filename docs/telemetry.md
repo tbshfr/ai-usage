@@ -182,6 +182,7 @@ The selected log has `event.name=codex.sse_event` and
 | CacheReadTokens | `cached_token_count` (Int observed) |
 | CacheCreationTokens | `cache_write_token_count` (Int observed) |
 | ReasoningTokens | `reasoning_token_count` (Int observed; subset of output) |
+| ReasoningEffort | `model_reasoning_effort` (`medium` observed; absent on one captured response) |
 | ConversationID | `conversation.id` |
 | Cost / Duration / trace IDs | absent → nil / zero / empty |
 
@@ -259,11 +260,15 @@ Claude Code 2.1.280 was captured on 2026-09-24. Each `claude_code.api_request`
 log (attribute `event.name=api_request`) is one successful model call, with
 `session.id`, `prompt.id`, `request_id`, `event.sequence`, `model`,
 `input_tokens`, `output_tokens`, `cache_read_tokens`, `cache_creation_tokens`,
-`cost_usd`, `duration_ms`, `ttft_ms`, `speed`, and `query_source`. Numeric
+`cost_usd`, `duration_ms`, `ttft_ms`, `speed`, `effort`, and `query_source`. Numeric
 token and duration values arrive as strings; `cost_usd` is a double. The
 captured Opus call with 2 input tokens, 26,473 cache-read tokens, and 13,072
 cache-creation tokens confirms that input is already the uncached bucket. No
-reasoning-token attribute was observed.
+reasoning-token attribute was observed: the Anthropic API folds thinking
+tokens into `output_tokens`, so reasoning stays unknown and output includes
+it. `effort` (the reasoning-effort setting, `medium` in the capture) is stored
+in the `reasoning_effort` column. Calls without it, such as the Haiku title call in the
+capture, store NULL.
 
 Positive `cost_usd` is Claude Code's own estimate and is treated as
 harness-reported cost. Zero leaves cost unknown so the pricing catalog can

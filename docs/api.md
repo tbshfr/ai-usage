@@ -189,7 +189,8 @@ values stay in the database.
     "durationMs": 4210,
     "agentName": "",
     "gitRepo": "",
-    "gitBranch": ""
+    "gitBranch": "",
+    "reasoningEffort": ""
   }
 ]
 ```

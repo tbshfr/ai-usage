@@ -21,7 +21,7 @@ func FromClaudeCodeLog(resource pcommon.Map, lr plog.LogRecord) (Generation, boo
 	if name != "api_request" && name != "claude_code.api_request" {
 		return Generation{}, false, nil
 	}
-	if err := requireStrings(attrs, "model", "session.id", "request_id"); err != nil {
+	if err := requireStrings(attrs, "model", "session.id", "request_id", "effort"); err != nil {
 		return Generation{}, true, err
 	}
 	model := firstString(attrs, "model")
@@ -89,6 +89,7 @@ func FromClaudeCodeLog(resource pcommon.Map, lr plog.LogRecord) (Generation, boo
 		CacheCreationTokens: cacheCreate,
 		Cost:                cost,
 		Duration:            duration,
+		ReasoningEffort:     firstString(attrs, "effort"),
 	}
 	if cost != nil {
 		gen.CostReportedByHarness = true

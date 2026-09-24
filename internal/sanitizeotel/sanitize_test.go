@@ -85,3 +85,19 @@ func TestOtherLogsKeepErrorButRedactToolInput(t *testing.T) {
 		t.Errorf("unrelated tool_input attribute = %v", v)
 	}
 }
+
+func TestClaudeLogsRedactIdentity(t *testing.T) {
+	logs := plog.NewLogs()
+	record := logs.ResourceLogs().AppendEmpty().ScopeLogs().AppendEmpty().LogRecords().AppendEmpty()
+	record.Attributes().PutStr("event.name", "tool_result")
+	for _, key := range []string{"organization.id", "user.account_uuid", "user.id", "tool_parameters"} {
+		record.Attributes().PutStr(key, "secret")
+	}
+	Logs(logs)
+	for _, key := range []string{"organization.id", "user.account_uuid", "user.id", "tool_parameters"} {
+		v, ok := record.Attributes().Get(key)
+		if !ok || v.Str() != Redacted {
+			t.Errorf("%s was not redacted", key)
+		}
+	}
+}

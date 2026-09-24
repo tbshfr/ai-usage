@@ -35,15 +35,19 @@ var sensitiveKeys = map[string]struct{}{
 	"input.value":                    {},
 	"llm.input_messages":             {},
 	"llm.output_messages":            {},
+	"organization.id":                {},
 	"output":                         {},
 	"output.value":                   {},
 	"prompt":                         {},
 	"session.id":                     {},
 	"thread.id":                      {},
 	"tool_input":                     {},
+	"tool_parameters":                {},
 	"turn.id":                        {},
 	"user.account_id":                {},
+	"user.account_uuid":              {},
 	"user.email":                     {},
+	"user.id":                        {},
 }
 
 func attributes(attrs pcommon.Map) {

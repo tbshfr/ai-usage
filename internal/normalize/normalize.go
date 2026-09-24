@@ -82,14 +82,15 @@ func (g Generation) UncachedInput() *int64 {
 }
 
 // NonReasoningOutput returns the mutually exclusive output-token bucket used
-// for totals. Codex reports reasoning tokens as a subset of output tokens.
+// for totals. Copilot and Codex report reasoning tokens as a subset of output
+// tokens; OpenCode reports separate output and reasoning buckets.
 // The stored OutputTokens value remains exactly as reported by the source.
 func (g Generation) NonReasoningOutput() *int64 {
 	if g.OutputTokens == nil {
 		return nil
 	}
 	v := *g.OutputTokens
-	if g.Source == SourceCodex && g.ReasoningTokens != nil {
+	if (g.Source == SourceCopilot || g.Source == SourceCodex) && g.ReasoningTokens != nil {
 		v -= *g.ReasoningTokens
 		if v < 0 {
 			v = 0

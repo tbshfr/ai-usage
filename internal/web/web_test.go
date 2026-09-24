@@ -74,7 +74,7 @@ func TestDashboardPageRenders(t *testing.T) {
 		staticURL("vendor/hx-sse.min.js"),
 		"Today", "Last 7 days", "Last 30 days", "All time",
 		"hit 16.8%",
-		"3,717",       // all-time total tokens (copilot cache no longer double-counted)
+		"3,682",       // all-time total tokens (copilot cache and reasoning counted once)
 		"20 requests", // all-time requests
 		"period=today", "period=week", "period=month", "period=all",
 		"All sources", "All providers", "All models",
@@ -390,7 +390,7 @@ func TestSessionsPageConversations(t *testing.T) {
 		`href="/sessions?conversation=conv-copilot"`,
 		`href="/sessions?conversation=conv-opencode"`,
 		"<b>12</b> requests",  // conv-copilot
-		"<b>3,385</b> tokens", // conv-copilot total tokens (uncached input 1885 + cache 410)
+		"<b>3,350</b> tokens", // conv-copilot total tokens (uncached input 1885 + cache 410)
 		"cache hit 17.9%",
 		"$2.8500", // opencode session reports cost
 		"2 sessions",

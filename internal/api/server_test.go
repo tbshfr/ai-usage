@@ -88,7 +88,7 @@ func TestSummaryEndpoint(t *testing.T) {
 	if err := json.Unmarshal([]byte(body), &got); err != nil {
 		t.Fatal(err)
 	}
-	if got.Requests != 20 || got.InputTokens != 1977 || got.OutputTokens != 1239 ||
+	if got.Requests != 20 || got.InputTokens != 1977 || got.OutputTokens != 1204 ||
 		got.CacheReadTokens != 410 || got.CacheCreationTokens != 56 || got.ReasoningTokens != 35 {
 		t.Errorf("totals mismatch: %+v", got)
 	}

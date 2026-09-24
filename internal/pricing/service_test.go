@@ -10,6 +10,7 @@ import (
 	"math"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -95,13 +96,13 @@ func TestTokenArithmeticAndFreePrecedence(t *testing.T) {
 	for _, tc := range []struct {
 		source string
 		want   float64
-	}{{"codex", 136}, {"copilot", 146}, {"opencode", 176}} {
+	}{{"codex", 136}, {"copilot", 136}, {"opencode", 176}} {
 		g := usage("x", "test")
 		g.Source = tc.source
 		g.CacheReadTokens = ptr(int64(20))
 		g.CacheCreationTokens = ptr(int64(10))
 		g.ReasoningTokens = ptr(int64(5))
-		// Codex: 70 + 2 + 15 + 15*2 + 5*3 + 4 = 136.
+		// Codex and Copilot: 70 + 2 + 15 + 15*2 + 5*3 + 4 = 136.
 		want := tc.want
 		if got := estimate(g, r); got == nil || *got != want {
 			t.Errorf("%s = %v want %g", tc.source, got, want)
@@ -123,6 +124,82 @@ func TestTokenArithmeticAndFreePrecedence(t *testing.T) {
 	}
 	if freeModel("free-model") {
 		t.Fatal("prefix is not a free suffix")
+	}
+}
+
+func TestCopilotReasoningUpgradeRepricesSavedEstimate(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "usage.db")
+	db, err := storage.Open(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := storage.Migrate(db, nil); err != nil {
+		t.Fatal(err)
+	}
+	g := usage("old-copilot", "test")
+	g.Source = normalize.SourceCopilot
+	g.ReasoningTokens = ptr(int64(5))
+	insert(t, db, g)
+	priced := read(t, db, g.ID)
+	priced.Cost = ptr(155.0) // Old formula billed all 20 output tokens plus 5 reasoning tokens.
+	priced.CostSource = "openrouter"
+	priced.PricingModelID = "openai/test"
+	priced.PricingRates = `{"prompt":1,"completion":2,"cache_read":1,"cache_write":1,"reasoning":3}`
+	if changed, err := storage.ApplyPricing(ctx, db, priced); err != nil || !changed {
+		t.Fatalf("save old estimate: changed=%v err=%v", changed, err)
+	}
+	harness := g
+	harness.ID = "reported-copilot"
+	harness.Cost = ptr(88.0)
+	insert(t, db, harness)
+	other := g
+	other.ID = "old-opencode"
+	other.Source = normalize.SourceOpenCode
+	insert(t, db, other)
+	otherPrice := read(t, db, other.ID)
+	otherPrice.Cost = ptr(155.0)
+	otherPrice.CostSource = "openrouter"
+	otherPrice.PricingRates = priced.PricingRates
+	if changed, err := storage.ApplyPricing(ctx, db, otherPrice); err != nil || !changed {
+		t.Fatalf("save other estimate: changed=%v err=%v", changed, err)
+	}
+	// Reapply the new migration to a database shaped like an older installation.
+	if _, err := db.Exec(`DELETE FROM schema_migrations WHERE version = 6`); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	db, err = storage.Open(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if err := storage.Migrate(db, nil); err != nil {
+		t.Fatal(err)
+	}
+	pending, err := storage.PendingPricing(ctx, db, "")
+	if err != nil || len(pending) != 1 || pending[0].ID != g.ID {
+		t.Fatalf("upgrade pending = %v, err = %v", pending, err)
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	defer server.Close()
+	s := New(db, quiet(), nil)
+	s.url = server.URL // Saved rates must suffice during a catalog outage.
+	process(t, s)
+	updated := read(t, db, g.ID)
+	checkCost(t, updated, 145, "openrouter")
+	if updated.PricingModelID != "openai/test" || updated.PricingRates != priced.PricingRates {
+		t.Fatalf("repricing lost its original rate provenance: %+v", updated)
+	}
+	checkCost(t, read(t, db, harness.ID), 88, "harness")
+	checkCost(t, read(t, db, other.ID), 155, "openrouter")
+	pending, err = storage.PendingPricing(ctx, db, "")
+	if err != nil || len(pending) != 0 {
+		t.Fatalf("repriced row still pending = %v, err = %v", pending, err)
 	}
 }
 

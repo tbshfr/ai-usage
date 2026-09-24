@@ -76,9 +76,9 @@ Totals for the filter range, plus the filter echo.
 
 `inputTokens` is the canonical uncached prompt: Copilot and Codex report
 prompt input including cached tokens, so cached parts are subtracted before
-aggregation (clamped at 0); OpenCode is stored uncached already. Codex also
-reports reasoning as a subset of output; `outputTokens` excludes that subset
-so `outputTokens + reasoningTokens` never double-counts it. Raw reported
+aggregation (clamped at 0); OpenCode is stored uncached already. Copilot and
+Codex report reasoning as a subset of output; `outputTokens` excludes that
+subset so `outputTokens + reasoningTokens` never double-counts it. Raw reported
 values remain unchanged in SQLite.
 
 `cacheHitRate` is the fraction of prompt tokens served from cache:

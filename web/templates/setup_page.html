@@ -54,7 +54,7 @@
   <p class="muted">Keep <code>captureContent</code> at its <code>false</code> default. <code>COPILOT_OTEL_PROTOCOL</code> selects <code>otlp-http</code> (the default) or <code>otlp-grpc</code>. Copilot does not report a cost; <code>ai-usage</code> estimates one when pricing is available.</p>
 {{else if eq .Setup.Agent "maki"}}
   <h3>Maki</h3>
-  <p>Maki has built-in OTLP telemetry. Add the telemetry table to <code>init.lua</code>:</p>
+  <p>Maki has built-in OTLP telemetry. Add the telemetry table to your global <code>init.lua</code> (normally <code>~/.config/maki/init.lua</code>):</p>
   {{template "setup-snippet" "maki-config"}}
   <p class="muted">Keep the token out of a committed <code>init.lua</code>. Leave <code>log_user_prompts</code> and <code>log_tool_details</code> disabled. Maki reports no reasoning-token count or subagent identifier, so reasoning shows as unknown.</p>
 {{end}}
@@ -95,9 +95,12 @@ exporter = { otlp-http = {
         "endpoint": "<span data-endpoint>http://127.0.0.1:4318</span>",
         "protocol": "http/protobuf",<span data-auth hidden>
         "otlpHeaders": "{env:AI_USAGE_OTLP_HEADERS}",</span>
-        "metricPrefix": "opencode.",
         "resourceAttributes": "deployment.environment=production",
-        "disabledTraces": ["tool"]
+        "logsEnabled": false,
+        "disabledTraces": [
+          "session",
+          "tool"
+        ]
       }
     ]
   ]

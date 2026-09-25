@@ -28,9 +28,9 @@ plugin. Add it to `~/.config/opencode/opencode.json`:
         "enabled": true,
         "endpoint": "http://127.0.0.1:4318",
         "protocol": "http/protobuf",
-        "metricPrefix": "opencode.",
         "resourceAttributes": "deployment.environment=production",
-        "disabledTraces": ["tool"]
+        "logsEnabled": false,
+        "disabledTraces": ["session", "tool"]
       }
     ]
   ]
@@ -109,7 +109,8 @@ curl -s 'http://127.0.0.1:8080/api/generations?source=codex&limit=1' \
 
 ## Maki
 
-Maki has built-in OTLP telemetry. Add the telemetry table to `init.lua`:
+Maki has built-in OTLP telemetry. Add the telemetry table to your global
+`init.lua` (normally `~/.config/maki/init.lua`):
 
 ```lua
 maki.setup({

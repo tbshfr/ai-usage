@@ -34,6 +34,7 @@
     <a href="/breakdowns"{{if eq .Active "breakdowns"}} class="active"{{end}}>Breakdowns</a>
     <a href="/sessions"{{if eq .Active "sessions"}} class="active"{{end}}>Sessions</a>
     <a href="/stats"{{if eq .Active "stats"}} class="active"{{end}}>Stats</a>
+    <a href="/setup"{{if eq .Active "setup"}} class="active"{{end}}>Setup</a>
     {{if .ShowLogout}}<a href="/logout" class="logout-link drawer-only">Sign out</a>{{end}}
   </nav>
   {{if .ShowLogout}}<a href="/logout" class="logout-link">Sign out</a>{{end}}

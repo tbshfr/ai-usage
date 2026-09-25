@@ -301,3 +301,70 @@ document.addEventListener('click', e => {
   if (!el) return;
   navigator.clipboard.writeText(el.dataset.copy);
 });
+
+// Setup page: the receiver form rewrites the endpoint in every snippet and
+// shows the bearer-token lines. The endpoint defaults to the dashboard's own
+// host on the default OTLP/HTTP port; only a URL the user typed is saved, so
+// the default keeps following the host. Storage may be unavailable (private
+// mode), so every access is guarded.
+const SETUP_KEY = 'ai-usage-setup';
+
+function setupDefaultEndpoint() {
+  const { protocol, hostname } = window.location;
+  if (!hostname || (protocol !== 'http:' && protocol !== 'https:')) return 'http://127.0.0.1:4318';
+  return `${protocol}//${hostname}:4318`;
+}
+
+function applySetupReceiver(form) {
+  const endpoint = form.endpoint.value.trim().replace(/\/+$/, '') || setupDefaultEndpoint();
+  for (const el of document.querySelectorAll('[data-endpoint]')) el.textContent = endpoint;
+  for (const el of document.querySelectorAll('[data-auth]')) el.hidden = !form.auth.checked;
+}
+
+function initSetupReceiver() {
+  const form = document.getElementById('setup-receiver');
+  if (!form) return;
+  const fallback = setupDefaultEndpoint();
+  form.endpoint.placeholder = fallback;
+  form.endpoint.value = fallback;
+  try {
+    const saved = JSON.parse(localStorage.getItem(SETUP_KEY) || '{}');
+    if (typeof saved.endpoint === 'string' && saved.endpoint) form.endpoint.value = saved.endpoint;
+    form.auth.checked = saved.auth === true;
+  } catch (e) { /* storage unavailable or corrupt: keep defaults */ }
+  applySetupReceiver(form);
+  const save = () => {
+    applySetupReceiver(form);
+    const endpoint = form.endpoint.value.trim();
+    try {
+      localStorage.setItem(SETUP_KEY, JSON.stringify({
+        endpoint: endpoint === fallback ? '' : endpoint,
+        auth: form.auth.checked,
+      }));
+    } catch (e) { /* not persisted */ }
+  };
+  form.addEventListener('input', save);
+  form.addEventListener('change', save);
+  form.addEventListener('submit', e => e.preventDefault());
+  form.querySelector('[data-setup-reset]').addEventListener('click', () => {
+    try {
+      localStorage.removeItem(SETUP_KEY);
+    } catch (e) { /* nothing stored */ }
+    form.endpoint.value = fallback;
+    form.auth.checked = false;
+    applySetupReceiver(form);
+  });
+}
+
+document.addEventListener('DOMContentLoaded', initSetupReceiver);
+
+document.addEventListener('click', e => {
+  const button = e.target.closest('[data-copy-snippet]');
+  if (!button) return;
+  // innerText skips the hidden token lines, matching what is on screen.
+  const pre = button.parentElement.querySelector('pre');
+  navigator.clipboard.writeText(pre.innerText).then(() => {
+    button.textContent = 'Copied';
+    setTimeout(() => { button.textContent = 'Copy'; }, 1500);
+  });
+});

@@ -750,3 +750,67 @@ footer { text-align: center; padding: 1rem; }
 
 .backup-status { margin-bottom: 1rem; font-size: 0.875rem; }
 .backup-failure { margin-bottom: 0.75rem; padding: 1rem; border: 1px solid #b00020; border-radius: 0.5rem; background: #fff0f0; color: #90001a; }
+
+/* Setup page */
+.setup-intro { max-width: 70ch; }
+.setup-receiver {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.8rem 1.6rem;
+  padding: 0.9rem 1.1rem;
+}
+.setup-field { display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; }
+.setup-field > label { color: var(--muted); font-size: 0.85rem; }
+.setup-endpoint { display: flex; gap: 0.4rem; }
+.setup-endpoint button {
+  font: inherit;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--muted);
+  cursor: pointer;
+}
+.setup-endpoint button:hover { color: var(--accent); border-color: var(--accent); }
+.setup-receiver input[type="url"] {
+  width: min(26rem, 100%);
+  min-width: 0;
+  font: inherit;
+  font-family: ui-monospace, monospace;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+}
+.setup-receiver input[type="url"]:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+.setup-receiver .setup-check { display: flex; align-items: center; gap: 0.45rem; padding-bottom: 0.4rem; }
+.setup-receiver input[type="checkbox"] { accent-color: var(--accent); }
+.setup-tabs { flex-wrap: wrap; margin: 0 0 0.9rem; }
+.setup-agent { padding-bottom: 0.4rem; }
+.setup-agent p { max-width: 80ch; }
+.snippet { position: relative; margin: 0.6rem 0 0.9rem; }
+.snippet pre {
+  margin: 0;
+  padding: 0.8rem 1rem;
+  overflow-x: auto;
+  background: var(--panel-hover);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.snippet pre code { padding: 0; background: none; font-size: 0.88rem; line-height: 1.5; }
+.snippet-copy {
+  position: absolute;
+  top: 0.45rem;
+  right: 0.45rem;
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 0.15rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--muted);
+  cursor: pointer;
+}
+.snippet-copy:hover { color: var(--accent); border-color: var(--accent); }

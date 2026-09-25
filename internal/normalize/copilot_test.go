@@ -161,6 +161,83 @@ func TestFromCopilotSpanLegacyOnlyReasoning(t *testing.T) {
 	}
 }
 
+func TestFromCopilotSpanBYOKProvider(t *testing.T) {
+	for _, tc := range []struct {
+		name, reported, address, want string
+	}{
+		{"Anthropic BYOK reported", "anthropic", "api.anthropic.com", "anthropic"},
+		{"Gemini BYOK reported", "gemini", "generativelanguage.googleapis.com", "gemini"},
+		{"Anthropic BYOK hostname fallback", "github", "api.anthropic.com", "anthropic"},
+		{"Gemini BYOK hostname fallback", "github", "generativelanguage.googleapis.com", "gemini"},
+		{"OpenRouter BYOK", "github", "openrouter.ai", "openrouter"},
+		{"OpenRouter hostname case", "github", "OpenRouter.AI.", "openrouter"},
+		{"OpenAI BYOK", "github", "api.openai.com", "openai"},
+		{"xAI BYOK", "github", "api.x.ai", "xai"},
+		{"Azure OpenAI BYOK", "github", "my-resource.openai.azure.com", "azure"},
+		{"Azure Models BYOK", "github", "models.ai.azure.com", "azure"},
+		{"Azure Foundry BYOK", "github", "my-resource.services.ai.azure.com", "azure"},
+		{"Azure serverless BYOK", "github", "my-model.eastus.inference.ai.azure.com", "azure"},
+		{"Azure inference BYOK", "github", "my-resource.eastus.inference.ml.azure.com", "azure"},
+		{"GitHub", "github", "api.githubcopilot.com", "github"},
+		{"GitHub regional endpoint", "github", "api.business.githubcopilot.com", "github"},
+		{"GitHub apex is not inference", "github", "github.com", "custom"},
+		{"GitHub API is not inference", "github", "api.github.com", "custom"},
+		{"GitHub legacy endpoint", "github", "copilot-proxy.githubusercontent.com", "github"},
+		{"GitHub content endpoint is not inference", "github", "avatars.githubusercontent.com", "custom"},
+		{"GitHub assets endpoint is not inference", "github", "github.githubassets.com", "custom"},
+		{"GitHub Enterprise endpoint", "github", "copilot-proxy.company.ghe.com", "github"},
+		{"GitHub Enterprise root is not inference", "github", "company.ghe.com", "custom"},
+		{"missing hostname", "github", "", "github"},
+		{"missing provider with known hostname", "", "api.anthropic.com", "anthropic"},
+		{"missing provider with Azure hostname", "", "my-resource.services.ai.azure.com", "azure"},
+		{"missing provider with GitHub hostname", "", "api.githubcopilot.com", "github"},
+		{"missing provider with localhost", "", "localhost", "local"},
+		{"missing provider with custom hostname", "", "models.example.com", "custom"},
+		{"missing provider and hostname", "", "", ""},
+		{"custom endpoint", "github", "models.example.com", "custom"},
+		{"Ollama localhost endpoint", "github", "localhost", "local"},
+		{"localhost hostname case", "github", "LocalHost.", "local"},
+		{"localhost subdomain", "github", "models.localhost", "local"},
+		{"IPv4 loopback endpoint", "github", "127.0.0.1", "local"},
+		{"IPv4 loopback alias", "github", "127.0.0.2", "local"},
+		{"IPv6 loopback endpoint", "github", "[::1]", "local"},
+		{"explicit provider on local endpoint", "openai", "localhost", "openai"},
+		{"OpenCode provider on local endpoint", "opencode", "localhost", "opencode"},
+		{"OpenCode provider on IPv4 loopback", "opencode", "127.0.0.1", "opencode"},
+		{"non-loopback IP endpoint", "github", "192.168.1.10", "custom"},
+		{"lookalike OpenRouter hostname", "github", "not-openrouter.ai", "custom"},
+		{"lookalike Azure hostname", "github", "not-openai.azure.com", "custom"},
+		{"lookalike GitHub hostname", "github", "notgithub.com", "custom"},
+		{"GitHub suffix lookalike", "github", "api.githubcopilot.com.example.org", "custom"},
+		{"reported non-GitHub provider", "anthropic", "api.anthropic.com", "anthropic"},
+		{"reported provider takes priority", "anthropic", "openrouter.ai", "anthropic"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			attrs := map[string]any{
+				"gen_ai.operation.name": "chat",
+				"gen_ai.request.model":  "openai/gpt-4o",
+				"gen_ai.response.model": "openai/gpt-4o",
+				"server.address":        tc.address,
+			}
+			if tc.reported != "" {
+				attrs["gen_ai.provider.name"] = tc.reported
+			}
+			ns := syntheticSpan(attrs, "copilot-chat")
+			source := DetectSource(ns.resource, ns.span.Attributes())
+			if source != SourceCopilot {
+				t.Fatalf("source = %q, want %q", source, SourceCopilot)
+			}
+			gen, ok, err := FromSpan(source, ns.resource, ns.span)
+			if err != nil || !ok {
+				t.Fatalf("ok=%v err=%v", ok, err)
+			}
+			if gen.Provider != tc.want {
+				t.Errorf("provider = %q, want %q", gen.Provider, tc.want)
+			}
+		})
+	}
+}
+
 func TestFromCopilotSpanXtabClearsConversation(t *testing.T) {
 	ns := syntheticSpan(map[string]any{
 		"gen_ai.operation.name":  "chat",

@@ -2,6 +2,8 @@ package normalize
 
 import (
 	"fmt"
+	"net"
+	"strings"
 
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/ptrace"
@@ -53,7 +55,7 @@ func FromCopilotSpan(resource pcommon.Map, span ptrace.Span) (Generation, bool, 
 		Timestamp:           start,
 		Source:              SourceCopilot,
 		ServiceName:         serviceName(resource),
-		Provider:            firstString(attrs, "gen_ai.provider.name"),
+		Provider:            copilotProvider(attrs),
 		Model:               firstString(attrs, "gen_ai.response.model", "gen_ai.request.model"),
 		ConversationID:      firstString(attrs, "gen_ai.conversation.id"),
 		TraceID:             span.TraceID().String(),
@@ -81,4 +83,54 @@ func FromCopilotSpan(resource pcommon.Map, span ptrace.Span) (Generation, bool, 
 		gen.ConversationID = ""
 	}
 	return gen, true, nil
+}
+
+// Copilot's shared chat fetcher reports "github" even for OpenAI-compatible
+// BYOK endpoints. Trust a specific reported provider before interpreting the
+// endpoint for the shared fetcher's "github" label or a missing provider.
+func copilotProvider(attrs pcommon.Map) string {
+	provider := firstString(attrs, "gen_ai.provider.name")
+	host := strings.ToLower(strings.TrimSuffix(firstString(attrs, "server.address"), "."))
+	if provider != "" && !strings.EqualFold(provider, "github") {
+		return provider
+	}
+	if host == "localhost" || strings.HasSuffix(host, ".localhost") {
+		return "local"
+	}
+	if ip := net.ParseIP(strings.Trim(host, "[]")); ip != nil && ip.IsLoopback() {
+		return "local"
+	}
+	switch host {
+	case "api.anthropic.com":
+		return "anthropic"
+	case "generativelanguage.googleapis.com":
+		return "gemini"
+	case "openrouter.ai":
+		return "openrouter"
+	case "api.openai.com":
+		return "openai"
+	case "api.x.ai":
+		return "xai"
+	case "models.ai.azure.com":
+		return "azure"
+	case "":
+		return provider
+	}
+	if strings.HasSuffix(host, ".openai.azure.com") ||
+		strings.HasSuffix(host, ".services.ai.azure.com") ||
+		strings.HasSuffix(host, ".inference.ai.azure.com") ||
+		strings.HasSuffix(host, ".inference.ml.azure.com") {
+		return "azure"
+	}
+	if isCopilotInferenceHost(host) {
+		return "github"
+	}
+	return "custom"
+}
+
+// Only Copilot inference hosts justify retaining "github" for a chat span.
+func isCopilotInferenceHost(host string) bool {
+	return host == "copilot-proxy.githubusercontent.com" ||
+		strings.HasSuffix(host, ".githubcopilot.com") ||
+		(strings.HasPrefix(host, "copilot-proxy.") && strings.HasSuffix(host, ".ghe.com"))
 }

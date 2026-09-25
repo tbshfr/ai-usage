@@ -30,10 +30,10 @@ plugin. Add it to `~/.config/opencode/opencode.json`:
         "protocol": "http/protobuf",
         "resourceAttributes": "deployment.environment=production",
         "logsEnabled": false,
-        "disabledTraces": ["session", "tool"]
-      }
-    ]
-  ]
+        "disabledTraces": ["session", "tool"],
+      },
+    ],
+  ],
 }
 ```
 
@@ -169,8 +169,8 @@ session exports:
     "OTEL_LOGS_EXPORTER": "otlp",
     "OTEL_METRICS_EXPORTER": "none",
     "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
-    "OTEL_EXPORTER_OTLP_ENDPOINT": "http://127.0.0.1:4318"
-  }
+    "OTEL_EXPORTER_OTLP_ENDPOINT": "http://127.0.0.1:4318",
+  },
 }
 ```
 
@@ -205,7 +205,7 @@ Copilot Chat has native OpenTelemetry support. Open the VS Code user
 
 ```jsonc
 {
-  "github.copilot.chat.otel.enabled": true
+  "github.copilot.chat.otel.enabled": true,
 }
 ```
 
@@ -238,6 +238,18 @@ documents the integration.
 
 Copilot does not report a cost. `ai-usage` estimates one when the model and
 token fields match available pricing.
+
+For BYOK calls, `ai-usage` uses Copilot's reported `gen_ai.provider.name` when
+it names a provider other than `github`. If the reported provider is `github`
+or absent, loopback endpoints such as `localhost` and `127.0.0.1` are labeled
+`local`. Copilot's shared
+OpenAI-compatible fetcher reports `github` even for BYOK calls, so `ai-usage`
+identifies Anthropic, Gemini (Google), OpenAI, OpenRouter, xAI, and standard
+Azure endpoints by their `server.address` when necessary. Copilot inference
+hosts in the [GitHub allowlist](https://docs.github.com/en/copilot/reference/copilot-allowlist-reference)
+remain `github`. Other endpoints are grouped as `custom` when their hostname
+does not identify the BYOK provider. When `server.address` is absent, Copilot's
+reported provider is kept.
 
 Verify after a Copilot Chat request:
 

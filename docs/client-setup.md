@@ -206,19 +206,28 @@ Copilot Chat has native OpenTelemetry support. Open the VS Code user
 ```jsonc
 {
   "github.copilot.chat.otel.enabled": true,
+  "github.copilot.chat.otel.otlpEndpoint": "http://127.0.0.1:4318",
 }
 ```
 
-Its default endpoint is `http://localhost:4318`, so local use needs no other
-setting. Keep `captureContent` at its `false` default.
+The endpoint default is `http://localhost:4318`, so a local receiver only needs
+`enabled`. Keep `captureContent` at its `false` default. Reload the window after
+changing these settings. `exporterType` selects `otlp-http` (the default) or
+`otlp-grpc`; the `file` and `console` exporters do not send data to `ai-usage`.
 
-For an authenticated remote receiver, start VS Code with the standard OTLP
-variables:
+For an authenticated remote receiver, set `otlpEndpoint` to its HTTPS origin
+and add the bearer token:
+
+```jsonc
+"github.copilot.chat.otel.headers": { "Authorization": "Bearer <token>" },
+```
+
+Alternatively, keep the token out of `settings.json` and provide it through the
+environment VS Code starts from. Older Copilot Chat versions, which have no
+`headers` setting, need this:
 
 ```sh
-OTEL_EXPORTER_OTLP_ENDPOINT=https://ai-usage.example.com \
-OTEL_EXPORTER_OTLP_HEADERS='Authorization=Bearer <token>' \
-code
+OTEL_EXPORTER_OTLP_HEADERS='Authorization=Bearer <token>' code
 ```
 
 On Windows, store the header in the user environment before starting VS Code:
@@ -231,8 +240,8 @@ On Windows, store the header in the user environment before starting VS Code:
 )
 ```
 
-`COPILOT_OTEL_PROTOCOL` selects `otlp-http` (the default) or `otlp-grpc`.
-The `file` and `console` exporters do not send data to `ai-usage`. Copilot's
+Environment variables such as `OTEL_EXPORTER_OTLP_ENDPOINT` and
+`COPILOT_OTEL_ENDPOINT` take precedence over these settings. Copilot's
 [agent monitoring guide](https://code.visualstudio.com/docs/agents/guides/monitoring-agents)
 documents the integration.
 

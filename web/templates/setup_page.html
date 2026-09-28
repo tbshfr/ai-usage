@@ -49,9 +49,11 @@
   <h3>VS Code GitHub Copilot</h3>
   <p>Copilot Chat has native OpenTelemetry support. Add this to the VS Code user <code>settings.json</code>:</p>
   {{template "setup-snippet" "copilot-settings"}}
-  <p>The default endpoint is <code>http://localhost:4318</code>, so a local receiver needs nothing else. For any other receiver, start VS Code with the standard OTLP variables:</p>
+  <div data-auth hidden>
+  <p>Alternatively, leave out the <code>headers</code> setting and provide the token through the environment VS Code starts from. Older Copilot Chat versions without a <code>headers</code> setting need this:</p>
   {{template "setup-snippet" "copilot-env"}}
-  <p class="muted">Keep <code>captureContent</code> at its <code>false</code> default. <code>COPILOT_OTEL_PROTOCOL</code> selects <code>otlp-http</code> (the default) or <code>otlp-grpc</code>. Copilot does not report a cost; <code>ai-usage</code> estimates one when pricing is available.</p>
+  </div>
+  <p class="muted">Keep <code>captureContent</code> at its <code>false</code> default. Reload the window after changing these settings. <code>exporterType</code> selects <code>otlp-http</code> (the default) or <code>otlp-grpc</code>. Copilot does not report a cost; <code>ai-usage</code> estimates one when pricing is available.</p>
 {{else if eq .Setup.Agent "maki"}}
   <h3>Maki</h3>
   <p>Maki has built-in OTLP telemetry. Add the telemetry table to your global <code>init.lua</code> (normally <code>~/.config/maki/init.lua</code>):</p>
@@ -107,11 +109,11 @@ exporter = { otlp-http = {
 }</code></pre>
 {{- else if eq . "opencode-token"}}<pre><code>export AI_USAGE_OTLP_HEADERS='Authorization=Bearer &lt;token&gt;'</code></pre>
 {{- else if eq . "copilot-settings"}}<pre><code>{
-  "github.copilot.chat.otel.enabled": true
+  "github.copilot.chat.otel.enabled": true,<span data-auth hidden>
+  "github.copilot.chat.otel.headers": { "Authorization": "Bearer &lt;token&gt;" },</span>
+  "github.copilot.chat.otel.otlpEndpoint": "<span data-endpoint>http://127.0.0.1:4318</span>"
 }</code></pre>
-{{- else if eq . "copilot-env"}}<pre><code>OTEL_EXPORTER_OTLP_ENDPOINT=<span data-endpoint>http://127.0.0.1:4318</span> \<span data-auth hidden>
-OTEL_EXPORTER_OTLP_HEADERS='Authorization=Bearer &lt;token&gt;' \</span>
-code</code></pre>
+{{- else if eq . "copilot-env"}}<pre><code>OTEL_EXPORTER_OTLP_HEADERS='Authorization=Bearer &lt;token&gt;' code</code></pre>
 {{- else if eq . "maki-config"}}<pre><code>maki.setup({
     telemetry = {
         enabled = true,

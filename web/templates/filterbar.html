@@ -24,8 +24,8 @@
   {{if or .F.HasUngroupedTokens .F.Selected.Ungrouped}}<label><input type="checkbox" name="ungrouped" value="true"{{if .F.Selected.Ungrouped}} checked{{end}}> Ungrouped tokens only</label>{{end}}
   {{if .F.Tokens}}<select name="token" aria-label="OTLP token">
     <option value="">All tokens</option>
-    {{range .F.Tokens}}{{$id := printf "%d" .ID}}<option value="{{$id}}"{{if eq $id $.F.Selected.Token}} selected{{end}}>{{.Label}}{{if not .Active}} (revoked){{end}}</option>{{end}}
-    <option value="none"{{if eq "none" .F.Selected.Token}} selected{{end}}>Unauthenticated</option>
+    {{range .F.Tokens}}{{$id := printf "%d" .ID}}{{$eligible := and (or (not $.F.Selected.Group) (eq .Group $.F.Selected.Group)) (or (not $.F.Selected.Ungrouped) (eq .Group ""))}}<option value="{{$id}}" data-filter-group="{{.Group}}"{{if not $eligible}} hidden disabled{{end}}{{if and $eligible (eq $id $.F.Selected.Token)}} selected{{end}}>{{.Label}}{{if not .Active}} (revoked){{end}}</option>{{end}}
+    <option value="none" data-filter-unauthenticated{{if or .F.Selected.Group .F.Selected.Ungrouped}} hidden disabled{{else if eq "none" .F.Selected.Token}} selected{{end}}>Unauthenticated</option>
   </select>{{end}}
   {{end}}
   {{if .F.ShowPeriodMode}}<fieldset class="filter-choice" aria-label="Week and month period type">

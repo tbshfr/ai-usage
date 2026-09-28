@@ -181,6 +181,70 @@ func TestTokenFilterAndBreakdowns(t *testing.T) {
 	}
 }
 
+func TestTokenFilterChoicesRespectGroup(t *testing.T) {
+	srv, store := newTokenServer(t)
+	ids := map[string]string{}
+	for _, token := range []struct{ name, group string }{{"laptop", "work"}, {"desktop", "private"}, {"ungrouped", ""}} {
+		_, id, err := store.Create(context.Background(), token.name, token.group)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ids[token.group] = strconv.FormatInt(id, 10)
+	}
+	privateID, _ := strconv.ParseInt(ids["private"], 10, 64)
+	if err := store.Revoke(context.Background(), privateID); err != nil {
+		t.Fatal(err)
+	}
+	selectRE := regexp.MustCompile(`(?s)<select name="token"[^>]*>(.*?)</select>`)
+	optionRE := regexp.MustCompile(`<option value="([^"]*)"([^>]*)>`)
+	for _, page := range []string{"/", "/trends", "/breakdowns", "/sessions"} {
+		for _, tc := range []struct {
+			name, query, selected string
+			choices               []string
+		}{
+			{"all", "", "", []string{"", ids["work"], ids["private"], ids[""], "none"}},
+			{"work", "&group=work&token=" + ids["work"], ids["work"], []string{"", ids["work"]}},
+			{"revoked", "&group=private&token=" + ids["private"], ids["private"], []string{"", ids["private"]}},
+			{"ungrouped", "&ungrouped=true", "", []string{"", ids[""]}},
+			{"missing", "&group=missing", "", []string{""}},
+			{"mismatched", "&group=work&token=" + ids["private"], "", []string{"", ids["work"]}},
+		} {
+			t.Run(page+"/"+tc.name, func(t *testing.T) {
+				status, body := get(t, srv.URL+page+"?range=all"+tc.query)
+				if status != http.StatusOK {
+					t.Fatalf("status = %d", status)
+				}
+				selectMatch := selectRE.FindStringSubmatch(body)
+				if selectMatch == nil {
+					t.Fatal("token dropdown missing")
+				}
+				choices := map[string]bool{}
+				selected := ""
+				for _, option := range optionRE.FindAllStringSubmatch(selectMatch[1], -1) {
+					if strings.Contains(option[2], "hidden") {
+						continue
+					}
+					choices[option[1]] = true
+					if strings.Contains(option[2], "selected") {
+						selected = option[1]
+					}
+				}
+				if len(choices) != len(tc.choices) {
+					t.Errorf("available tokens = %v, want %v", choices, tc.choices)
+				}
+				for _, choice := range tc.choices {
+					if !choices[choice] {
+						t.Errorf("token %q unavailable", choice)
+					}
+				}
+				if selected != tc.selected {
+					t.Errorf("selected token = %q, want %q", selected, tc.selected)
+				}
+			})
+		}
+	}
+}
+
 func TestTokenManagementRequiresSharedStore(t *testing.T) {
 	db := seedtest.EmptyDB(t)
 	listenerStore, err := auth.NewTokenStore(context.Background(), db, nil)

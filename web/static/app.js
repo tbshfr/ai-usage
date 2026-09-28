@@ -29,6 +29,38 @@ function renderDataCharts() {
 document.addEventListener('DOMContentLoaded', renderDataCharts);
 document.addEventListener('htmx:after:settle', renderDataCharts);
 
+// Keep token choices inside the selected group. Capture runs before htmx's
+// form change handler, so a stale token is cleared before requesting data.
+function syncTokenFilter(form) {
+  const tokens = form.querySelector('select[name="token"]');
+  if (!tokens) return;
+  const group = form.querySelector('select[name="group"]')?.value || '';
+  const ungrouped = form.querySelector('input[name="ungrouped"]')?.checked || false;
+  for (const option of tokens.options) {
+    const eligible = option.value === '' || (
+      option.hasAttribute('data-filter-unauthenticated') ? !group && !ungrouped :
+      (!group || option.dataset.filterGroup === group) && (!ungrouped || option.dataset.filterGroup === '')
+    );
+    option.hidden = !eligible;
+    option.disabled = !eligible;
+  }
+  if (tokens.selectedOptions[0]?.disabled) tokens.value = '';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const form = document.getElementById('filter-bar');
+  if (form) syncTokenFilter(form);
+});
+document.addEventListener('change', e => {
+  const form = e.target.closest('#filter-bar');
+  if (!form || !e.target.matches('[name="group"], [name="ungrouped"]')) return;
+  const group = form.querySelector('select[name="group"]');
+  const ungrouped = form.querySelector('input[name="ungrouped"]');
+  if (e.target === group && group.value && ungrouped) ungrouped.checked = false;
+  if (e.target === ungrouped && ungrouped.checked && group) group.value = '';
+  syncTokenFilter(form);
+}, true);
+
 // The Trends fragment changes independently of its range links. Keep the
 // chosen podium metric in those links when the selector changes in place.
 document.addEventListener('change', e => {

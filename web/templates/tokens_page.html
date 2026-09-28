@@ -28,12 +28,10 @@
   <datalist id="token-groups">{{range .Tokens.GroupNames}}<option value="{{.}}">{{end}}</datalist>
 </form>
 
-{{template "filterbar" .}}
-
 <section>
   <div class="table-scroll">
   <table class="token-table">
-    <thead><tr><th>Token</th><th>Created</th><th>Last used</th><th>Requests</th><th>Total tokens</th><th>Cost</th><th>Actions</th></tr></thead>
+    <thead><tr><th>Token</th><th>Created</th><th>Last used</th><th>Requests</th><th>Total tokens</th><th>Cost (all time)</th><th>Actions</th></tr></thead>
     {{range .Tokens.Groups}}
     <tbody>
       <tr class="token-group">
@@ -92,9 +90,9 @@
       </tr>
     </tbody>
     {{end}}
-    {{if not .Tokens.Groups}}{{if not .Tokens.Unauth}}
+    {{if not .Tokens.Groups}}
     <tbody><tr><td colspan="7" class="muted">No tokens yet. The receiver accepts unauthenticated exports on loopback until the first token is created.</td></tr></tbody>
-    {{end}}{{end}}
+    {{end}}
   </table>
   </div>
 </section>

@@ -13,7 +13,7 @@ import (
 )
 
 // tokensView is the Tokens page: tokens grouped by their group label with
-// usage over the selected range. Created is set only on the response to a
+// all-time usage. Created is set only on the response to a
 // successful create, the one time the plaintext is shown.
 type tokensView struct {
 	Created    *createdToken
@@ -69,27 +69,17 @@ func (s *server) tokensPage(w http.ResponseWriter, r *http.Request) {
 	s.renderTokens(w, r, http.StatusOK, nil, tokenForm{}, "")
 }
 
-// renderTokens renders the Tokens page for the range in r's query.
+// renderTokens renders the Tokens page. Usage is all-time: the page is for
+// managing tokens, and the dashboard's token/group filters cover ranges.
 func (s *server) renderTokens(w http.ResponseWriter, r *http.Request, status int, created *createdToken, form tokenForm, errMsg string) {
-	f, u, err := parseFilter(r)
-	if err != nil {
-		writeErr(w, err)
-		return
-	}
-	// Usage is shown per token, so the dimension filters do not apply.
-	u = uiFilter{Range: u.Range, FromParam: u.FromParam, ToParam: u.ToParam}
-	f = u.dims(f.From, f.To)
 	ctx := r.Context()
 	d := &pageData{Title: "Tokens", Active: "tokens", Error: errMsg}
-	d.F.Action = "/tokens"
-	d.F.Selected = u
-	d.F.Presets = presetViews("/tokens", u)
 	tokens, err := storage.ListTokens(ctx, s.db)
 	if err != nil {
 		writeErr(w, err)
 		return
 	}
-	usage, err := storage.ByToken(ctx, s.db, f)
+	usage, err := storage.ByToken(ctx, s.db, storage.Filter{})
 	if err != nil {
 		writeErr(w, err)
 		return
@@ -105,7 +95,7 @@ func (s *server) renderTokens(w http.ResponseWriter, r *http.Request, status int
 	v := tokensView{Created: created, Form: form}
 	if b, ok := byKey[""]; ok {
 		v.Unauth = &b
-		v.UnauthURL = dashboardURL(u, "token", storage.TokenNone)
+		v.UnauthURL = dashboardURL("token", storage.TokenNone)
 	}
 	groupIdx := map[string]int{}
 	for _, t := range tokens {
@@ -119,13 +109,13 @@ func (s *server) renderTokens(w http.ResponseWriter, r *http.Request, status int
 			groupIdx[t.Group] = i
 			g := tokenGroupView{Name: t.Group}
 			if t.Group != "" {
-				g.URL = dashboardURL(u, "group", t.Group)
+				g.URL = dashboardURL("group", t.Group)
 				v.GroupNames = append(v.GroupNames, t.Group)
 			}
 			v.Groups = append(v.Groups, g)
 		}
 		id := strconv.FormatInt(t.ID, 10)
-		row := tokenRowView{Token: t, URL: dashboardURL(u, "token", id), Usage: byKey[id]}
+		row := tokenRowView{Token: t, URL: dashboardURL("token", id), Usage: byKey[id]}
 		v.Groups[i].Tokens = append(v.Groups[i].Tokens, row)
 	}
 	for i := range v.Groups {
@@ -141,15 +131,9 @@ func (s *server) renderTokens(w http.ResponseWriter, r *http.Request, status int
 	renderTemplate(w, pageTmpls["tokens"], "layout", status, d)
 }
 
-// dashboardURL links to the dashboard filtered by one dimension, keeping
-// the selected range.
-func dashboardURL(u uiFilter, key, value string) string {
-	q := url.Values{}
-	if u.Range != "" {
-		q.Set("range", u.Range)
-	}
-	q.Set(key, value)
-	return "/?" + q.Encode()
+// dashboardURL links to the dashboard filtered by one dimension.
+func dashboardURL(key, value string) string {
+	return "/?" + url.Values{key: {value}}.Encode()
 }
 
 func (s *server) tokenCreate(w http.ResponseWriter, r *http.Request) {

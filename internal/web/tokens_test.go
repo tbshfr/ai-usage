@@ -62,8 +62,8 @@ func TestTokensPageLifecycle(t *testing.T) {
 		t.Fatal("created token does not authenticate")
 	}
 
-	_, body = get(t, srv.URL+"/tokens?"+fullRangeQuery)
-	wantNotContains(t, body, plain, ">never<")
+	_, body = get(t, srv.URL+"/tokens")
+	wantNotContains(t, body, plain, ">never<", `id="filter-bar"`)
 	wantContains(t, body, "laptop", "…"+plain[len(plain)-4:], "/?group=work", "Unauthenticated")
 
 	status, body, _ = postForm(t, srv, "/tokens", url.Values{"name": {"  "}, "group": {"work"}}, nil)

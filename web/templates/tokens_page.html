@@ -1,6 +1,9 @@
 {{define "content"}}
+<div class="tokens-page">
+<header class="token-page-head">
 <h2>OTLP tokens</h2>
 <p class="muted setup-intro">Each client sends one of these tokens as <code>Authorization: Bearer &lt;token&gt;</code> to the OTLP receiver, and its usage is attributed to that token. Group tokens (for example <em>work</em> and <em>private</em>) to compare usage per group, then filter the dashboard by group or by a single token. Once a token exists, every export must carry a valid token.</p>
+</header>
 
 {{with .Error}}<p class="token-error" role="alert">{{.}}</p>{{end}}
 
@@ -16,35 +19,45 @@
 
 {{if .Tokens.CanManage}}<form class="panel token-create" method="post" action="/tokens">
   <h3>New token</h3>
+  <p class="muted">Give each client its own token. Choose an existing group or create one.</p>
   <div class="token-fields">
-    <label>Name
-      <input type="text" name="name" value="{{.Tokens.Form.Name}}" placeholder="machine1" required autocomplete="off">
-    </label>
-    <label>Group
-      <input type="text" name="group" value="{{.Tokens.Form.Group}}" placeholder="private" list="token-groups" autocomplete="off">
-    </label>
+    <div>
+      <label for="token-create-name">Name</label>
+      <input id="token-create-name" type="text" name="name" value="{{.Tokens.Form.Name}}" placeholder="machine1" required autocomplete="off">
+    </div>
+    <div class="token-group-field">
+      <label for="token-create-group">Group <span class="muted">(optional)</span></label>
+      <input id="token-create-group" type="text" name="group" value="{{.Tokens.Form.Group}}" placeholder="Choose or type a group" data-token-group autocomplete="off">
+    </div>
     <button type="submit">Create token</button>
   </div>
   <datalist id="token-groups">{{range .Tokens.GroupNames}}<option value="{{.}}">{{end}}</datalist>
 </form>{{else}}<p class="muted">Token management is unavailable.</p>{{end}}
 
-<section>
+<section class="token-inventory" aria-labelledby="token-inventory-heading">
+  <div class="token-inventory-head"><h3 id="token-inventory-heading">Your tokens</h3></div>
   <div class="table-scroll">
   <table class="token-table">
+    <colgroup><col class="token-col-name"><col><col class="token-col-used"><col><col><col><col class="token-col-actions"></colgroup>
     <thead><tr><th>Token</th><th>Created</th><th>Last used</th><th>Requests</th><th>Total tokens</th><th>Cost (all time)</th><th>Actions</th></tr></thead>
-    {{range .Tokens.Groups}}
+    {{range $groupIndex, $group := .Tokens.Groups}}
     <tbody>
       <tr class="token-group">
-        <td><a href="{{.URL}}">{{if .Name}}{{.Name}}{{else}}No group{{end}}</a></td>
+        <td><button type="button" class="token-group-toggle" data-token-group-toggle aria-expanded="false" aria-controls="token-group-rows-{{$groupIndex}}">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
+          <span>{{if .Name}}{{.Name}}{{else}}No group{{end}}</span><span class="token-group-count">{{len .Tokens}}</span>
+        </button></td>
         <td></td><td></td>
         <td>{{commas .Total.Requests}}</td>
         <td>{{commas .Total.TotalTokens}}</td>
         <td>{{costCell .Total.CostKnownCount .Total.CostTotal .Total.CostEstimatedCount}}</td>
-        <td></td>
+        <td><a class="token-group-usage" href="{{.URL}}">View usage</a></td>
       </tr>
+    </tbody>
+    <tbody id="token-group-rows-{{$groupIndex}}" hidden>
       {{range .Tokens}}
-      <tr{{if not .Active}} class="token-revoked"{{end}}>
-        <td class="token-name"><a href="{{.URL}}">{{.Name}}</a>{{with .Hint}} <code class="muted">…{{.}}</code>{{end}}{{if not .Active}} <span class="muted">(revoked {{utcDate .RevokedAt}})</span>{{end}}</td>
+      <tr class="token-row{{if not .Active}} token-revoked{{end}}">
+        <td class="token-name"><a href="{{.URL}}">{{.Name}}</a><div class="token-name-meta">{{with .Hint}}<code>…{{.}}</code>{{end}}{{if not .Active}} <span class="muted">(revoked {{utcDate .RevokedAt}})</span>{{end}}</div></td>
         <td>{{utcDate .CreatedAt}}</td>
         <td>{{with .LastUsed}}{{utc .}}{{else}}<span class="muted">never</span>{{end}}</td>
         <td>{{commas .Usage.Requests}}</td>
@@ -52,28 +65,11 @@
         <td>{{costCell .Usage.CostKnownCount .Usage.CostTotal .Usage.CostEstimatedCount}}</td>
         <td class="token-actions">
           {{if $.Tokens.CanManage}}
-          <details>
-            <summary>Edit</summary>
-            <form method="post" action="/tokens/{{.ID}}" class="token-edit">
-              <input type="text" name="name" value="{{.Name}}" required aria-label="Name" autocomplete="off">
-              <input type="text" name="group" value="{{.Group}}" list="token-groups" aria-label="Group" autocomplete="off">
-              <button type="submit">Save</button>
-            </form>
-          </details>
-          <details>
-            <summary>{{if .Active}}Regenerate{{else}}Reactivate{{end}}</summary>
-            <form method="post" action="/tokens/{{.ID}}/regenerate" class="token-edit">
-              <span class="muted">{{if .Active}}Issues a new secret; the current one stops working. Usage history is kept.{{else}}Issues a new secret and makes the token active again. Usage history is kept.{{end}}</span>
-              <button type="submit">{{if .Active}}Regenerate{{else}}Reactivate{{end}} {{.Name}}</button>
-            </form>
-          </details>
-          {{if .Active}}<details>
-            <summary>Revoke</summary>
-            <form method="post" action="/tokens/{{.ID}}/revoke" class="token-edit">
-              <span class="muted">Clients using it will be rejected.</span>
-              <button type="submit" class="danger">Revoke {{.Name}}</button>
-            </form>
-          </details>{{end}}
+          <div class="token-action-buttons">
+            <button type="button" data-token-dialog="token-edit-{{.ID}}" aria-haspopup="dialog" aria-label="Edit {{.Name}}">Edit</button>
+            <button type="button" data-token-dialog="token-regenerate-{{.ID}}" aria-haspopup="dialog" aria-label="{{if .Active}}Regenerate{{else}}Reactivate{{end}} {{.Name}}">{{if .Active}}Regenerate{{else}}Reactivate{{end}}</button>
+            {{if .Active}}<button type="button" class="token-action-danger" data-token-dialog="token-revoke-{{.ID}}" aria-haspopup="dialog" aria-label="Revoke {{.Name}}">Revoke</button>{{end}}
+          </div>
           {{end}}
         </td>
       </tr>
@@ -98,4 +94,43 @@
   </table>
   </div>
 </section>
+
+{{if .Tokens.CanManage}}
+{{range .Tokens.Groups}}{{range .Tokens}}
+<dialog id="token-edit-{{.ID}}" class="token-dialog" aria-labelledby="token-edit-title-{{.ID}}">
+  <form method="post" action="/tokens/{{.ID}}" class="token-edit">
+    <h3 id="token-edit-title-{{.ID}}">Edit token</h3>
+    <p class="muted">Update the name or group. The secret and usage history stay the same.</p>
+    <label for="token-name-{{.ID}}">Name</label>
+    <input id="token-name-{{.ID}}" type="text" name="name" value="{{.Name}}" required autocomplete="off" autofocus>
+    <div class="token-group-field">
+      <label for="token-group-{{.ID}}">Group <span class="muted">(optional)</span></label>
+      <input id="token-group-{{.ID}}" type="text" name="group" value="{{.Group}}" placeholder="Choose or type a group" data-token-group autocomplete="off">
+    </div>
+    <div class="token-dialog-footer"><button type="button" class="token-secondary" data-close-dialog>Cancel</button><button type="submit">Save changes</button></div>
+  </form>
+</dialog>
+<dialog id="token-regenerate-{{.ID}}" class="token-dialog" aria-labelledby="token-regenerate-title-{{.ID}}">
+  <form method="post" action="/tokens/{{.ID}}/regenerate" class="token-edit">
+    <h3 id="token-regenerate-title-{{.ID}}">{{if .Active}}Regenerate{{else}}Reactivate{{end}} token</h3>
+    <p class="token-dialog-name">{{.Name}}</p>
+    <p>{{if .Active}}A new secret will be issued and the current secret will stop working immediately. Update every client that uses this token.{{else}}A new secret will be issued and this token will become active again.{{end}}</p>
+    <p class="muted">Usage history is kept. The new secret will be shown only once.</p>
+    <div class="token-dialog-footer"><button type="button" class="token-secondary" data-close-dialog autofocus>Cancel</button><button type="submit">{{if .Active}}Regenerate{{else}}Reactivate{{end}} token</button></div>
+  </form>
+</dialog>
+{{if .Active}}
+<dialog id="token-revoke-{{.ID}}" class="token-dialog" aria-labelledby="token-revoke-title-{{.ID}}">
+  <form method="post" action="/tokens/{{.ID}}/revoke" class="token-edit">
+    <h3 id="token-revoke-title-{{.ID}}">Revoke token</h3>
+    <p class="token-dialog-name">{{.Name}}</p>
+    <p>Clients using this token will be rejected immediately.</p>
+    <p class="muted">Usage history is kept. You can reactivate the token later with a new secret.</p>
+    <div class="token-dialog-footer"><button type="button" class="token-secondary" data-close-dialog autofocus>Cancel</button><button type="submit" class="danger">Revoke token</button></div>
+  </form>
+</dialog>
+{{end}}
+{{end}}{{end}}
+{{end}}
+</div>
 {{end}}

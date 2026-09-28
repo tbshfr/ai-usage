@@ -164,7 +164,7 @@ function lockPageScroll() {
 }
 
 function unlockPageScroll() {
-  if (document.querySelector('dialog[open]')) return;
+  if (!document.body.classList.contains('dialog-open') || document.querySelector('dialog[open]')) return;
   document.documentElement.classList.remove('dialog-open');
   document.body.classList.remove('dialog-open');
   document.body.style.removeProperty('--dialog-scroll-top');
@@ -368,3 +368,115 @@ document.addEventListener('click', e => {
     setTimeout(() => { button.textContent = 'Copy'; }, 1500);
   });
 });
+
+document.addEventListener('click', e => {
+  const toggle = e.target.closest('[data-token-group-toggle]');
+  if (!toggle) return;
+  const rows = document.getElementById(toggle.getAttribute('aria-controls'));
+  const expanded = toggle.getAttribute('aria-expanded') !== 'true';
+  toggle.setAttribute('aria-expanded', String(expanded));
+  rows.hidden = !expanded;
+});
+
+document.addEventListener('click', e => {
+  const opener = e.target.closest('[data-token-dialog]');
+  if (opener) {
+    const dialog = document.getElementById(opener.dataset.tokenDialog);
+    dialog.querySelector('form').reset();
+    dialog.showModal();
+  }
+  if (e.target instanceof HTMLDialogElement && e.target.classList.contains('token-dialog')) {
+    const rect = e.target.getBoundingClientRect();
+    if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) e.target.close();
+  }
+});
+
+function initTokenGroups() {
+  const groups = Array.from(document.querySelectorAll('#token-groups option'), option => option.value);
+  if (!groups.length || !('showPopover' in HTMLElement.prototype)) return;
+  document.querySelectorAll('[data-token-group]').forEach((input, index) => {
+    const list = document.createElement('div');
+    list.id = `token-group-options-${index}`;
+    list.className = 'token-group-options';
+    list.setAttribute('popover', 'manual');
+    list.setAttribute('role', 'listbox');
+    list.setAttribute('aria-label', 'Existing groups');
+    input.parentElement.append(list);
+    input.setAttribute('role', 'combobox');
+    input.setAttribute('aria-autocomplete', 'list');
+    input.setAttribute('aria-controls', list.id);
+    input.setAttribute('aria-expanded', 'false');
+    let selected = -1;
+    let matches = [];
+    const close = () => {
+      if (list.matches(':popover-open')) list.hidePopover();
+      input.setAttribute('aria-expanded', 'false');
+      input.removeAttribute('aria-activedescendant');
+      selected = -1;
+    };
+    const position = () => {
+      const rect = input.getBoundingClientRect();
+      const below = window.innerHeight - rect.bottom - 12;
+      const above = rect.top - 12;
+      const useAbove = below < 160 && above > below;
+      list.style.width = `${rect.width}px`;
+      list.style.maxHeight = `${Math.max(0, Math.min(192, useAbove ? above : below))}px`;
+      list.style.left = `${rect.left}px`;
+      list.style.top = `${useAbove ? rect.top - list.getBoundingClientRect().height - 4 : rect.bottom + 4}px`;
+    };
+    const open = (filter = false) => {
+      matches = groups.filter(group => !filter || group.toLocaleLowerCase().includes(input.value.toLocaleLowerCase()));
+      selected = -1;
+      input.removeAttribute('aria-activedescendant');
+      list.replaceChildren(...matches.map((group, i) => {
+        const option = document.createElement('div');
+        option.id = `${list.id}-${i}`;
+        option.className = 'token-group-option';
+        option.setAttribute('role', 'option');
+        option.setAttribute('aria-selected', 'false');
+        option.textContent = group;
+        option.addEventListener('pointerdown', e => e.preventDefault());
+        option.addEventListener('click', () => choose(i));
+        return option;
+      }));
+      if (!matches.length) return close();
+      if (!list.matches(':popover-open')) list.showPopover();
+      input.setAttribute('aria-expanded', 'true');
+      position();
+    };
+    const choose = i => {
+      input.value = matches[i];
+      close();
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      input.focus({ preventScroll: true });
+    };
+    input.addEventListener('click', () => open());
+    input.addEventListener('input', () => open(true));
+    input.addEventListener('blur', close);
+    input.addEventListener('keydown', e => {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (!list.matches(':popover-open')) open();
+        if (!matches.length) return;
+        selected = selected < 0 ? (e.key === 'ArrowDown' ? 0 : matches.length - 1) : (selected + (e.key === 'ArrowDown' ? 1 : -1) + matches.length) % matches.length;
+        Array.from(list.children).forEach((option, i) => option.setAttribute('aria-selected', String(i === selected)));
+        input.setAttribute('aria-activedescendant', list.children[selected].id);
+        list.children[selected].scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'Enter' && list.matches(':popover-open') && selected >= 0) {
+        e.preventDefault();
+        choose(selected);
+      } else if (e.key === 'Escape' && list.matches(':popover-open')) {
+        e.preventDefault();
+        e.stopPropagation();
+        close();
+      } else if (e.key === 'Tab') close();
+    });
+    document.addEventListener('pointerdown', e => {
+      if (e.target !== input && !list.contains(e.target)) close();
+    });
+    input.closest('dialog')?.addEventListener('close', close);
+    window.addEventListener('resize', close);
+    document.addEventListener('scroll', e => { if (e.target !== list) close(); }, true);
+  });
+}
+document.addEventListener('DOMContentLoaded', initTokenGroups);

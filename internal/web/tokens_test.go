@@ -173,7 +173,7 @@ func TestTokenFilterAndBreakdowns(t *testing.T) {
 		t.Errorf("invalid token filter = %d, want 400", status)
 	}
 	_, body = get(t, srv.URL+"/tokens")
-	wantContains(t, body, `href="/?ungrouped=true">No group</a>`)
+	wantContains(t, body, `href="/?ungrouped=true">View usage</a>`, `<span>No group</span>`, `aria-expanded="false"`, `id="token-group-rows-0" hidden`)
 	_, body = get(t, srv.URL+"/breakdowns?ungrouped=true")
 	wantContains(t, body, `name="ungrouped" value="true" checked`, "/breakdowns?range=7d&amp;ungrouped=true")
 	if status, _ := get(t, srv.URL+"/?ungrouped=invalid"); status != http.StatusBadRequest {

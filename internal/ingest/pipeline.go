@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/tbshfr/ai-usage/internal/auth"
 	"github.com/tbshfr/ai-usage/internal/live"
 	"github.com/tbshfr/ai-usage/internal/normalize"
 	"github.com/tbshfr/ai-usage/internal/storage"
@@ -521,6 +522,11 @@ func (p *Pipeline) ConsumeTraces(ctx context.Context, td ptrace.Traces) error {
 // storeGenerations commits one signal batch and updates the shared storage,
 // dedup, and live-notification counters.
 func (p *Pipeline) storeGenerations(ctx context.Context, gens []normalize.Generation) error {
+	if tokenID := auth.TokenIDFrom(ctx); tokenID != 0 {
+		for i := range gens {
+			gens[i].TokenID = tokenID
+		}
+	}
 	storedBySource, err := storage.InsertGenerations(ctx, p.db, gens)
 	if err != nil {
 		p.ingErrors.Add(1)

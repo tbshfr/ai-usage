@@ -221,9 +221,6 @@ func TestRefusesNonLoopbackWithoutAuth(t *testing.T) {
 		{"dashboard ipv6 wildcard", []string{"--http", "[::]:8080"}},
 		{"dashboard public ip", []string{"--http", "10.0.0.5:8080"}},
 		{"dashboard hostname", []string{"--http", "dash.example.com:8080"}},
-		{"otlp http wildcard", []string{"--otlp-http", ":4318"}},
-		{"otlp grpc wildcard", []string{"--otlp-grpc", ":4317"}},
-		{"dashboard creds but no otlp token", []string{"--http", ":8080", "--dashboard-user", "u", "--dashboard-password", "p", "--otlp-http", ":4318"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -245,6 +242,12 @@ func TestLoopbackAndAuthenticatedBindsPass(t *testing.T) {
 		{"dashboard ipv6 loopback", []string{"--http", "[::1]:8080"}},
 		{"otlp loopback", []string{"--otlp-http", "127.0.0.1:4318", "--otlp-grpc", "localhost:4317"}},
 		{"wildcard with auth", []string{"--http", ":8080", "--otlp-http", ":4318", "--dashboard-user", "u", "--dashboard-password", "p", "--otlp-token", "t"}},
+		// Public OTLP listeners need no configured token: API tokens are
+		// managed on the dashboard and the receiver fails closed until one
+		// exists.
+		{"otlp http wildcard", []string{"--otlp-http", ":4318"}},
+		{"otlp grpc wildcard", []string{"--otlp-grpc", ":4317"}},
+		{"dashboard creds but no otlp token", []string{"--http", ":8080", "--dashboard-user", "u", "--dashboard-password", "p", "--otlp-http", ":4318"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -252,6 +255,29 @@ func TestLoopbackAndAuthenticatedBindsPass(t *testing.T) {
 				t.Errorf("unexpected error: %v", err)
 			}
 		})
+	}
+}
+
+func TestPublicAddr(t *testing.T) {
+	for addr, want := range map[string]bool{
+		"127.0.0.1:4318": false,
+		"localhost:4318": false,
+		"[::1]:4318":     false,
+		":4318":          true,
+		"0.0.0.0:4318":   true,
+		"10.0.0.5:4318":  true,
+		"otlp.example:1": true,
+		"no-port":        true,
+	} {
+		if got := PublicAddr(addr); got != want {
+			t.Errorf("PublicAddr(%q) = %v, want %v", addr, got, want)
+		}
+	}
+}
+
+func TestInvalidOTLPAddress(t *testing.T) {
+	if _, err := Load([]string{"--otlp-http", "no-port"}, noEnv, "linux", t.TempDir()); err == nil {
+		t.Error("invalid --otlp-http must error")
 	}
 }
 

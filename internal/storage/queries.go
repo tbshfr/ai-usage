@@ -412,6 +412,24 @@ func ByModel(ctx context.Context, db *sql.DB, f Filter) ([]Breakdown, error) {
 	return breakdown(ctx, db, f, "model")
 }
 
+// tokenGroupKeySQL is the group label of the authenticating token; rows
+// without a token and tokens without a group share the empty key.
+const tokenGroupKeySQL = `(SELECT group_name FROM api_tokens WHERE api_tokens.id = token_id)`
+
+// ByGroup returns totals grouped by token group label, ordered by total
+// tokens descending. The empty key collects unauthenticated rows and
+// tokens without a group.
+func ByGroup(ctx context.Context, db *sql.DB, f Filter) ([]Breakdown, error) {
+	return breakdown(ctx, db, f, "group")
+}
+
+// ByToken returns totals grouped by token ID (decimal string, empty for
+// unauthenticated rows), ordered by total tokens descending. Revoked
+// tokens are included so past usage stays visible.
+func ByToken(ctx context.Context, db *sql.DB, f Filter) ([]Breakdown, error) {
+	return breakdown(ctx, db, f, "token")
+}
+
 func breakdown(ctx context.Context, db *sql.DB, f Filter, column string) ([]Breakdown, error) {
 	f, err := f.normalize(time.Now())
 	if err != nil {
@@ -419,8 +437,13 @@ func breakdown(ctx context.Context, db *sql.DB, f Filter, column string) ([]Brea
 	}
 	where, args := f.whereSQL()
 	groupKey := column
-	if column == "model" {
+	switch column {
+	case "model":
 		groupKey = modelGroupKeySQL
+	case "group":
+		groupKey = tokenGroupKeySQL
+	case "token":
+		groupKey = "CAST(token_id AS TEXT)"
 	}
 	q := `SELECT
 	COALESCE(` + groupKey + `, ''),
@@ -437,7 +460,7 @@ func breakdown(ctx context.Context, db *sql.DB, f Filter, column string) ([]Brea
 	COUNT(*) - COUNT(cost),
 	SUM(cost)
 FROM generations WHERE ` + where + ` GROUP BY ` + groupKey
-	if column == "model" {
+	if column == "model" || column == "group" || column == "token" {
 		q += ` ORDER BY ` + totalTokensSumSQL + ` DESC`
 	} else {
 		q += ` ORDER BY COALESCE(` + column + `, '')`
@@ -535,7 +558,7 @@ const generationColumns = `
 	agent_name, git_repo, git_branch, cost_reported_by_harness, cost_source,
 	COALESCE(pricing_model_id, ''), pricing_fetched_at,
 	COALESCE((SELECT rates_json FROM pricing_snapshots WHERE id = pricing_snapshot_id), ''), pricing_revision,
-	reasoning_effort`
+	reasoning_effort, COALESCE(token_id, 0)`
 
 func RecentGenerations(ctx context.Context, db *sql.DB, f Filter, order Order, limit, offset int) ([]normalize.Generation, error) {
 	if limit <= 0 {
@@ -619,6 +642,7 @@ func scanGeneration(row interface{ Scan(dest ...any) error }) (*normalize.Genera
 		&gitBranch,
 		&g.CostReportedByHarness, &g.CostSource, &g.PricingModelID, &pricingFetchedAt, &g.PricingRates, &g.PricingRevision,
 		&reasoningEffort,
+		&g.TokenID,
 	); err != nil {
 		return nil, err
 	}

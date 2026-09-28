@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -26,7 +27,15 @@ type Filter struct {
 	Provider     string
 	Model        string
 	Conversation string
+	// Group limits results to tokens with this group label.
+	Group string
+	// Token limits results to one api_tokens ID, or TokenNone for
+	// unauthenticated rows.
+	Token string
 }
+
+// TokenNone selects rows stored without an authenticating token.
+const TokenNone = "none"
 
 func (f Filter) normalize(now time.Time) (Filter, error) {
 	out := f
@@ -34,6 +43,13 @@ func (f Filter) normalize(now time.Time) (Filter, error) {
 	out.Provider = strings.TrimSpace(out.Provider)
 	out.Model = strings.TrimSpace(out.Model)
 	out.Conversation = strings.TrimSpace(out.Conversation)
+	out.Group = strings.TrimSpace(out.Group)
+	out.Token = strings.TrimSpace(out.Token)
+	if out.Token != "" && out.Token != TokenNone {
+		if id, err := strconv.ParseInt(out.Token, 10, 64); err != nil || id <= 0 {
+			return out, fmt.Errorf("invalid token filter %q (want a token ID or %q)", out.Token, TokenNone)
+		}
+	}
 	if out.To.IsZero() {
 		out.To = now
 	}
@@ -63,6 +79,17 @@ func (f Filter) whereSQL() (string, []any) {
 			conds = append(conds, col.name+" = ?")
 			args = append(args, col.val)
 		}
+	}
+	switch {
+	case f.Token == TokenNone:
+		conds = append(conds, "token_id IS NULL")
+	case f.Token != "":
+		conds = append(conds, "token_id = ?")
+		args = append(args, f.Token)
+	}
+	if f.Group != "" {
+		conds = append(conds, "token_id IN (SELECT id FROM api_tokens WHERE group_name = ?)")
+		args = append(args, f.Group)
 	}
 	switch {
 	case f.Conversation == ConversationNone:
@@ -165,8 +192,8 @@ const insertSQL = `INSERT INTO generations (
 	input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens, reasoning_tokens,
 	cost, conversation_id, trace_id, span_id, duration_ms,
 	agent_name, git_repo, git_branch, created_at, cost_reported_by_harness, cost_source, pricing_pending,
-	reasoning_effort
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	reasoning_effort, token_id
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(id) DO NOTHING RETURNING id`
 
 const mergeSQL = `UPDATE generations SET
@@ -202,7 +229,8 @@ const mergeSQL = `UPDATE generations SET
 	agent_name = COALESCE(agent_name, ?),
 	git_repo = COALESCE(git_repo, ?),
 	git_branch = COALESCE(git_branch, ?),
-	reasoning_effort = COALESCE(reasoning_effort, ?)
+	reasoning_effort = COALESCE(reasoning_effort, ?),
+	token_id = COALESCE(token_id, ?)
 WHERE id = ?`
 
 func insertArgs(gen normalize.Generation) []any {
@@ -231,6 +259,7 @@ func insertArgs(gen normalize.Generation) []any {
 		harnessCostSource(gen.Cost),
 		gen.Cost == nil,
 		nullableString(gen.ReasoningEffort),
+		nullableID(gen.TokenID),
 	}
 }
 
@@ -265,6 +294,7 @@ func mergeArgs(gen normalize.Generation) []any {
 		nullableString(gen.GitRepo),
 		nullableString(gen.GitBranch),
 		nullableString(gen.ReasoningEffort),
+		nullableID(gen.TokenID),
 		gen.ID,
 	}
 }
@@ -274,6 +304,13 @@ func nullableString(s string) any {
 		return nil
 	}
 	return s
+}
+
+func nullableID(id int64) any {
+	if id == 0 {
+		return nil
+	}
+	return id
 }
 
 func nullableInt(p *int64) any {

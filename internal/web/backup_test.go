@@ -12,7 +12,7 @@ import (
 
 func TestBackupDashboardStatus(t *testing.T) {
 	state := backup.Status{}
-	handler := New(seedtest.DB(t), nil, nil, nil, "test", func() backup.Status { return state })
+	handler := New(seedtest.DB(t), nil, nil, nil, "test", WithBackupStatus(func() backup.Status { return state }))
 	render := func(path string) string {
 		t.Helper()
 		rr := httptest.NewRecorder()

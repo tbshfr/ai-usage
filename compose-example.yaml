@@ -11,7 +11,9 @@ services:
       AI_USAGE_OTLP_HTTP_ADDR: ":4318"
       AI_USAGE_DASHBOARD_USER: ${AI_USAGE_DASHBOARD_USER:?set in .env}
       AI_USAGE_DASHBOARD_PASSWORD: ${AI_USAGE_DASHBOARD_PASSWORD:?set in .env}
-      AI_USAGE_OTLP_TOKEN: ${AI_USAGE_OTLP_TOKEN:?set in .env}
+      # Optional: imported once as the "default" API token. Manage tokens
+      # on the dashboard's Tokens page.
+      AI_USAGE_OTLP_TOKEN: ${AI_USAGE_OTLP_TOKEN:-}
       AI_USAGE_LOG_LEVEL: info
 
       # Optional R2 backups: uncomment this entire block after filling .env.

@@ -1,0 +1,99 @@
+{{define "content"}}
+<h2>API tokens</h2>
+<p class="muted setup-intro">Each client sends one of these tokens as <code>Authorization: Bearer &lt;token&gt;</code> to the OTLP receiver, and its usage is attributed to that token. Group tokens (for example <em>work</em> and <em>private</em>) to compare usage per group, then filter the dashboard by group or by a single token. Once a token exists, every export must carry a valid token.</p>
+
+{{with .Error}}<p class="token-error" role="alert">{{.}}</p>{{end}}
+
+{{with .Tokens.Created}}<section class="panel token-created" aria-live="polite">
+  <h3>{{if .Regenerated}}New secret for {{.Label}}{{else}}Token created: {{.Label}}{{end}}</h3>
+  <p>Copy it now. It is shown only once and cannot be recovered later.{{if .Regenerated}} The previous secret no longer works; update every client that used it.{{end}}</p>
+  <div class="token-secret">
+    <code>{{.Plain}}</code>
+    <button type="button" data-copy="{{.Plain}}">Copy</button>
+  </div>
+  <p class="muted">Configure a client on the <a href="/setup">Setup</a> page with this token.</p>
+</section>{{end}}
+
+<form class="panel token-create" method="post" action="/tokens">
+  <h3>New token</h3>
+  <div class="token-fields">
+    <label>Name
+      <input type="text" name="name" value="{{.Tokens.Form.Name}}" placeholder="machine1" maxlength="64" required autocomplete="off">
+    </label>
+    <label>Group
+      <input type="text" name="group" value="{{.Tokens.Form.Group}}" placeholder="private" maxlength="64" list="token-groups" autocomplete="off">
+    </label>
+    <button type="submit">Create token</button>
+  </div>
+  <datalist id="token-groups">{{range .Tokens.GroupNames}}<option value="{{.}}">{{end}}</datalist>
+</form>
+
+<section>
+  <div class="table-scroll">
+  <table class="token-table">
+    <thead><tr><th>Token</th><th>Created</th><th>Last used</th><th>Requests</th><th>Total tokens</th><th>Cost (all time)</th><th>Actions</th></tr></thead>
+    {{range .Tokens.Groups}}
+    <tbody>
+      <tr class="token-group">
+        <td>{{if .URL}}<a href="{{.URL}}">{{.Name}}</a>{{else}}<span class="muted">No group</span>{{end}}</td>
+        <td></td><td></td>
+        <td>{{commas .Total.Requests}}</td>
+        <td>{{commas .Total.TotalTokens}}</td>
+        <td>{{costCell .Total.CostKnownCount .Total.CostTotal .Total.CostEstimatedCount}}</td>
+        <td></td>
+      </tr>
+      {{range .Tokens}}
+      <tr{{if not .Active}} class="token-revoked"{{end}}>
+        <td class="token-name"><a href="{{.URL}}">{{.Name}}</a>{{with .Hint}} <code class="muted">…{{.}}</code>{{end}}{{if not .Active}} <span class="muted">(revoked {{utcDate .RevokedAt}})</span>{{end}}</td>
+        <td>{{utcDate .CreatedAt}}</td>
+        <td>{{with .LastUsed}}{{utc .}}{{else}}<span class="muted">never</span>{{end}}</td>
+        <td>{{commas .Usage.Requests}}</td>
+        <td>{{commas .Usage.TotalTokens}}</td>
+        <td>{{costCell .Usage.CostKnownCount .Usage.CostTotal .Usage.CostEstimatedCount}}</td>
+        <td class="token-actions">
+          <details>
+            <summary>Edit</summary>
+            <form method="post" action="/tokens/{{.ID}}" class="token-edit">
+              <input type="text" name="name" value="{{.Name}}" maxlength="64" required aria-label="Name" autocomplete="off">
+              <input type="text" name="group" value="{{.Group}}" maxlength="64" list="token-groups" aria-label="Group" autocomplete="off">
+              <button type="submit">Save</button>
+            </form>
+          </details>
+          <details>
+            <summary>{{if .Active}}Regenerate{{else}}Reactivate{{end}}</summary>
+            <form method="post" action="/tokens/{{.ID}}/regenerate" class="token-edit">
+              <span class="muted">{{if .Active}}Issues a new secret; the current one stops working. Usage history is kept.{{else}}Issues a new secret and makes the token active again. Usage history is kept.{{end}}</span>
+              <button type="submit">{{if .Active}}Regenerate{{else}}Reactivate{{end}} {{.Name}}</button>
+            </form>
+          </details>
+          {{if .Active}}<details>
+            <summary>Revoke</summary>
+            <form method="post" action="/tokens/{{.ID}}/revoke" class="token-edit">
+              <span class="muted">Clients using it will be rejected.</span>
+              <button type="submit" class="danger">Revoke {{.Name}}</button>
+            </form>
+          </details>{{end}}
+        </td>
+      </tr>
+      {{end}}
+    </tbody>
+    {{end}}
+    {{with .Tokens.Unauth}}
+    <tbody>
+      <tr class="token-group">
+        <td><a href="{{$.Tokens.UnauthURL}}">Unauthenticated</a></td>
+        <td></td><td></td>
+        <td>{{commas .Requests}}</td>
+        <td>{{commas .TotalTokens}}</td>
+        <td>{{costCell .CostKnownCount .CostTotal .CostEstimatedCount}}</td>
+        <td></td>
+      </tr>
+    </tbody>
+    {{end}}
+    {{if not .Tokens.Groups}}
+    <tbody><tr><td colspan="7" class="muted">No tokens yet. The receiver accepts unauthenticated exports on loopback until the first token is created.</td></tr></tbody>
+    {{end}}
+  </table>
+  </div>
+</section>
+{{end}}

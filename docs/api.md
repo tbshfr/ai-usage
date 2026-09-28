@@ -43,6 +43,8 @@ All list/aggregate endpoints accept:
 | `source`      | exact match (`opencode`, `copilot`, `codex`, `maki`, `claude-code`); optional |
 | `provider`    | exact match on raw stored provider; optional                                 |
 | `model`       | exact match on raw stored model; optional                                    |
+| `group`       | API token group label (see `/api/tokens`); optional                          |
+| `token`       | API token ID, or `none` for usage received without a token; optional         |
 | `conversation`| exact match on conversation/session ID, or one of the session-less sentinels: `none` (every session-less row), `autocomplete` (VS Code autocomplete), `titleprogress` (title/progress helpers); optional |
 
 Invalid values → `400` with `{"error":"...","status":400}`.
@@ -57,7 +59,7 @@ Totals for the filter range, plus the filter echo.
 
 ```json
 {
-  "filter": {"from":"2026-02-01T00:00:00Z","to":"2026-03-01T00:00:00Z","source":"","provider":"","model":"","conversation":""},
+  "filter": {"from":"2026-02-01T00:00:00Z","to":"2026-03-01T00:00:00Z","source":"","provider":"","model":"","group":"","token":"","conversation":""},
   "requests": 7,
   "inputTokens": 196,
   "outputTokens": 436,
@@ -153,6 +155,38 @@ For OpenRouter rows, the creator prefix before the first slash is omitted
 from the group key, so `z-ai/glm-5.3-flash` and `glm-5.3-flash` share one row.
 Stored model values and the `model` filter remain exact and unchanged.
 
+### `GET /api/groups`
+
+Same row shape, grouped by API token group and ordered by total tokens
+descending. The empty key collects usage without a token and tokens without
+a group.
+
+### `GET /api/tokens/usage`
+
+Same row shape, grouped by API token ID (decimal string) and ordered by total
+tokens descending. The empty key is usage received without a token. Revoked
+tokens are included. Resolve IDs to names with `/api/tokens`.
+
+### `GET /api/tokens`
+
+Metadata of every API token, including revoked ones. Token values and hashes
+are never returned. `lastUsedAt` is persisted about once a minute.
+
+```json
+[
+  {
+    "id": 2,
+    "name": "machine1",
+    "group": "private",
+    "hint": "x9Qa",
+    "active": true,
+    "createdAt": "2026-09-27T10:00:00Z",
+    "lastUsedAt": "2026-09-27T10:05:00Z",
+    "revokedAt": null
+  }
+]
+```
+
 ### `GET /api/generations?limit&offset&order`
 
 Full records ordered by timestamp. `limit` defaults to 50, clamped to a
@@ -190,7 +224,8 @@ values stay in the database.
     "agentName": "",
     "gitRepo": "",
     "gitBranch": "",
-    "reasoningEffort": ""
+    "reasoningEffort": "",
+    "tokenId": 2
   }
 ]
 ```

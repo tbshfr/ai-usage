@@ -12,22 +12,26 @@ import (
 )
 
 // GRPCUnaryInterceptor rejects OTLP/gRPC exports that do not carry
-// "authorization: Bearer <token>" metadata. The token is never logged.
-func GRPCUnaryInterceptor(logger *slog.Logger, token string) grpc.UnaryServerInterceptor {
-	return GRPCUnaryInterceptorWithHook(logger, token, nil)
+// "authorization: Bearer <token>" metadata accepted by v. The token is
+// never logged. Accepted exports carry the token's ID in their context.
+func GRPCUnaryInterceptor(logger *slog.Logger, v Verifier) grpc.UnaryServerInterceptor {
+	return GRPCUnaryInterceptorWithHook(logger, v, nil)
 }
 
 // GRPCUnaryInterceptorWithHook additionally calls onReject once per
 // rejected export, so callers can count transport-level rejections
 // without auth depending on any counter package.
-func GRPCUnaryInterceptorWithHook(logger *slog.Logger, token string, onReject func()) grpc.UnaryServerInterceptor {
+func GRPCUnaryInterceptorWithHook(logger *slog.Logger, v Verifier, onReject func()) grpc.UnaryServerInterceptor {
 	if logger == nil {
 		logger = slog.Default()
 	}
 	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
-		md, _ := metadata.FromIncomingContext(ctx)
-		if bearerValidMD(md, token) {
+		if !v.Required() {
 			return handler(ctx, req)
+		}
+		md, _ := metadata.FromIncomingContext(ctx)
+		if id, ok := bearerValidMD(md, v); ok {
+			return handler(WithTokenID(ctx, id), req)
 		}
 		if onReject != nil {
 			onReject()
@@ -37,11 +41,13 @@ func GRPCUnaryInterceptorWithHook(logger *slog.Logger, token string, onReject fu
 	}
 }
 
-func bearerValidMD(md metadata.MD, token string) bool {
-	for _, v := range md.Get("authorization") {
-		if value, ok := strings.CutPrefix(v, "Bearer "); ok && equalConst(value, token) {
-			return true
+func bearerValidMD(md metadata.MD, v Verifier) (int64, bool) {
+	for _, h := range md.Get("authorization") {
+		if value, ok := strings.CutPrefix(h, "Bearer "); ok {
+			if id, ok := v.Verify(value); ok {
+				return id, true
+			}
 		}
 	}
-	return false
+	return 0, false
 }

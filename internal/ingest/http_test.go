@@ -55,7 +55,7 @@ func TestReceiverAcceptsFixtures(t *testing.T) {
 
 func TestReceiverBearerToken(t *testing.T) {
 	r := NewReceiver(&stubConsumer{}, nil)
-	h := auth.Bearer(nil, "s3cret", r.Handler())
+	h := auth.Bearer(nil, auth.StaticToken("s3cret"), r.Handler())
 	srv := httptest.NewServer(h)
 	defer srv.Close()
 

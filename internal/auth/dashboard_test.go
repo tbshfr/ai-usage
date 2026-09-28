@@ -96,7 +96,7 @@ func TestDashboardCheck(t *testing.T) {
 }
 
 func TestGRPCInterceptor(t *testing.T) {
-	inter := GRPCUnaryInterceptor(testLogger(), "s3cret")
+	inter := GRPCUnaryInterceptor(testLogger(), StaticToken("s3cret"))
 	handler := func(ctx context.Context, req any) (any, error) { return "ok", nil }
 	info := &grpc.UnaryServerInfo{FullMethod: "/test/Export"}
 

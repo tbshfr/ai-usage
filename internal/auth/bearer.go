@@ -10,22 +10,30 @@ import (
 )
 
 // Bearer wraps next so it only answers requests carrying
-// "Authorization: Bearer <token>". The token is never logged.
-func Bearer(logger *slog.Logger, token string, next http.Handler) http.Handler {
-	return BearerWithHook(logger, token, next, nil)
+// "Authorization: Bearer <token>" accepted by v. The token is never logged.
+func Bearer(logger *slog.Logger, v Verifier, next http.Handler) http.Handler {
+	return BearerWithHook(logger, v, next, nil)
 }
 
 // BearerWithHook additionally calls onReject once per rejected request,
 // before the 401 is written, so callers can count transport-level
 // rejections without auth depending on any counter package. The hook runs
 // after the token check fails; it must be cheap and non-blocking.
-func BearerWithHook(logger *slog.Logger, token string, next http.Handler, onReject func()) http.Handler {
+//
+// Accepted requests carry the token's ID in their context (TokenIDFrom).
+// While v does not require authentication, requests pass through
+// unattributed.
+func BearerWithHook(logger *slog.Logger, v Verifier, next http.Handler, onReject func()) http.Handler {
 	if logger == nil {
 		logger = slog.Default()
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if bearerValid(r.Header.Get("Authorization"), token) {
+		if !v.Required() {
 			next.ServeHTTP(w, r)
+			return
+		}
+		if id, ok := bearerValid(r.Header.Get("Authorization"), v); ok {
+			next.ServeHTTP(w, r.WithContext(WithTokenID(r.Context(), id)))
 			return
 		}
 		if onReject != nil {
@@ -37,13 +45,13 @@ func BearerWithHook(logger *slog.Logger, token string, next http.Handler, onReje
 	})
 }
 
-func bearerValid(header, token string) bool {
+func bearerValid(header string, v Verifier) (int64, bool) {
 	const prefix = "Bearer "
 	value, ok := strings.CutPrefix(header, prefix)
 	if !ok {
-		return false
+		return 0, false
 	}
-	return equalConst(value, token)
+	return v.Verify(value)
 }
 
 // equalConst compares two strings without leaking content or length

@@ -44,22 +44,22 @@ func NewReceiver(consumer Consumer, logger *slog.Logger) *Receiver {
 // Handler returns the OTLP/HTTP endpoints: POST /v1/traces, /v1/metrics, /v1/logs.
 func (r *Receiver) Handler() http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST /v1/traces", r.handle("traces", func(b []byte, encoding string) (int, error) {
+	mux.HandleFunc("POST /v1/traces", r.handle("traces", func(ctx context.Context, b []byte, encoding string) (int, error) {
 		td, err := unmarshalTraces(b, encoding)
 		if err != nil {
 			return 0, err
 		}
-		if err := r.consumer.ConsumeTraces(context.Background(), td); err != nil {
+		if err := r.consumer.ConsumeTraces(ctx, td); err != nil {
 			return 0, consumeError{err}
 		}
 		return td.SpanCount(), nil
 	}))
-	mux.HandleFunc("POST /v1/metrics", r.handle("metrics", func(b []byte, encoding string) (int, error) {
+	mux.HandleFunc("POST /v1/metrics", r.handle("metrics", func(ctx context.Context, b []byte, encoding string) (int, error) {
 		md, err := unmarshalMetrics(b, encoding)
 		if err != nil {
 			return 0, err
 		}
-		if err := r.consumer.ConsumeMetrics(context.Background(), md); err != nil {
+		if err := r.consumer.ConsumeMetrics(ctx, md); err != nil {
 			return 0, consumeError{err}
 		}
 		var n int
@@ -70,12 +70,12 @@ func (r *Receiver) Handler() http.Handler {
 		}
 		return n, nil
 	}))
-	mux.HandleFunc("POST /v1/logs", r.handle("logs", func(b []byte, encoding string) (int, error) {
+	mux.HandleFunc("POST /v1/logs", r.handle("logs", func(ctx context.Context, b []byte, encoding string) (int, error) {
 		ld, err := unmarshalLogs(b, encoding)
 		if err != nil {
 			return 0, err
 		}
-		if err := r.consumer.ConsumeLogs(context.Background(), ld); err != nil {
+		if err := r.consumer.ConsumeLogs(ctx, ld); err != nil {
 			return 0, consumeError{err}
 		}
 		return ld.LogRecordCount(), nil
@@ -93,7 +93,7 @@ func (c consumeError) Error() string { return c.err.Error() }
 // gzip payload, so a large or malicious export cannot exhaust memory.
 const maxBodyBytes = 32 << 20
 
-func (r *Receiver) handle(signal string, process func(body []byte, encoding string) (int, error)) http.HandlerFunc {
+func (r *Receiver) handle(signal string, process func(ctx context.Context, body []byte, encoding string) (int, error)) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		reject := func(status int, msg, reason string) {
 			// Count the rejection under its fixed-enum reason so the
@@ -149,7 +149,10 @@ func (r *Receiver) handle(signal string, process func(body []byte, encoding stri
 			reject(http.StatusUnsupportedMediaType, "unsupported content encoding", ReasonBadEncoding)
 			return
 		}
-		n, err := process(body, encoding)
+		// Keep the request's values (the authenticating token ID) but not
+		// its cancellation: a client disconnect must not abort a batch
+		// that is already being stored.
+		n, err := process(context.WithoutCancel(req.Context()), body, encoding)
 		if err != nil {
 			var ce consumeError
 			if errors.As(err, &ce) {

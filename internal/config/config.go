@@ -44,7 +44,7 @@ func Load(args []string, lookup envFunc, goos, homeDir string) (*Config, error) 
 	logLevel := fs.String("log-level", "", "log level (debug|info|warn|error)")
 	dashUser := fs.String("dashboard-user", "", "dashboard login username (required for non-loopback binds)")
 	dashPass := fs.String("dashboard-password", "", "dashboard login password (required for non-loopback binds)")
-	otlpToken := fs.String("otlp-token", "", "bearer token OTLP clients must send (required for non-loopback binds)")
+	otlpToken := fs.String("otlp-token", "", "bearer token imported once as the \"default\" API token; manage tokens on the dashboard's Tokens page")
 
 	backupBucket := fs.String("backup-s3-bucket", "", "backup bucket (empty disables backups)")
 	backupRegion := fs.String("backup-s3-region", "", "backup region (auto for R2)")
@@ -167,17 +167,25 @@ func (c *Config) validateAuth() error {
 			return err
 		}
 	}
-	if c.OTLPHTTPAddr != "" && c.OTLPToken == "" {
-		if err := requireLoopback(c.OTLPHTTPAddr, "--otlp-http", "AI_USAGE_OTLP_TOKEN (or --otlp-token)"); err != nil {
-			return err
+	// OTLP listeners need no credentials here: API tokens live in the
+	// database, and non-loopback listeners reject every export until one
+	// exists (see auth.TokenStore.ForListener).
+	for name, addr := range map[string]string{"--otlp-http": c.OTLPHTTPAddr, "--otlp-grpc": c.OTLPGRPCAddr} {
+		if addr == "" {
+			continue
 		}
-	}
-	if c.OTLPGRPCAddr != "" && c.OTLPToken == "" {
-		if err := requireLoopback(c.OTLPGRPCAddr, "--otlp-grpc", "AI_USAGE_OTLP_TOKEN (or --otlp-token)"); err != nil {
-			return err
+		if _, err := isLoopbackAddr(addr); err != nil {
+			return fmt.Errorf("invalid %s %q: %w", name, addr, err)
 		}
 	}
 	return nil
+}
+
+// PublicAddr reports whether addr binds beyond loopback. Such listeners
+// always require authentication. Addresses are validated by Load.
+func PublicAddr(addr string) bool {
+	loop, err := isLoopbackAddr(addr)
+	return err != nil || !loop
 }
 
 func (c *Config) DashboardAuthEnabled() bool {

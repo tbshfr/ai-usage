@@ -55,6 +55,9 @@ type Generation struct {
 	// ReasoningEffort is the reasoning-effort setting the harness reported
 	// for the call, such as "medium". Empty when the source does not report it.
 	ReasoningEffort string
+	// TokenID is the api_tokens row that authenticated the export; 0 when
+	// the export was unauthenticated (loopback without tokens).
+	TokenID int64
 }
 
 // UncachedInput returns the canonical prompt input with cached tokens

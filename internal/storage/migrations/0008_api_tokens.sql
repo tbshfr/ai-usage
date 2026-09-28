@@ -12,6 +12,15 @@ CREATE TABLE api_tokens (
     revoked_at INTEGER                   -- unix milliseconds, NULL while active
 );
 
+-- Hashes replaced by a regenerate. They never authenticate again, but the
+-- configured-token import still recognizes them, so regenerating the
+-- imported token does not re-import the old value on the next start.
+CREATE TABLE api_token_retired_hashes (
+    token_hash BLOB PRIMARY KEY,
+    token_id INTEGER NOT NULL,
+    retired_at INTEGER NOT NULL          -- unix milliseconds
+);
+
 -- Token that authenticated the export. NULL for unauthenticated loopback
 -- ingestion and rows stored before tokens were tracked.
 ALTER TABLE generations ADD COLUMN token_id INTEGER;

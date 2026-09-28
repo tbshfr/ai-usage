@@ -146,14 +146,21 @@ type listenerVerifier struct {
 func (l listenerVerifier) Verify(token string) (int64, bool) { return l.store.Verify(token) }
 func (l listenerVerifier) Required() bool                    { return l.public || l.store.HasTokens() }
 
+func newSecret() (string, error) {
+	buf := make([]byte, 32)
+	if _, err := rand.Read(buf); err != nil {
+		return "", err
+	}
+	return tokenPrefix + base64.RawURLEncoding.EncodeToString(buf), nil
+}
+
 // Create generates a new token, stores its hash and returns the plaintext,
 // which is not retrievable afterwards.
 func (s *TokenStore) Create(ctx context.Context, name, group string) (string, int64, error) {
-	buf := make([]byte, 32)
-	if _, err := rand.Read(buf); err != nil {
+	plain, err := newSecret()
+	if err != nil {
 		return "", 0, err
 	}
-	plain := tokenPrefix + base64.RawURLEncoding.EncodeToString(buf)
 	id, err := storage.CreateToken(ctx, s.db, name, group, sha256.Sum256([]byte(plain)), tokenHint(plain))
 	if err != nil {
 		return "", 0, err
@@ -167,6 +174,24 @@ func (s *TokenStore) Revoke(ctx context.Context, id int64) error {
 		return err
 	}
 	return s.Reload(ctx)
+}
+
+// Regenerate gives an existing (possibly revoked) token a new secret and
+// returns the plaintext. The old secret stops authenticating immediately;
+// the token keeps its ID and attributed usage.
+func (s *TokenStore) Regenerate(ctx context.Context, id int64) (string, error) {
+	plain, err := newSecret()
+	if err != nil {
+		return "", err
+	}
+	if err := storage.RegenerateToken(ctx, s.db, id, sha256.Sum256([]byte(plain)), tokenHint(plain)); err != nil {
+		return "", err
+	}
+	// Drop a pending last-used time recorded under the old secret.
+	s.usedMu.Lock()
+	delete(s.used, id)
+	s.usedMu.Unlock()
+	return plain, s.Reload(ctx)
 }
 
 // Seed imports a configured (env/flag) token; see storage.SeedToken.

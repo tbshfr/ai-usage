@@ -79,9 +79,12 @@ token that sent it, so the dashboard, breakdowns and JSON API can be filtered
 by group (`group=private`) or by a single token (`token=<id>`). Usage received
 without a token is available as `token=none`.
 
-Tokens can be renamed, moved to another group or revoked. A revoked token stops
-authenticating immediately, but keeps its name and group so past usage stays
-attributed.
+Tokens can be renamed, moved to another group, regenerated or revoked.
+Regenerating issues a new secret for the same token: the old secret stops
+working immediately, and the token keeps its name, group and usage history.
+On a revoked token the same action (**Reactivate**) makes it active again with
+a new secret. A revoked token stops authenticating immediately, but keeps its
+name and group so past usage stays attributed.
 
 When a token is required:
 
@@ -93,7 +96,8 @@ When a token is required:
 
 `--otlp-token` / `AI_USAGE_OTLP_TOKEN` is optional. When set, the value is
 imported at startup as an API token named `default` in group `default`, unless
-it is already known (including as a revoked token, so a revocation sticks).
+it is already known (including as a revoked or regenerated token, so either
+change sticks).
 If it is the first token, all previously stored usage is attributed to it. It
 is then managed on the Tokens page like any other token.
 

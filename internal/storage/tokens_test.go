@@ -165,6 +165,61 @@ func TestSeedToken(t *testing.T) {
 	}
 }
 
+func TestRegenerateToken(t *testing.T) {
+	ctx := context.Background()
+	db := seedtest.EmptyDB(t)
+	oldHash := sha256.Sum256([]byte("old"))
+	id, err := storage.SeedToken(ctx, db, oldHash, "")
+	if err != nil || !id {
+		t.Fatalf("seed = %v, %v", id, err)
+	}
+	tokens, err := storage.ListTokens(ctx, db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tokenID := tokens[0].ID
+	if _, err := storage.InsertGenerations(ctx, db, []normalize.Generation{{ID: "a", Timestamp: time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC), Source: "opencode", TokenID: tokenID}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := storage.RevokeToken(ctx, db, tokenID); err != nil {
+		t.Fatal(err)
+	}
+	newHash := sha256.Sum256([]byte("new"))
+	if err := storage.RegenerateToken(ctx, db, tokenID, newHash, "hint"); err != nil {
+		t.Fatal(err)
+	}
+	if err := storage.RegenerateToken(ctx, db, 999, sha256.Sum256([]byte("x")), ""); !errors.Is(err, storage.ErrTokenNotFound) {
+		t.Errorf("regenerate missing = %v, want ErrTokenNotFound", err)
+	}
+
+	tokens, err = storage.ListTokens(ctx, db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tokens) != 1 || tokens[0].ID != tokenID || !tokens[0].Active() || tokens[0].Hint != "hint" || tokens[0].Label() != "default / default" {
+		t.Errorf("regenerated token = %+v", tokens)
+	}
+	hashes, _, err := storage.TokenHashes(ctx, db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hashes[newHash] != tokenID || hashes[oldHash] != 0 {
+		t.Errorf("hashes = %v, want only the new secret", hashes)
+	}
+	// Usage stays attributed to the same token.
+	s, err := storage.Summary(ctx, db, withToken(seedtest.FullRange(), strconv.FormatInt(tokenID, 10)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Requests != 1 {
+		t.Errorf("requests after regenerate = %d, want 1", s.Requests)
+	}
+	// The retired configured token is not imported again.
+	if inserted, err := storage.SeedToken(ctx, db, oldHash, ""); err != nil || inserted {
+		t.Errorf("seed retired hash = %v, %v; want no-op", inserted, err)
+	}
+}
+
 func withToken(f storage.Filter, token string) storage.Filter {
 	f.Token = token
 	return f

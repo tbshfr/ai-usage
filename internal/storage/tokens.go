@@ -118,6 +118,30 @@ func RevokeToken(ctx context.Context, db *sql.DB, id int64) error {
 	return requireRow(res)
 }
 
+// RegenerateToken replaces a token's secret, keeping its ID, name, group
+// and attributed usage. The old hash stops authenticating and is retired
+// (see SeedToken). A revoked token becomes active again.
+func RegenerateToken(ctx context.Context, db *sql.DB, id int64, hash [32]byte, hint string) error {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	now := time.Now().UnixMilli()
+	if _, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO api_token_retired_hashes (token_hash, token_id, retired_at)
+SELECT token_hash, id, ? FROM api_tokens WHERE id = ?`, now, id); err != nil {
+		return fmt.Errorf("retire token hash: %w", err)
+	}
+	res, err := tx.ExecContext(ctx, `UPDATE api_tokens SET token_hash = ?, hint = ?, revoked_at = NULL, last_used_at = NULL WHERE id = ?`, hash[:], hint, id)
+	if err != nil {
+		return fmt.Errorf("regenerate token: %w", err)
+	}
+	if err := requireRow(res); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 func requireRow(res sql.Result) error {
 	n, err := res.RowsAffected()
 	if err != nil {
@@ -173,10 +197,11 @@ func TouchTokens(ctx context.Context, db *sql.DB, used map[int64]time.Time) erro
 }
 
 // SeedToken inserts the configured (env/flag) token as "default/default"
-// unless its hash is already known, including as a revoked token, so a
-// revocation in the UI survives restarts. When it is the very first token,
-// all previously unattributed generations are assigned to it: before
-// tokens were tracked, every authenticated export used this token.
+// unless its hash is already known, including as a revoked or regenerated
+// token, so a revocation or regeneration in the UI survives restarts. When
+// it is the very first token, all previously unattributed generations are
+// assigned to it: before tokens were tracked, every authenticated export
+// used this token.
 // Reports whether a row was inserted.
 func SeedToken(ctx context.Context, db *sql.DB, hash [32]byte, hint string) (bool, error) {
 	tx, err := db.BeginTx(ctx, nil)
@@ -185,7 +210,8 @@ func SeedToken(ctx context.Context, db *sql.DB, hash [32]byte, hint string) (boo
 	}
 	defer tx.Rollback()
 	var exists bool
-	if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM api_tokens WHERE token_hash = ?)`, hash[:]).Scan(&exists); err != nil {
+	if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM api_tokens WHERE token_hash = ?1)
+	OR EXISTS(SELECT 1 FROM api_token_retired_hashes WHERE token_hash = ?1)`, hash[:]).Scan(&exists); err != nil {
 		return false, fmt.Errorf("seed token lookup: %w", err)
 	}
 	if exists {

@@ -25,8 +25,9 @@ type tokensView struct {
 }
 
 type createdToken struct {
-	Plain string
-	Label string
+	Plain       string
+	Label       string
+	Regenerated bool // an existing token got a new secret
 }
 
 // tokenForm echoes the create form's values after a validation error.
@@ -213,6 +214,37 @@ func (s *server) tokenRevoke(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, "/tokens", http.StatusSeeOther)
+}
+
+func (s *server) tokenRegenerate(w http.ResponseWriter, r *http.Request) {
+	id, ok := tokenIDParam(w, r)
+	if !ok {
+		return
+	}
+	store, err := s.tokenStore(r.Context())
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	plain, err := store.Regenerate(r.Context(), id)
+	if err != nil {
+		tokenErr(w, r, err)
+		return
+	}
+	tokens, err := storage.ListTokens(r.Context(), s.db)
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	var label string
+	for _, t := range tokens {
+		if t.ID == id {
+			label = t.Label()
+		}
+	}
+	// The plaintext appears only in this response; never cache it.
+	w.Header().Set("Cache-Control", "no-store")
+	s.renderTokens(w, r, http.StatusOK, &createdToken{Plain: plain, Label: label, Regenerated: true}, tokenForm{}, "")
 }
 
 func tokenIDParam(w http.ResponseWriter, r *http.Request) (int64, bool) {

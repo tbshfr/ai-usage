@@ -85,6 +85,7 @@ func newMux(db *sql.DB, stats func() ingest.Stats, reasons func() ingest.ReasonC
 	mux.HandleFunc("POST /tokens", s.tokenCreate)
 	mux.HandleFunc("POST /tokens/{id}", s.tokenUpdate)
 	mux.HandleFunc("POST /tokens/{id}/revoke", s.tokenRevoke)
+	mux.HandleFunc("POST /tokens/{id}/regenerate", s.tokenRegenerate)
 	mux.HandleFunc("GET /generations", s.redirectSessions)
 	mux.HandleFunc("GET /generations/{id}", s.detail)
 	mux.HandleFunc("GET /events", s.serveEvents)

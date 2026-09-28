@@ -85,6 +85,28 @@ func TestTokensPageLifecycle(t *testing.T) {
 	_, body = get(t, srv.URL+"/tokens")
 	wantContains(t, body, "laptop2", "/?group=home", "(revoked ")
 
+	status, body, resp = postForm(t, srv, idPath+"/regenerate", nil, nil)
+	if status != http.StatusOK {
+		t.Fatalf("regenerate = %d: %s", status, body)
+	}
+	if resp.Header.Get("Cache-Control") != "no-store" {
+		t.Errorf("regenerate Cache-Control = %q, want no-store", resp.Header.Get("Cache-Control"))
+	}
+	wantContains(t, body, "New secret for home / laptop2")
+	fresh := plainTokenRE.FindString(body)
+	if fresh == "" || fresh == plain {
+		t.Fatal("regenerate response does not show a new secret")
+	}
+	if got, ok := store.Verify(fresh); !ok || got != id {
+		t.Errorf("regenerated secret verify = %d, %v; want %d", got, ok, id)
+	}
+	if _, ok := store.Verify(plain); ok {
+		t.Error("old secret still authenticates after regenerate")
+	}
+	if status, _, _ := postForm(t, srv, "/tokens/999/regenerate", nil, nil); status != http.StatusNotFound {
+		t.Errorf("regenerate missing = %d, want 404", status)
+	}
+
 	if status, _, _ := postForm(t, srv, "/tokens/999/revoke", nil, nil); status != http.StatusNotFound {
 		t.Errorf("revoke missing = %d, want 404", status)
 	}

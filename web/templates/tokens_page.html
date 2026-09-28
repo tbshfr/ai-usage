@@ -5,8 +5,8 @@
 {{with .Error}}<p class="token-error" role="alert">{{.}}</p>{{end}}
 
 {{with .Tokens.Created}}<section class="panel token-created" aria-live="polite">
-  <h3>Token created: {{.Label}}</h3>
-  <p>Copy it now. It is shown only once and cannot be recovered later.</p>
+  <h3>{{if .Regenerated}}New secret for {{.Label}}{{else}}Token created: {{.Label}}{{end}}</h3>
+  <p>Copy it now. It is shown only once and cannot be recovered later.{{if .Regenerated}} The previous secret no longer works; update every client that used it.{{end}}</p>
   <div class="token-secret">
     <code>{{.Plain}}</code>
     <button type="button" data-copy="{{.Plain}}">Copy</button>
@@ -59,6 +59,13 @@
               <input type="text" name="name" value="{{.Name}}" maxlength="64" required aria-label="Name" autocomplete="off">
               <input type="text" name="group" value="{{.Group}}" maxlength="64" list="token-groups" aria-label="Group" autocomplete="off">
               <button type="submit">Save</button>
+            </form>
+          </details>
+          <details>
+            <summary>{{if .Active}}Regenerate{{else}}Reactivate{{end}}</summary>
+            <form method="post" action="/tokens/{{.ID}}/regenerate" class="token-edit">
+              <span class="muted">{{if .Active}}Issues a new secret; the current one stops working. Usage history is kept.{{else}}Issues a new secret and makes the token active again. Usage history is kept.{{end}}</span>
+              <button type="submit">{{if .Active}}Regenerate{{else}}Reactivate{{end}} {{.Name}}</button>
             </form>
           </details>
           {{if .Active}}<details>

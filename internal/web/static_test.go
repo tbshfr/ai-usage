@@ -9,7 +9,7 @@ import (
 
 func TestStaticCaching(t *testing.T) {
 	handler := staticHandler()
-	for _, name := range []string{"app.css", "app.js", "vendor/htmx.min.js", "vendor/hx-sse.min.js", "vendor/uplot.min.js", "vendor/uplot.min.css"} {
+	for _, name := range []string{"app.css", "app.js", "theme.js", "tokens.css", "interface.css", "vendor/htmx.min.js", "vendor/hx-sse.min.js", "vendor/uplot.min.js", "vendor/uplot.min.css"} {
 		for _, target := range []string{staticURL(name), "/static/" + name, "/static/" + name + "?v=old"} {
 			t.Run(target, func(t *testing.T) {
 				first := httptest.NewRecorder()

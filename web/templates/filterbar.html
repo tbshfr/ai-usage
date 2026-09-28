@@ -1,6 +1,6 @@
 {{define "filterbar"}}
 {{if .F.Collapsible}}<details class="filter-settings">
-  <summary>Filters{{if .F.ShowPeriodMode}} &amp; period{{end}}</summary>{{end}}
+  <summary>{{template "icon" "filter"}}<span>Filters{{if .F.ShowPeriodMode}} &amp; period{{end}}</span></summary>{{end}}
 <form id="filter-bar" method="get" action="{{.F.Action}}" class="filterbar">
   {{if .F.Presets}}<span class="presets">
     {{range .F.Presets}}<a href="{{.URL}}"{{if .Active}} class="active"{{end}}>{{.Label}}</a>{{end}}

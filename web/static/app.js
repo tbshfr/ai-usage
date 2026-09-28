@@ -1,4 +1,11 @@
-const PALETTE = ['#c96f4a', '#dfa14f', '#7d9b76', '#b06a6a', '#8b7d9b', '#a89f91'];
+function chartColors() {
+  const style = getComputedStyle(document.documentElement);
+  return {
+    palette: Array.from({ length: 6 }, (_, i) => style.getPropertyValue(`--color-chart-${i + 1}`).trim()),
+    muted: style.getPropertyValue('--muted').trim(),
+    border: style.getPropertyValue('--border').trim(),
+  };
+}
 
 // Live chart instances; stale ones (htmx-swapped away) are pruned on resize.
 const charts = [];
@@ -45,6 +52,7 @@ function syncTokenFilter(form) {
     option.disabled = !eligible;
   }
   if (tokens.selectedOptions[0]?.disabled) tokens.value = '';
+  tokens.syncCustomSelect?.();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -169,7 +177,17 @@ document.addEventListener('htmx:beforeSwap', hideHeatmapTooltip);
 function setNavOpen(open) {
   const nav = document.getElementById('site-nav');
   if (!nav) return;
+  const wasOpen = nav.classList.contains('open');
   nav.classList.toggle('open', open);
+  document.querySelector('main').inert = open;
+  document.querySelector('.app-footer').inert = open;
+  if (open) {
+    lockPageScroll();
+    nav.querySelector('.nav-close').focus();
+  } else if (wasOpen) {
+    unlockPageScroll();
+    document.querySelector('.menu-toggle')?.focus();
+  }
   const overlay = document.querySelector('.nav-overlay');
   if (overlay) overlay.classList.toggle('open', open);
   const toggle = document.querySelector('.menu-toggle');
@@ -234,20 +252,32 @@ document.addEventListener('click', e => {
 
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') setNavOpen(false);
+  const nav = document.querySelector('#site-nav.open');
+  if (e.key === 'Tab' && nav) {
+    const controls = [...nav.querySelectorAll('a, button')].filter(el => el.getClientRects().length);
+    const first = controls[0], last = controls[controls.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }
 });
 
 document.addEventListener('htmx:after:settle', e => openSwappedDialog(e.target));
 
+window.matchMedia('(min-width: 769px)').addEventListener('change', event => {
+  if (event.matches) setNavOpen(false);
+});
+
 function renderChart(id, d) {
   const el = document.getElementById(id);
   if (!el || !window.uPlot || !d || !d.labels || !d.labels.length) return;
+  const colors = chartColors();
   const xs = d.labels.map(ms => ms / 1000);
   const rows = [xs].concat(d.series.map(s => s.values));
   const isPct = d.series.some(s => s.fmt === 'pct');
   const isCost = d.series.some(s => s.fmt === 'cost');
   const series = [{ label: 'Date' }].concat(d.series.map((s, i) => ({
     label: s.name,
-    stroke: PALETTE[i % PALETTE.length],
+    stroke: colors.palette[i % colors.palette.length],
     width: 2,
     spanGaps: s.spanGaps === true,
     points: { show: d.labels.length < 40 || s.values.filter(v => v != null).length === 1 },
@@ -274,14 +304,14 @@ function renderChart(id, d) {
     scales,
     axes: [
       {
-        stroke: '#94836f',
-        grid: { stroke: 'rgba(233,220,203,0.6)' },
-        ticks: { stroke: 'rgba(233,220,203,0.9)' },
+        stroke: colors.muted,
+        grid: { stroke: colors.border },
+        ticks: { stroke: colors.border },
       },
       {
-        stroke: '#94836f',
-        grid: { stroke: 'rgba(233,220,203,0.6)' },
-        ticks: { stroke: 'rgba(233,220,203,0.9)' },
+        stroke: colors.muted,
+        grid: { stroke: colors.border },
+        ticks: { stroke: colors.border },
         values: (u, vs) => vs.map(v => v == null ? '' : (isPct ? v + '%' : isCost ? formatCostAxis(v) : abbrev(v))),
       },
     ],
@@ -293,8 +323,17 @@ function renderChart(id, d) {
   for (let i = charts.length - 1; i >= 0; i--) {
     if (!charts[i].el.isConnected) charts.splice(i, 1);
   }
-  charts.push({ u, el });
+  charts.push({ u, el, id, data: d });
 }
+
+// Canvas charts need a redraw when appearance changes, including system mode.
+document.addEventListener('appearancechange', () => {
+  const previous = charts.splice(0);
+  for (const chart of previous) {
+    chart.u.destroy();
+    if (chart.el.isConnected) renderChart(chart.id, chart.data);
+  }
+});
 
 let resizeRAF = 0;
 window.addEventListener('resize', () => {
@@ -446,16 +485,7 @@ function initTokenGroups() {
       input.removeAttribute('aria-activedescendant');
       selected = -1;
     };
-    const position = () => {
-      const rect = input.getBoundingClientRect();
-      const below = window.innerHeight - rect.bottom - 12;
-      const above = rect.top - 12;
-      const useAbove = below < 160 && above > below;
-      list.style.width = `${rect.width}px`;
-      list.style.maxHeight = `${Math.max(0, Math.min(192, useAbove ? above : below))}px`;
-      list.style.left = `${rect.left}px`;
-      list.style.top = `${useAbove ? rect.top - list.getBoundingClientRect().height - 4 : rect.bottom + 4}px`;
-    };
+    const position = () => positionDropdown(input, list);
     const open = (filter = false) => {
       matches = groups.filter(group => !filter || group.toLocaleLowerCase().includes(input.value.toLocaleLowerCase()));
       selected = -1;
@@ -512,3 +542,160 @@ function initTokenGroups() {
   });
 }
 document.addEventListener('DOMContentLoaded', initTokenGroups);
+
+// Shared geometry for the token-group combobox and all custom select menus.
+function positionDropdown(control, list) {
+  const rect = control.getBoundingClientRect();
+  const below = window.innerHeight - rect.bottom - 12;
+  const above = rect.top - 12;
+  const useAbove = below < 160 && above > below;
+  const width = Math.min(Math.max(rect.width, 180), window.innerWidth - 24);
+  list.style.width = `${width}px`;
+  list.style.maxHeight = `${Math.max(0, Math.min(256, useAbove ? above : below))}px`;
+  list.style.left = `${Math.max(12, Math.min(rect.left, window.innerWidth - width - 12))}px`;
+  list.style.top = `${useAbove ? rect.top - list.getBoundingClientRect().height - 4 : rect.bottom + 4}px`;
+}
+
+const customSelects = new Map();
+let openSelect = null;
+let selectSequence = 0;
+function initCustomSelects() {
+  for (const [select, state] of customSelects) {
+    if (!select.isConnected) { state.close(); state.observer.disconnect(); customSelects.delete(select); }
+  }
+  document.querySelectorAll('select').forEach(select => {
+    if (customSelects.has(select)) return;
+    const wrapper = document.createElement('div');
+    wrapper.className = 'custom-select';
+    select.before(wrapper);
+    wrapper.append(select);
+    const trigger = document.createElement('button');
+    trigger.type = 'button';
+    trigger.className = 'custom-select-trigger';
+    trigger.setAttribute('role', 'combobox');
+    trigger.setAttribute('aria-haspopup', 'listbox');
+    trigger.setAttribute('aria-expanded', 'false');
+    trigger.setAttribute('aria-label', select.getAttribute('aria-label') || select.name);
+    const label = document.createElement('span');
+    label.className = 'custom-select-label';
+    const chevron = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    chevron.setAttribute('width', '16'); chevron.setAttribute('height', '16'); chevron.setAttribute('viewBox', '0 0 24 24'); chevron.setAttribute('fill', 'none'); chevron.setAttribute('stroke', 'currentColor'); chevron.setAttribute('stroke-width', '1.7'); chevron.setAttribute('aria-hidden', 'true');
+    const chevronPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    chevronPath.setAttribute('d', 'm6 9 6 6 6-6'); chevron.append(chevronPath);
+    trigger.append(label, chevron);
+    const list = document.createElement('div');
+    list.id = `select-options-${++selectSequence}`;
+    list.className = 'token-group-options custom-select-options';
+    list.setAttribute('popover', 'manual');
+    list.setAttribute('role', 'listbox');
+    list.setAttribute('aria-label', trigger.getAttribute('aria-label'));
+    trigger.setAttribute('aria-controls', list.id);
+    label.id = `${list.id}-value`;
+    trigger.setAttribute('aria-describedby', label.id);
+    wrapper.append(trigger, list);
+    // Keep the original form control for HTMX serialization and eligibility.
+    // It is hidden and never opens the browser's native picker.
+    select.hidden = true;
+    select.classList.add('custom-select-source');
+    let choices = [], active = -1, search = '', searchTimer;
+    const state = { wrapper, list, close, sync, observer: new MutationObserver(sync) };
+    function close() {
+      if (list.matches(':popover-open')) list.hidePopover();
+      trigger.setAttribute('aria-expanded', 'false');
+      trigger.removeAttribute('aria-activedescendant');
+      if (openSelect === state) openSelect = null;
+      clearTimeout(searchTimer); search = '';
+    }
+    function highlight(index) {
+      active = index;
+      [...list.children].forEach((option, i) => option.classList.toggle('is-highlighted', i === index));
+      if (list.children[index]) {
+        trigger.setAttribute('aria-activedescendant', list.children[index].id);
+        list.children[index].scrollIntoView({ block: 'nearest' });
+      }
+    }
+    function sync() {
+      label.textContent = select.selectedOptions[0]?.textContent || 'Choose an option';
+      trigger.disabled = select.disabled;
+      if (openSelect === state) renderOptions();
+    }
+    function renderOptions() {
+      choices = [...select.options].filter(option => !option.hidden && !option.disabled);
+      list.replaceChildren(...choices.map((source, index) => {
+        const option = document.createElement('div');
+        option.id = `${list.id}-${index}`;
+        option.className = 'token-group-option custom-select-option';
+        option.setAttribute('role', 'option');
+        option.setAttribute('aria-selected', String(source.selected));
+        option.textContent = source.textContent;
+        option.addEventListener('pointerdown', event => event.preventDefault());
+        option.addEventListener('pointermove', () => highlight(index));
+        option.addEventListener('click', () => choose(index));
+        return option;
+      }));
+      active = choices.findIndex(option => option.selected);
+    }
+    function open() {
+      if (trigger.disabled) return;
+      openSelect?.close();
+      renderOptions();
+      if (!choices.length) return;
+      list.showPopover();
+      openSelect = state;
+      trigger.setAttribute('aria-expanded', 'true');
+      positionDropdown(trigger, list);
+      if (active >= 0) highlight(active);
+    }
+    function choose(index) {
+      if (!choices[index]) return;
+      select.value = choices[index].value;
+      close();
+      sync();
+      trigger.focus({ preventScroll: true });
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    trigger.addEventListener('click', () => openSelect === state ? close() : open());
+    trigger.addEventListener('keydown', event => {
+      const isOpen = openSelect === state;
+      if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+        event.preventDefault();
+        if (!isOpen) open();
+        if (!choices.length) return;
+        if (event.key === 'Home') highlight(0);
+        else if (event.key === 'End') highlight(choices.length - 1);
+        else highlight((active + (event.key === 'ArrowDown' ? 1 : -1) + choices.length) % choices.length);
+      } else if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        if (isOpen) choose(active); else open();
+      } else if (event.key === 'Escape' && isOpen) {
+        event.preventDefault(); event.stopPropagation(); close();
+      } else if (event.key === 'Tab') close();
+      else if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        event.preventDefault();
+        if (!isOpen) open();
+        clearTimeout(searchTimer);
+        search += event.key.toLocaleLowerCase();
+        let index = choices.findIndex(option => option.textContent.toLocaleLowerCase().startsWith(search));
+        if (index < 0) { search = event.key.toLocaleLowerCase(); index = choices.findIndex(option => option.textContent.toLocaleLowerCase().startsWith(search)); }
+        if (index >= 0) highlight(index);
+        searchTimer = setTimeout(() => { search = ''; }, 700);
+      }
+    });
+    trigger.addEventListener('blur', close);
+    select.addEventListener('change', sync);
+    select.syncCustomSelect = sync;
+    state.observer.observe(select, { subtree: true, childList: true, attributes: true });
+    customSelects.set(select, state);
+    sync();
+  });
+}
+document.addEventListener('DOMContentLoaded', initCustomSelects);
+document.addEventListener('htmx:after:settle', initCustomSelects);
+document.addEventListener('htmx:beforeSwap', () => openSelect?.close());
+document.addEventListener('pointerdown', event => {
+  if (openSelect && !openSelect.wrapper.contains(event.target)) openSelect.close();
+});
+document.addEventListener('scroll', event => {
+  if (openSelect && !openSelect.list.contains(event.target)) openSelect.close();
+}, true);
+window.addEventListener('resize', () => openSelect?.close());

@@ -1,4 +1,17 @@
 {{define "dashboard-stats"}}
+<div class="summary-grid">
+  {{range .Cards}}
+  <button class="stat-card{{if .Hero}} hero{{end}}" hx-get="/fragments/period-detail?period={{.Period}}" hx-target="#period-detail" hx-include="#filter-bar" title="Show details">
+    <div class="stat-top"><span class="stat-label">{{.Label}}</span><svg class="stat-arrow icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></div>
+    <div class="stat-mid">{{commas .S.TotalTokens}}</div>
+    <div class="stat-unit muted">{{if .Since}}tokens since {{utcDate .Since}}{{else if .Hero}}tokens today{{else}}tokens{{end}}</div>
+    <div class="stat-foot">
+      <span class="badge badge-cache" title="Cache hit rate">hit {{pct .S.CacheHitRate}}</span>
+      <span class="muted">{{commas .S.Requests}} requests</span>
+    </div>
+  </button>
+  {{end}}
+</div>
 <section class="heatmap-panel" aria-labelledby="activity-title">
   <div class="heatmap-head">
     <div><h2 id="activity-title">Daily activity</h2><p class="muted">Tokens per UTC day over the last year</p></div>
@@ -21,37 +34,6 @@
   </div>
   <div class="heatmap-legend muted" aria-label="Activity scale">Less <i class="level-0"></i><i class="level-1"></i><i class="level-2"></i><i class="level-3"></i><i class="level-4"></i> More</div>
 </section>
-<div class="hero-row">
-  {{range .Cards}}{{if .Hero}}
-  <button class="stat-card hero" hx-get="/fragments/period-detail?period={{.Period}}" hx-target="#period-detail" hx-include="#filter-bar" title="Show details">
-    <div class="stat-top">
-      <span class="stat-label">{{.Label}}</span>
-      <span class="badge badge-cache" title="Cache hit rate">cache hit {{pct .S.CacheHitRate}}</span>
-    </div>
-    <div class="stat-big">{{commas .S.TotalTokens}}</div>
-    <div class="stat-unit muted">tokens today</div>
-    <div class="stat-breakdown">
-      <span><b>{{commas .S.InputTokens}}</b> input</span>
-      <span><b>{{commas .S.OutputTokens}}</b> output</span>
-      <span><b>{{commas .S.CacheReadTokens}}</b> cached</span>
-    </div>
-    <div class="stat-foot muted">{{commas .S.Requests}} requests &middot; click for details</div>
-  </button>
-  {{end}}{{end}}
-</div>
-<div class="period-cards">
-  {{range .Cards}}{{if not .Hero}}
-  <button class="stat-card" hx-get="/fragments/period-detail?period={{.Period}}" hx-target="#period-detail" hx-include="#filter-bar" title="Show details">
-    <div class="stat-top"><span class="stat-label">{{.Label}}</span></div>
-    <div class="stat-mid">{{commas .S.TotalTokens}}</div>
-    <div class="stat-unit muted">{{if .Since}}tokens since {{utcDate .Since}}{{else}}tokens{{end}}</div>
-    <div class="stat-foot">
-      <span class="badge badge-cache">hit {{pct .S.CacheHitRate}}</span>
-      <span class="muted">{{commas .S.Requests}} requests</span>
-    </div>
-  </button>
-  {{end}}{{end}}
-</div>
 {{end}}
 
 {{define "period-detail"}}
@@ -70,7 +52,10 @@
     <div><dt>Cache creation</dt><dd>{{tokens .Detail.S.CacheCreationTokens}}</dd></div>
     <div><dt>Cache hit rate</dt><dd>{{pct .Detail.S.CacheHitRate}}</dd></div>
     {{if .Detail.Since}}<div><dt>Since</dt><dd>{{utcDate .Detail.Since}}</dd></div>{{end}}
-    <div><dt>Cost</dt><dd>{{costLine .Detail.S.CostKnownCount .Detail.S.CostUnknownCount .Detail.S.CostTotal .Detail.S.CostEstimatedCount}}</dd></div>
+    <div><dt>Cost</dt><dd><details class="cost-details">
+      <summary aria-label="Cost details">{{if .Detail.S.CostKnownCount}}≈ {{cost .Detail.S.CostTotal}}{{else}}—{{end}}</summary>
+      <p>{{costLine .Detail.S.CostKnownCount .Detail.S.CostUnknownCount .Detail.S.CostTotal .Detail.S.CostEstimatedCount}}</p>
+    </details></dd></div>
   </dl>
 </section>
 {{end}}

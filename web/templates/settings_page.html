@@ -1,0 +1,14 @@
+{{define "content"}}
+<section class="settings-section" aria-labelledby="appearance-heading">
+  <div class="settings-description"><h2 id="appearance-heading">Appearance</h2><p class="muted">Choose a theme and an accent color. System follows your device’s light or dark preference.</p><p class="muted">These preferences stay in this browser.</p></div>
+  <div class="settings-surface">{{template "appearance" .}}</div>
+</section>
+<section class="settings-section" aria-labelledby="connections-heading">
+  <div class="settings-description"><h2 id="connections-heading">Connections &amp; diagnostics</h2><p class="muted">Connect your coding tools, manage receiver access, and check that telemetry is arriving.</p></div>
+  <div class="settings-links">
+    <a href="/tokens" class="settings-link">{{template "icon" "tokens"}}<div><h3>OTLP tokens</h3><p>Create tokens, organize groups, and manage client access.</p></div>{{template "icon" "arrow"}}</a>
+    <a href="/setup" class="settings-link">{{template "icon" "setup"}}<div><h3>Client setup</h3><p>Configuration instructions for your AI coding tools.</p></div>{{template "icon" "arrow"}}</a>
+    <a href="/stats" class="settings-link">{{template "icon" "trends"}}<div><h3>Ingestion stats</h3><p>Inspect received telemetry, duplicates, and errors.</p></div>{{template "icon" "arrow"}}</a>
+  </div>
+</section>
+{{end}}

@@ -45,7 +45,7 @@ func TestTokensPageLifecycle(t *testing.T) {
 	if status != http.StatusOK {
 		t.Fatalf("GET /tokens = %d", status)
 	}
-	wantContains(t, body, "No tokens yet", `href="/tokens" class="active"`)
+	wantContains(t, body, "No tokens yet", `href="/tokens" aria-current="page"`)
 
 	status, body, resp := postForm(t, srv, "/tokens", url.Values{"name": {"laptop"}, "group": {"work"}}, nil)
 	if status != http.StatusCreated {

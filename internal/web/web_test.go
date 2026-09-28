@@ -216,7 +216,7 @@ func TestFooterShowsVersion(t *testing.T) {
 	if status != http.StatusOK {
 		t.Fatalf("status %d", status)
 	}
-	wantContains(t, body, "All timestamps are UTC. · test")
+	wantContains(t, body, "All timestamps are UTC.", "AI Usage · test")
 }
 
 func TestPeriodDetailFragmentHasCost(t *testing.T) {
@@ -273,7 +273,7 @@ func TestTrendsPageAndFragment(t *testing.T) {
 	wantContains(t, body,
 		"Tokens over time", "Tokens by source", "Cache hit rate", "Approximate cost over time",
 		`data-chart="chart-tokens"`, `data-chart="chart-sources"`, `data-chart="chart-cache"`, `data-chart="chart-cost"`,
-		`class="filter-settings"`, `<summary>Filters</summary>`,
+		`class="filter-settings"`, `<span>Filters</span>`,
 	)
 
 	_, body = get(t, srv.URL+"/trends?range=30d")

@@ -12,7 +12,7 @@ func TestSetupPageDefaultsToFirstAgent(t *testing.T) {
 	if status != http.StatusOK {
 		t.Fatalf("status %d", status)
 	}
-	wantContains(t, body, `<a href="/setup" class="active">Setup</a>`)
+	wantContains(t, body, `<a href="/setup" aria-current="page">Client setup</a>`)
 	wantContains(t, body, `<a class="tab active" href="/setup?agent=claude-code" aria-current="page">Claude Code</a>`)
 	wantContains(t, body, `"CLAUDE_CODE_ENABLE_TELEMETRY": "1"`, `href="/sessions?source=claude-code&amp;view=requests"`)
 	for _, agent := range setupAgents {

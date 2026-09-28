@@ -1,8 +1,7 @@
 {{define "content"}}
 <div class="tokens-page">
 <header class="token-page-head">
-<h2>OTLP tokens</h2>
-<p class="muted setup-intro">Each client sends one of these tokens as <code>Authorization: Bearer &lt;token&gt;</code> to the OTLP receiver, and its usage is attributed to that token. Group tokens (for example <em>work</em> and <em>private</em>) to compare usage per group, then filter the dashboard by group or by a single token. Once a token exists, every export must carry a valid token.</p>
+<p class="muted setup-intro">Each client sends one of these tokens as <code>Authorization: Bearer &lt;token&gt;</code> to the OTLP receiver, and its usage is attributed to that token. Group tokens (for example <em>work</em> and <em>private</em>) to compare usage per group, then filter the dashboard by group or by a single token.<br>Once a token exists, every export must carry a valid token.</p>
 </header>
 
 {{with .Error}}<p class="token-error" role="alert">{{.}}</p>{{end}}

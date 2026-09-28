@@ -44,7 +44,7 @@ func TestStatsPageShowsTodayWithoutStatsFunc(t *testing.T) {
 	wantContains(t, body, "777", "700", "421", "Total (2 days)")
 	wantContains(t, body, `href="/stats" class="active">7d</a>`, `href="/stats?range=today"`)
 	wantContains(t, body, `<input type="hidden" name="range" value="7d">`)
-	wantContains(t, body, `class="filter-settings"`, `<summary>Filters</summary>`)
+	wantContains(t, body, `class="filter-settings"`, `<span>Filters</span>`)
 	wantNotContains(t, body, `aria-label="Source"`, `aria-label="Provider"`, `aria-label="Model"`)
 	wantNotContains(t, body, "(live)")
 }

@@ -33,7 +33,6 @@ var funcs = template.FuncMap{
 	"copyID":           copyID,
 	"toJSON":           toJSON,
 	"pct":              pct,
-	"shortConv":        shortConv,
 	"conversationLink": conversationLink,
 	"convHref":         convHref,
 	"convTitle":        convTitle,
@@ -50,6 +49,7 @@ var pageTmpls = map[string]*template.Template{
 	"stats":      mustParse("layout.html", "filterbar.html", "stats_page.html", "stats.html", "backup-status.html"),
 	"setup":      mustParse("layout.html", "setup_page.html"),
 	"tokens":     mustParse("layout.html", "tokens_page.html"),
+	"settings":   mustParse("layout.html", "settings_page.html"),
 }
 
 // fragTmpls render bare page sections (no layout); the same named templates
@@ -67,6 +67,9 @@ var fragTmpls = map[string]*template.Template{
 }
 
 func mustParse(files ...string) *template.Template {
+	if len(files) > 0 && files[0] == "layout.html" {
+		files = append(files, "appearance.html")
+	}
 	paths := make([]string, len(files))
 	for i, f := range files {
 		paths[i] = "web/templates/" + f

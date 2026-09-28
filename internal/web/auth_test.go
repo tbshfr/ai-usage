@@ -73,7 +73,7 @@ func login(t *testing.T, srv *httptest.Server, user, pass string) (int, *http.Re
 
 func TestLoginRequiredForPages(t *testing.T) {
 	srv, _ := newAuthedServer(t)
-	for _, p := range []string{"/", "/breakdowns", "/sessions", "/fragments/dashboard-stats"} {
+	for _, p := range []string{"/", "/settings", "/breakdowns", "/sessions", "/fragments/dashboard-stats"} {
 		status, _, resp := do(t, srv, "GET", p, "", nil)
 		if status != http.StatusSeeOther {
 			t.Errorf("%s: status = %d, want 303", p, status)

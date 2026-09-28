@@ -81,6 +81,7 @@ func newMux(db *sql.DB, stats func() ingest.Stats, reasons func() ingest.ReasonC
 	mux.HandleFunc("GET /sessions", s.sessions)
 	mux.HandleFunc("GET /stats", s.statsPage)
 	mux.HandleFunc("GET /setup", s.setupPage)
+	mux.HandleFunc("GET /settings", s.settingsPage)
 	mux.HandleFunc("GET /tokens", s.tokensPage)
 	mux.HandleFunc("POST /tokens", s.tokenCreate)
 	mux.HandleFunc("POST /tokens/{id}", s.tokenUpdate)
@@ -1146,6 +1147,10 @@ func buildStatsChart(rows []statsRow) (chartJSON, bool) {
 		{Name: "Ingestion errors", Values: ingErrs},
 	}
 	return chart, anyNonZero
+}
+
+func (s *server) settingsPage(w http.ResponseWriter, r *http.Request) {
+	s.render(w, "settings", &pageData{Title: "Settings", Active: "settings"})
 }
 
 // setupPage renders per-client configuration instructions. The receiver URL

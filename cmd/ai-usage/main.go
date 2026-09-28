@@ -33,6 +33,9 @@ const shutdownGrace = 10 * time.Second
 // persisted to SQLite; they are also saved once on shutdown.
 const statsSaveInterval = time.Minute
 
+// tokenFlushInterval is how often API token last-used times are persisted.
+const tokenFlushInterval = time.Minute
+
 // version is set at build time via -ldflags "-X main.version=...".
 var version = "dev"
 
@@ -61,14 +64,12 @@ func main() {
 }
 
 func run(cfg *config.Config, logger *slog.Logger) error {
-	printBanner(cfg)
 	logger.Info("ai-usage starting",
 		"dashboard", cfg.HTTPAddr,
 		"otlp_http", cfg.OTLPHTTPAddr,
 		"otlp_grpc", cfg.OTLPGRPCAddr,
 		"database", cfg.DatabasePath,
 		"dashboard_auth", cfg.DashboardAuthEnabled(),
-		"otlp_auth", cfg.OTLPToken != "",
 	)
 
 	db, err := storage.Open(context.Background(), cfg.DatabasePath)
@@ -80,6 +81,28 @@ func run(cfg *config.Config, logger *slog.Logger) error {
 	if err := storage.Migrate(db, logger); err != nil {
 		return err
 	}
+
+	tokens, err := auth.NewTokenStore(context.Background(), db, logger)
+	if err != nil {
+		return fmt.Errorf("load api tokens: %w", err)
+	}
+	if seeded, err := tokens.Seed(context.Background(), cfg.OTLPToken); err != nil {
+		return fmt.Errorf("seed otlp token: %w", err)
+	} else if seeded {
+		logger.Info("otlp token imported as api token", "name", "default", "group", "default")
+	}
+	tokenCtx, stopTokens := context.WithCancel(context.Background())
+	tokensDone := make(chan struct{})
+	go func() { defer close(tokensDone); tokens.Run(tokenCtx, tokenFlushInterval) }()
+	defer func() { stopTokens(); <-tokensDone }()
+	logger.Info("api tokens loaded", "active", tokens.ActiveCount())
+	for _, addr := range []string{cfg.OTLPHTTPAddr, cfg.OTLPGRPCAddr} {
+		if addr != "" && config.PublicAddr(addr) && tokens.ActiveCount() == 0 {
+			logger.Warn("otlp listener rejects all exports until an api token is created on the dashboard's Tokens page", "addr", addr)
+		}
+	}
+
+	printBanner(cfg, tokens.ActiveCount())
 
 	hub := live.New()
 	backupCtx, stopBackup := context.WithCancel(context.Background())
@@ -131,7 +154,7 @@ func run(cfg *config.Config, logger *slog.Logger) error {
 	if cfg.HTTPAddr != "" {
 		srv := &http.Server{
 			Addr:              cfg.HTTPAddr,
-			Handler:           api.NewWithAuth(db, logger, pipeline.Stats, pipeline.ReasonCounts, hub, version, dash, worker.Status),
+			Handler:           api.NewWithAuth(db, logger, pipeline.Stats, pipeline.ReasonCounts, hub, version, dash, api.WithBackupStatus(worker.Status), api.WithTokens(tokens)),
 			ReadHeaderTimeout: 10 * time.Second,
 			ReadTimeout:       30 * time.Second,
 			WriteTimeout:      60 * time.Second,
@@ -144,15 +167,12 @@ func run(cfg *config.Config, logger *slog.Logger) error {
 		servers = append(servers, srv)
 	}
 	if cfg.OTLPHTTPAddr != "" {
-		var h http.Handler = ingest.NewReceiver(pipeline, logger).Handler()
-		if cfg.OTLPToken != "" {
-			// Count 401s under the fixed http_reject enum: unauthenticated
-			// traffic never reaches the pipeline, so this only bumps
-			// integer counters on fixed rows (no flood-amplification).
-			h = auth.BearerWithHook(logger, cfg.OTLPToken, h, func() {
-				pipeline.BumpHTTPReject(ingest.ReasonUnauthorized)
-			})
-		}
+		// Count 401s under the fixed http_reject enum: unauthenticated
+		// traffic never reaches the pipeline, so this only bumps integer
+		// counters on fixed rows (no flood-amplification).
+		h := auth.BearerWithHook(logger, tokens.ForListener(config.PublicAddr(cfg.OTLPHTTPAddr)), ingest.NewReceiver(pipeline, logger).Handler(), func() {
+			pipeline.BumpHTTPReject(ingest.ReasonUnauthorized)
+		})
 		servers = append(servers, &http.Server{
 			Addr:              cfg.OTLPHTTPAddr,
 			Handler:           h,
@@ -175,7 +195,7 @@ func run(cfg *config.Config, logger *slog.Logger) error {
 
 	var grpcServer *grpc.Server
 	if cfg.OTLPGRPCAddr != "" {
-		grpcServer = ingest.NewGRPCServer(pipeline, logger, cfg.OTLPToken, func() {
+		grpcServer = ingest.NewGRPCServer(pipeline, logger, tokens.ForListener(config.PublicAddr(cfg.OTLPGRPCAddr)), func() {
 			pipeline.BumpHTTPReject(ingest.ReasonGRPCUnauthorized)
 		})
 		ln, err := ingest.ServeGRPC(grpcServer, cfg.OTLPGRPCAddr)
@@ -237,7 +257,7 @@ func run(cfg *config.Config, logger *slog.Logger) error {
 	return nil
 }
 
-func printBanner(cfg *config.Config) {
+func printBanner(cfg *config.Config, activeTokens int) {
 	dbPath := cfg.DatabasePath
 	if home, err := os.UserHomeDir(); err == nil && home != "" {
 		if rel, err := filepath.Rel(home, dbPath); err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
@@ -250,12 +270,12 @@ func printBanner(cfg *config.Config) {
 	}
 	authState := "off"
 	switch {
-	case cfg.DashboardAuthEnabled() && cfg.OTLPToken != "":
-		authState = "dashboard + otlp"
+	case cfg.DashboardAuthEnabled() && activeTokens > 0:
+		authState = fmt.Sprintf("dashboard + otlp (%d tokens)", activeTokens)
 	case cfg.DashboardAuthEnabled():
 		authState = "dashboard"
-	case cfg.OTLPToken != "":
-		authState = "otlp"
+	case activeTokens > 0:
+		authState = fmt.Sprintf("otlp (%d tokens)", activeTokens)
 	}
 	fmt.Printf(`
 AI Usage Dashboard (%s)

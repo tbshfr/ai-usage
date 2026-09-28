@@ -790,6 +790,52 @@ footer { text-align: center; padding: 1rem; }
 .setup-tabs { flex-wrap: wrap; margin: 0 0 0.9rem; }
 .setup-agent { padding-bottom: 0.4rem; }
 .setup-agent p { max-width: 80ch; }
+
+/* Tokens page */
+.token-error { padding: 0.6rem 0.9rem; border: 1px solid #b00020; border-radius: 8px; background: #fff0f0; color: #90001a; }
+.token-created { border-color: var(--sage); }
+.token-secret { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.token-secret code {
+  flex: 1 1 20rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  padding: 0.45rem 0.7rem;
+  background: var(--panel-hover);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.token-fields { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.6rem 1rem; padding-bottom: 0.3rem; }
+.token-fields label { display: flex; flex-direction: column; gap: 0.25rem; color: var(--muted); font-size: 0.85rem; }
+.token-create input, .token-edit input {
+  font: inherit;
+  width: 14rem;
+  max-width: 100%;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+}
+.token-create input::placeholder { color: var(--muted); opacity: 0.6; }
+.token-create input:focus, .token-edit input:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+.token-create button, .token-edit button {
+  font: inherit;
+  background: var(--accent);
+  color: #fff;
+  border: 0;
+  border-radius: 8px;
+  padding: 0.38rem 0.9rem;
+  cursor: pointer;
+}
+.token-edit button.danger { background: #b00020; }
+.token-table tr.token-group td { font-weight: 600; background: var(--panel-hover); }
+.token-table tr.token-revoked td { color: var(--muted); }
+.token-name { white-space: nowrap; }
+.token-actions { text-align: left; white-space: nowrap; }
+.token-actions details { display: inline-block; margin-right: 0.6rem; vertical-align: top; }
+.token-actions summary { cursor: pointer; color: var(--accent); }
+.token-edit { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin-top: 0.4rem; white-space: normal; }
+.token-edit input { width: 9rem; }
 .snippet { position: relative; margin: 0.6rem 0 0.9rem; }
 .snippet pre {
   margin: 0;

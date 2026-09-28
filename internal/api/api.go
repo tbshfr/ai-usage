@@ -14,6 +14,25 @@ import (
 	"github.com/tbshfr/ai-usage/internal/web"
 )
 
+// Option configures optional dependencies of the dashboard port.
+type Option func(*options)
+
+type options struct {
+	backupStatus func() backup.Status
+	tokens       *auth.TokenStore
+}
+
+// WithBackupStatus supplies the backup worker's status for /api/backup,
+// /health and the dashboard banner.
+func WithBackupStatus(f func() backup.Status) Option {
+	return func(o *options) { o.backupStatus = f }
+}
+
+// WithTokens shares the OTLP listeners' token store with the dashboard.
+func WithTokens(t *auth.TokenStore) Option {
+	return func(o *options) { o.tokens = t }
+}
+
 // New returns the dashboard-port HTTP handler: liveness/readiness probes plus
 // the JSON API routes from server.go, with debug-level access logging.
 func New(db *sql.DB, logger *slog.Logger, stats StatsFunc, reasons ReasonCountsFunc, hub *live.Hub, version string) http.Handler {
@@ -22,16 +41,21 @@ func New(db *sql.DB, logger *slog.Logger, stats StatsFunc, reasons ReasonCountsF
 
 // NewWithAuth wraps the dashboard with the login-session guard when dash
 // is non-nil; /health, /ready, /static and /login stay public.
-func NewWithAuth(db *sql.DB, logger *slog.Logger, stats StatsFunc, reasons ReasonCountsFunc, hub *live.Hub, version string, dash *auth.Dashboard, backupStatus ...func() backup.Status) http.Handler {
+func NewWithAuth(db *sql.DB, logger *slog.Logger, stats StatsFunc, reasons ReasonCountsFunc, hub *live.Hub, version string, dash *auth.Dashboard, opts ...Option) http.Handler {
 	if logger == nil {
 		logger = slog.Default()
 	}
+	var o options
+	for _, opt := range opts {
+		opt(&o)
+	}
 	currentBackupStatus := func() backup.Status {
-		if len(backupStatus) > 0 && backupStatus[0] != nil {
-			return backupStatus[0]()
+		if o.backupStatus != nil {
+			return o.backupStatus()
 		}
 		return backup.Status{}
 	}
+	webOpts := []web.Option{web.WithBackupStatus(o.backupStatus), web.WithTokens(o.tokens)}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/backup", func(w http.ResponseWriter, r *http.Request) {
 		s := currentBackupStatus()
@@ -68,9 +92,9 @@ func NewWithAuth(db *sql.DB, logger *slog.Logger, stats StatsFunc, reasons Reaso
 	})
 	mux.Handle("/api/", apiRoutes(db, stats, reasons, logger))
 	if dash != nil {
-		mux.Handle("/", web.NewAuthed(db, stats, reasons, dash, hub, version, backupStatus...))
+		mux.Handle("/", web.NewAuthed(db, stats, reasons, dash, hub, version, webOpts...))
 	} else {
-		mux.Handle("/", web.New(db, stats, reasons, hub, version, backupStatus...))
+		mux.Handle("/", web.New(db, stats, reasons, hub, version, webOpts...))
 	}
 	h := accessLog(logger, mux)
 	if dash != nil {

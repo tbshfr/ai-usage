@@ -19,6 +19,8 @@
         {{if .F.Selected.Source}}<input type="hidden" name="source" value="{{.F.Selected.Source}}">{{end}}
         {{if .F.Selected.Provider}}<input type="hidden" name="provider" value="{{.F.Selected.Provider}}">{{end}}
         {{if .F.Selected.Model}}<input type="hidden" name="model" value="{{.F.Selected.Model}}">{{end}}
+        {{if .F.Selected.Group}}<input type="hidden" name="group" value="{{.F.Selected.Group}}">{{end}}
+        {{if .F.Selected.Token}}<input type="hidden" name="token" value="{{.F.Selected.Token}}">{{end}}
         {{if .F.Selected.Conversation}}<input type="hidden" name="conversation" value="{{.F.Selected.Conversation}}">{{end}}
         {{range .F.Hidden}}{{if .Value}}<input type="hidden" name="{{.Name}}" value="{{.Value}}">{{end}}{{end}}
         <input type="hidden" name="bucket" value="{{.Charts.Bucket}}">

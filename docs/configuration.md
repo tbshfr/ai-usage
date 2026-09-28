@@ -16,7 +16,7 @@ override defaults.
 | `--log-level` | `AI_USAGE_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, or `error` |
 | `--dashboard-user` | `AI_USAGE_DASHBOARD_USER` | unset | Dashboard username |
 | `--dashboard-password` | `AI_USAGE_DASHBOARD_PASSWORD` | unset | Dashboard password |
-| `--otlp-token` | `AI_USAGE_OTLP_TOKEN` | unset | Bearer token required from OTLP clients |
+| `--otlp-token` | `AI_USAGE_OTLP_TOKEN` | unset | Bearer token imported once as the `default` API token (see [API tokens](#api-tokens)) |
 | `--backup-s3-bucket` | `AI_USAGE_BACKUP_S3_BUCKET` | disabled | Backup bucket |
 | `--backup-s3-region` | `AI_USAGE_BACKUP_S3_REGION` | required with backups | S3 region; use `auto` for R2 |
 | `--backup-s3-prefix` | `AI_USAGE_BACKUP_S3_PREFIX` | required with backups | Dedicated object prefix ending in `/` |
@@ -47,9 +47,10 @@ endpoint is documented in [client setup](client-setup.md).
 
 ## Authentication
 
-Unauthenticated listeners may bind only to loopback addresses. Startup fails
-if a listener uses `:8080`, `0.0.0.0`, a public IP, or a hostname without the
-credentials for that listener.
+An unauthenticated dashboard may bind only to loopback addresses. Startup
+fails if `--http` uses `:8080`, `0.0.0.0`, a public IP, or a hostname without
+dashboard credentials. OTLP listeners are protected by [API tokens](#api-tokens)
+instead.
 
 Dashboard authentication requires both values:
 
@@ -62,14 +63,40 @@ The dashboard uses an HMAC-signed, `HttpOnly` session cookie that lasts seven
 days. Its signing secret is generated at startup, so restarting the process
 logs the user out.
 
-OTLP authentication uses one bearer token for both HTTP and gRPC:
-
-```sh
-export AI_USAGE_OTLP_TOKEN='a-long-random-token'
-```
-
 Generate credentials with a password manager or a command such as
 `openssl rand -hex 32`. Keep them outside the repository and command history.
+
+### API tokens
+
+OTLP clients authenticate over HTTP and gRPC with a bearer token
+(`Authorization: Bearer <token>`). Create tokens on the dashboard's **Tokens**
+page (`/tokens`). A new token is shown once and cannot be retrieved later;
+only its SHA-256 hash is stored.
+
+Each token has a name and an optional group, for example `private / machine1`,
+`private / machine2` and `work / laptop`. Stored usage is attributed to the
+token that sent it, so the dashboard, breakdowns and JSON API can be filtered
+by group (`group=private`) or by a single token (`token=<id>`). Usage received
+without a token is available as `token=none`.
+
+Tokens can be renamed, moved to another group or revoked. A revoked token stops
+authenticating immediately, but keeps its name and group so past usage stays
+attributed.
+
+When a token is required:
+
+- A non-loopback OTLP listener always requires a valid token. Until the first
+  token exists it rejects every export, and startup logs a warning.
+- A loopback OTLP listener accepts unauthenticated exports until the first
+  token is created. After that, it requires a token as well, even if every
+  token is later revoked.
+
+`--otlp-token` / `AI_USAGE_OTLP_TOKEN` is optional. When set, the value is
+imported at startup as an API token named `default` in group `default`, unless
+it is already known (including as a revoked token, so a revocation sticks).
+If it is the first token, all previously stored usage is attributed to it. It
+is then managed on the Tokens page like any other token.
+
 Client-specific header configuration is included in each section of
 [client setup](client-setup.md).
 
@@ -88,7 +115,6 @@ export AI_USAGE_HTTP_ADDR=:8080
 export AI_USAGE_OTLP_HTTP_ADDR=:4318
 export AI_USAGE_DASHBOARD_USER=admin
 export AI_USAGE_DASHBOARD_PASSWORD='a-long-random-password'
-export AI_USAGE_OTLP_TOKEN='a-long-random-token'
 exec ./ai-usage
 ```
 
@@ -104,7 +130,8 @@ The included Compose example expects:
 - a pre-existing external network named `proxy`;
 - a reverse proxy on that network;
 - a writable `./data` directory;
-- dashboard and OTLP credentials in `.env`.
+- dashboard credentials in `.env`. Create OTLP tokens on the Tokens page
+  after the first login, or set `AI_USAGE_OTLP_TOKEN` to import one.
 
 The container runs with a read-only root filesystem. It writes the database,
 backup state, and temporary backup files below `/data`.

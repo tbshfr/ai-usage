@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/tbshfr/ai-usage/internal/auth"
 	"github.com/tbshfr/ai-usage/internal/storage"
 	coltracepb "go.opentelemetry.io/proto/otlp/collector/trace/v1"
 	"google.golang.org/grpc"
@@ -31,7 +32,7 @@ func TestGRPCTracesIngestion(t *testing.T) {
 		t.Fatal(err)
 	}
 	pipeline := NewPipeline(db, nil, nil)
-	server := NewGRPCServer(pipeline, nil, "", nil)
+	server := NewGRPCServer(pipeline, nil, nil, nil)
 
 	ln, err := ServeGRPC(server, "127.0.0.1:0")
 	if err != nil {
@@ -81,7 +82,7 @@ func TestGRPCTokenRequired(t *testing.T) {
 	if err := storage.Migrate(db, nil); err != nil {
 		t.Fatal(err)
 	}
-	server := NewGRPCServer(NewPipeline(db, nil, nil), nil, "s3cret", nil)
+	server := NewGRPCServer(NewPipeline(db, nil, nil), nil, auth.StaticToken("s3cret"), nil)
 	ln, err := ServeGRPC(server, "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)

@@ -114,6 +114,8 @@ func apiRoutes(db *sql.DB, stats StatsFunc, reasons ReasonCountsFunc, logger *sl
 		{"/api/sources", "source"},
 		{"/api/providers", "provider"},
 		{"/api/models", "model"},
+		{"/api/groups", "group"},
+		{"/api/tokens/usage", "token"},
 	} {
 		mux.HandleFunc("GET "+route.path, func(w http.ResponseWriter, r *http.Request) {
 			f, ok := filterParam(w, r)
@@ -128,6 +130,21 @@ func apiRoutes(db *sql.DB, stats StatsFunc, reasons ReasonCountsFunc, logger *sl
 			writeJSON(w, http.StatusOK, rows)
 		})
 	}
+	mux.HandleFunc("GET /api/tokens", func(w http.ResponseWriter, r *http.Request) {
+		tokens, err := storage.ListTokens(r.Context(), db)
+		if err != nil {
+			internalErr(w, err)
+			return
+		}
+		out := make([]tokenInfo, 0, len(tokens))
+		for _, t := range tokens {
+			out = append(out, tokenInfo{
+				ID: t.ID, Name: t.Name, Group: t.Group, Hint: t.Hint, Active: t.Active(),
+				CreatedAt: t.CreatedAt, LastUsedAt: t.LastUsed, RevokedAt: t.RevokedAt,
+			})
+		}
+		writeJSON(w, http.StatusOK, out)
+	})
 	mux.HandleFunc("GET /api/generations", func(w http.ResponseWriter, r *http.Request) {
 		f, ok := filterParam(w, r)
 		if !ok {
@@ -301,6 +318,10 @@ func breakdownOf(ctx context.Context, db *sql.DB, f storage.Filter, column strin
 		rows, err = storage.BySource(ctx, db, f)
 	case "provider":
 		rows, err = storage.ByProvider(ctx, db, f)
+	case "group":
+		rows, err = storage.ByGroup(ctx, db, f)
+	case "token":
+		rows, err = storage.ByToken(ctx, db, f)
 	default:
 		rows, err = storage.ByModel(ctx, db, f)
 	}
@@ -337,7 +358,15 @@ func filterParam(w http.ResponseWriter, r *http.Request) (storage.Filter, bool) 
 		Source:       q.Get("source"),
 		Provider:     q.Get("provider"),
 		Model:        q.Get("model"),
+		Group:        q.Get("group"),
+		Token:        q.Get("token"),
 		Conversation: q.Get("conversation"),
+	}
+	if f.Token != "" && f.Token != storage.TokenNone {
+		if id, err := strconv.ParseInt(f.Token, 10, 64); err != nil || id <= 0 {
+			writeErr(w, http.StatusBadRequest, fmt.Sprintf("invalid token %q (want a token ID or %q)", f.Token, storage.TokenNone))
+			return f, false
+		}
 	}
 	var err error
 	if f.From, err = timeParam(q.Get("from"), "from"); err != nil {
@@ -405,6 +434,8 @@ func filterEchoOf(r *http.Request, f storage.Filter) filterEcho {
 		Source:       r.URL.Query().Get("source"),
 		Provider:     r.URL.Query().Get("provider"),
 		Model:        r.URL.Query().Get("model"),
+		Group:        r.URL.Query().Get("group"),
+		Token:        r.URL.Query().Get("token"),
 		Conversation: r.URL.Query().Get("conversation"),
 	}
 }
@@ -415,6 +446,8 @@ type filterEcho struct {
 	Source       string `json:"source"`
 	Provider     string `json:"provider"`
 	Model        string `json:"model"`
+	Group        string `json:"group"`
+	Token        string `json:"token"`
 	Conversation string `json:"conversation"`
 }
 
@@ -448,6 +481,25 @@ type timeseriesPoint struct {
 	CostFreeCount       int64    `json:"costFreeCount"`
 	CostKnownCount      int64    `json:"costKnownCount"`
 	CostTotal           *float64 `json:"costTotal"`
+}
+
+func tokenIDPtr(id int64) *int64 {
+	if id == 0 {
+		return nil
+	}
+	return &id
+}
+
+// tokenInfo is an API token's metadata; the secret is never exposed.
+type tokenInfo struct {
+	ID         int64      `json:"id"`
+	Name       string     `json:"name"`
+	Group      string     `json:"group"`
+	Hint       string     `json:"hint"`
+	Active     bool       `json:"active"`
+	CreatedAt  time.Time  `json:"createdAt"`
+	LastUsedAt *time.Time `json:"lastUsedAt"`
+	RevokedAt  *time.Time `json:"revokedAt"`
 }
 
 type breakdownRow struct {
@@ -492,6 +544,7 @@ type generation struct {
 	GitRepo               string     `json:"gitRepo"`
 	GitBranch             string     `json:"gitBranch"`
 	ReasoningEffort       string     `json:"reasoningEffort"`
+	TokenID               *int64     `json:"tokenId"`
 }
 
 func generationJSON(g normalize.Generation) generation {
@@ -525,6 +578,7 @@ func generationJSON(g normalize.Generation) generation {
 		GitRepo:               g.GitRepo,
 		GitBranch:             g.GitBranch,
 		ReasoningEffort:       g.ReasoningEffort,
+		TokenID:               tokenIDPtr(g.TokenID),
 	}
 }
 

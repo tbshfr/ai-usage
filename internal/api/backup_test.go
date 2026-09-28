@@ -13,7 +13,7 @@ import (
 func TestBackupStatus(t *testing.T) {
 	now := time.Date(2026, 9, 9, 12, 0, 0, 0, time.UTC)
 	state := backup.Status{}
-	handler := NewWithAuth(seedtest.DB(t), testLogger(t), nil, nil, nil, "test", nil, func() backup.Status { return state })
+	handler := NewWithAuth(seedtest.DB(t), testLogger(t), nil, nil, nil, "test", nil, WithBackupStatus(func() backup.Status { return state }))
 	for _, tc := range []struct {
 		name   string
 		health string

@@ -10,7 +10,9 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/tbshfr/ai-usage"
@@ -35,24 +37,39 @@ const (
 // keepalives). stats may be nil; when set, the live pipeline counters
 // replace today's persisted row. reasons may be nil; when set, the live
 // per-reason breakdown replaces today's persisted rows.
-func New(db *sql.DB, stats func() ingest.Stats, reasons func() ingest.ReasonCounts, hub *live.Hub, version string, backupStatus ...func() backup.Status) http.Handler {
-	return newMux(db, stats, reasons, nil, hub, version, backupStatus...)
+func New(db *sql.DB, stats func() ingest.Stats, reasons func() ingest.ReasonCounts, hub *live.Hub, version string, opts ...Option) http.Handler {
+	return newMux(db, stats, reasons, nil, hub, version, opts...)
+}
+
+// Option configures optional dashboard dependencies.
+type Option func(*server)
+
+// WithBackupStatus supplies the backup worker's status for the banner.
+func WithBackupStatus(f func() backup.Status) Option {
+	return func(s *server) { s.backupStatus = f }
+}
+
+// WithTokens shares the OTLP listeners' token store with the Tokens page,
+// so tokens created or revoked there take effect immediately. Without it
+// the dashboard loads its own store from the database.
+func WithTokens(t *auth.TokenStore) Option {
+	return func(s *server) { s.tokens = t }
 }
 
 // NewAuthed adds the login/logout routes and applies the dashboard
 // guard to every UI route; api.NewWithAuth additionally wraps the whole
 // dashboard port so /api/* is protected as well.
-func NewAuthed(db *sql.DB, stats func() ingest.Stats, reasons func() ingest.ReasonCounts, dash *auth.Dashboard, hub *live.Hub, version string, backupStatus ...func() backup.Status) http.Handler {
-	return dash.Middleware(newMux(db, stats, reasons, dash, hub, version, backupStatus...))
+func NewAuthed(db *sql.DB, stats func() ingest.Stats, reasons func() ingest.ReasonCounts, dash *auth.Dashboard, hub *live.Hub, version string, opts ...Option) http.Handler {
+	return dash.Middleware(newMux(db, stats, reasons, dash, hub, version, opts...))
 }
 
-func newMux(db *sql.DB, stats func() ingest.Stats, reasons func() ingest.ReasonCounts, dash *auth.Dashboard, hub *live.Hub, version string, backupStatus ...func() backup.Status) http.Handler {
+func newMux(db *sql.DB, stats func() ingest.Stats, reasons func() ingest.ReasonCounts, dash *auth.Dashboard, hub *live.Hub, version string, opts ...Option) http.Handler {
 	if version == "" {
 		version = "dev"
 	}
 	s := &server{db: db, stats: stats, reasons: reasons, dash: dash, hub: hub, limiter: newLoginLimiter(), version: version}
-	if len(backupStatus) > 0 {
-		s.backupStatus = backupStatus[0]
+	for _, opt := range opts {
+		opt(s)
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", s.dashboard)
@@ -64,6 +81,10 @@ func newMux(db *sql.DB, stats func() ingest.Stats, reasons func() ingest.ReasonC
 	mux.HandleFunc("GET /sessions", s.sessions)
 	mux.HandleFunc("GET /stats", s.statsPage)
 	mux.HandleFunc("GET /setup", s.setupPage)
+	mux.HandleFunc("GET /tokens", s.tokensPage)
+	mux.HandleFunc("POST /tokens", s.tokenCreate)
+	mux.HandleFunc("POST /tokens/{id}", s.tokenUpdate)
+	mux.HandleFunc("POST /tokens/{id}/revoke", s.tokenRevoke)
 	mux.HandleFunc("GET /generations", s.redirectSessions)
 	mux.HandleFunc("GET /generations/{id}", s.detail)
 	mux.HandleFunc("GET /events", s.serveEvents)
@@ -85,7 +106,10 @@ func newMux(db *sql.DB, stats func() ingest.Stats, reasons func() ingest.ReasonC
 		mux.HandleFunc("POST /login", s.loginSubmit)
 		mux.HandleFunc("GET /logout", s.logout)
 	}
-	return mux
+	// Reject cross-origin state-changing requests (token management,
+	// login). This applies without dashboard auth too: a loopback
+	// dashboard is otherwise reachable by CSRF from any website.
+	return http.NewCrossOriginProtection().Handler(mux)
 }
 
 func (s *server) currentBackupStatus() backup.Status {
@@ -103,6 +127,8 @@ type server struct {
 	dash         *auth.Dashboard
 	hub          *live.Hub
 	limiter      *loginLimiter
+	tokens       *auth.TokenStore
+	tokensMu     sync.Mutex
 	version      string
 }
 
@@ -127,6 +153,7 @@ type pageData struct {
 	Breaks      breaksView
 	S           statsView
 	Setup       setupView
+	Tokens      tokensView
 	Reasons     *reasonsDetailView
 	D           *normalize.Generation
 	View        string        // sessions page: "sessions" or "requests"
@@ -154,6 +181,8 @@ type filterView struct {
 	Sources         []string
 	Providers       []string
 	Models          []string
+	Groups          []string        // token group labels; empty hides the dropdown
+	Tokens          []storage.Token // all tokens incl. revoked; empty hides the dropdown
 	Selected        uiFilter
 	ConversationURL string // current page minus the conversation filter, "" when no conversation filter is set
 	Hidden          []hiddenInput
@@ -270,6 +299,20 @@ type convsView struct {
 type breaksView struct {
 	Source, Provider, Model                []storage.Breakdown
 	SourceTotal, ProviderTotal, ModelTotal storage.Breakdown
+	// ShowTokens hides the group/token tables until a token exists.
+	ShowTokens bool
+	Group      []storage.Breakdown
+	GroupTotal storage.Breakdown
+	Token      []tokenBreakdown
+	TokenTotal storage.Breakdown
+}
+
+// tokenBreakdown is one row of the by-token table with its display label.
+// Key is the token ID ("" for unauthenticated rows).
+type tokenBreakdown struct {
+	storage.Breakdown
+	Label   string
+	Revoked bool
 }
 
 // statsRow is one day of ingestion counters; Live marks today's row, whose
@@ -410,25 +453,14 @@ func (s *server) fragPeriodDetail(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid period "+period+" (want today, week, month, or all)", http.StatusBadRequest)
 		return
 	}
-	sum, err := storage.Summary(r.Context(), s.db, storage.Filter{
-		From:         from,
-		Source:       u.Source,
-		Provider:     u.Provider,
-		Model:        u.Model,
-		Conversation: u.Conversation,
-	})
+	sum, err := storage.Summary(r.Context(), s.db, u.dims(from, time.Time{}))
 	if err != nil {
 		writeErr(w, err)
 		return
 	}
 	d := &pageData{Detail: &periodDetailView{Period: period, Label: label, S: sum}}
 	if period == "all" {
-		since, err := storage.Earliest(r.Context(), s.db, storage.Filter{
-			Source:       u.Source,
-			Provider:     u.Provider,
-			Model:        u.Model,
-			Conversation: u.Conversation,
-		})
+		since, err := storage.Earliest(r.Context(), s.db, u.dims(time.Time{}, time.Time{}))
 		if err != nil {
 			writeErr(w, err)
 			return
@@ -488,24 +520,13 @@ func (s *server) cards(ctx context.Context, u uiFilter, modes periodModes) ([]ca
 	}
 	out := make([]cardView, 0, len(periods))
 	for _, p := range periods {
-		sum, err := storage.Summary(ctx, s.db, storage.Filter{
-			From:         p.from,
-			Source:       u.Source,
-			Provider:     u.Provider,
-			Model:        u.Model,
-			Conversation: u.Conversation,
-		})
+		sum, err := storage.Summary(ctx, s.db, u.dims(p.from, time.Time{}))
 		if err != nil {
 			return nil, err
 		}
 		out = append(out, cardView{Period: p.period, Label: p.label, Hero: p.hero, S: sum})
 	}
-	since, err := storage.Earliest(ctx, s.db, storage.Filter{
-		Source:       u.Source,
-		Provider:     u.Provider,
-		Model:        u.Model,
-		Conversation: u.Conversation,
-	})
+	since, err := storage.Earliest(ctx, s.db, u.dims(time.Time{}, time.Time{}))
 	if err != nil {
 		return nil, err
 	}
@@ -527,10 +548,7 @@ func (s *server) heatmap(ctx context.Context, u uiFilter) (heatmapView, error) {
 	start := today.AddDate(0, 0, -364)
 	start = start.AddDate(0, 0, -int(start.Weekday()))
 	end := start.AddDate(0, 0, 371)
-	pts, err := storage.Timeseries(ctx, s.db, storage.Filter{
-		From: start, To: end, Source: u.Source, Provider: u.Provider,
-		Model: u.Model, Conversation: u.Conversation,
-	}, storage.BucketDay)
+	pts, err := storage.Timeseries(ctx, s.db, u.dims(start, end), storage.BucketDay)
 	if err != nil {
 		return heatmapView{}, err
 	}
@@ -645,22 +663,62 @@ func (s *server) breakdowns(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, err)
 		return
 	}
-	if d.Breaks.Source, err = storage.BySource(r.Context(), s.db, f); err != nil {
+	if err := s.loadBreaks(r.Context(), f, d); err != nil {
 		writeErr(w, err)
 		return
 	}
-	if d.Breaks.Provider, err = storage.ByProvider(r.Context(), s.db, f); err != nil {
-		writeErr(w, err)
-		return
+	s.render(w, "breakdowns", d)
+}
+
+// loadBreaks fills the breakdown tables for f. The group/token tables are
+// only loaded once a token exists; d.F.Tokens must already be populated
+// (see base).
+func (s *server) loadBreaks(ctx context.Context, f storage.Filter, d *pageData) error {
+	var err error
+	if d.Breaks.Source, err = storage.BySource(ctx, s.db, f); err != nil {
+		return err
 	}
-	if d.Breaks.Model, err = storage.ByModel(r.Context(), s.db, f); err != nil {
-		writeErr(w, err)
-		return
+	if d.Breaks.Provider, err = storage.ByProvider(ctx, s.db, f); err != nil {
+		return err
+	}
+	if d.Breaks.Model, err = storage.ByModel(ctx, s.db, f); err != nil {
+		return err
 	}
 	d.Breaks.SourceTotal = totalBreakdown(d.Breaks.Source)
 	d.Breaks.ProviderTotal = totalBreakdown(d.Breaks.Provider)
 	d.Breaks.ModelTotal = totalBreakdown(d.Breaks.Model)
-	s.render(w, "breakdowns", d)
+	if len(d.F.Tokens) == 0 {
+		return nil
+	}
+	d.Breaks.ShowTokens = true
+	if d.Breaks.Group, err = storage.ByGroup(ctx, s.db, f); err != nil {
+		return err
+	}
+	byToken, err := storage.ByToken(ctx, s.db, f)
+	if err != nil {
+		return err
+	}
+	d.Breaks.GroupTotal = totalBreakdown(d.Breaks.Group)
+	d.Breaks.TokenTotal = totalBreakdown(byToken)
+	tokens := tokensByID(d.F.Tokens)
+	for _, b := range byToken {
+		row := tokenBreakdown{Breakdown: b, Label: "Unauthenticated"}
+		if t, ok := tokens[b.Key]; ok {
+			row.Label, row.Revoked = t.Label(), !t.Active()
+		} else if b.Key != "" {
+			row.Label = "Deleted token #" + b.Key
+		}
+		d.Breaks.Token = append(d.Breaks.Token, row)
+	}
+	return nil
+}
+
+func tokensByID(tokens []storage.Token) map[string]storage.Token {
+	out := make(map[string]storage.Token, len(tokens))
+	for _, t := range tokens {
+		out[strconv.FormatInt(t.ID, 10)] = t
+	}
+	return out
 }
 
 // totalBreakdown sums a breakdown table's rows for the totals row. The cost
@@ -701,21 +759,10 @@ func (s *server) fragBreakdowns(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, err)
 		return
 	}
-	if d.Breaks.Source, err = storage.BySource(r.Context(), s.db, f); err != nil {
+	if err := s.loadBreaks(r.Context(), f, d); err != nil {
 		writeErr(w, err)
 		return
 	}
-	if d.Breaks.Provider, err = storage.ByProvider(r.Context(), s.db, f); err != nil {
-		writeErr(w, err)
-		return
-	}
-	if d.Breaks.Model, err = storage.ByModel(r.Context(), s.db, f); err != nil {
-		writeErr(w, err)
-		return
-	}
-	d.Breaks.SourceTotal = totalBreakdown(d.Breaks.Source)
-	d.Breaks.ProviderTotal = totalBreakdown(d.Breaks.Provider)
-	d.Breaks.ModelTotal = totalBreakdown(d.Breaks.Model)
 	s.renderFrag(w, "breakdowns", d)
 }
 
@@ -1273,6 +1320,12 @@ func (s *server) base(ctx context.Context, title, active, action string, u uiFil
 		return nil, err
 	}
 	if d.F.Models, err = storage.DistinctModels(ctx, s.db, storage.Filter{}); err != nil {
+		return nil, err
+	}
+	if d.F.Tokens, err = storage.ListTokens(ctx, s.db); err != nil {
+		return nil, err
+	}
+	if d.F.Groups, err = storage.TokenGroups(ctx, s.db); err != nil {
 		return nil, err
 	}
 	return d, nil

@@ -10,8 +10,10 @@ The dashboard's **Setup** page (`/setup`) shows the same configuration for
 each client, with the receiver URL and bearer-token lines filled in.
 
 The examples use a local receiver. For a remote receiver, use an HTTPS endpoint
-and configure the bearer token in the same client section. The server must set
-`AI_USAGE_OTLP_TOKEN` to the same value.
+and configure the bearer token in the same client section. Create one token
+per machine or client on the dashboard's **Tokens** page (`/tokens`), and
+group them (for example `work` and `private`) to compare usage per group; see
+[API tokens](configuration.md#api-tokens).
 
 ## OpenCode
 
@@ -271,6 +273,6 @@ curl -s http://127.0.0.1:8080/api/stats | jq
 - `ignoredNotUsed` includes aggregate metrics and non-terminal logs.
 - `normalizationErrors` indicates malformed generation telemetry.
 
-An authenticated receiver returns `401` when the bearer token is missing or
-incorrect. These failures appear as `request rejected` in the server log and
+An authenticated receiver returns `401` when the bearer token is missing,
+incorrect or revoked. These failures appear as `request rejected` in the server log and
 do not enter the normalization pipeline.

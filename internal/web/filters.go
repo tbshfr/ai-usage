@@ -20,10 +20,36 @@ type uiFilter struct {
 	Source       string
 	Provider     string
 	Model        string
+	Group        string
+	Token        string
 	Conversation string
 	FromParam    string
 	ToParam      string
 	PodiumMetric string // set only for Trends after validating the metric
+}
+
+// dims returns the storage filter for the selected dimensions (source,
+// provider, model, token group/ID, conversation) over [from, to).
+func (u uiFilter) dims(from, to time.Time) storage.Filter {
+	return storage.Filter{
+		From: from, To: to,
+		Source: u.Source, Provider: u.Provider, Model: u.Model,
+		Group: u.Group, Token: u.Token,
+		Conversation: u.Conversation,
+	}
+}
+
+// setDims copies the non-empty dimension filters (everything except range,
+// explicit from/to, and conversation) into q.
+func (u uiFilter) setDims(q url.Values) {
+	for _, kv := range [][2]string{
+		{"source", u.Source}, {"provider", u.Provider}, {"model", u.Model},
+		{"group", u.Group}, {"token", u.Token},
+	} {
+		if kv[1] != "" {
+			q.Set(kv[0], kv[1])
+		}
+	}
 }
 
 var rangeKeys = []struct{ key, label string }{
@@ -44,11 +70,18 @@ func parseFilter(r *http.Request) (storage.Filter, uiFilter, error) {
 		Source:       q.Get("source"),
 		Provider:     q.Get("provider"),
 		Model:        q.Get("model"),
+		Group:        q.Get("group"),
+		Token:        q.Get("token"),
 		Conversation: q.Get("conversation"),
 		FromParam:    q.Get("from"),
 		ToParam:      q.Get("to"),
 	}
-	f := storage.Filter{Source: u.Source, Provider: u.Provider, Model: u.Model, Conversation: u.Conversation}
+	f := u.dims(time.Time{}, time.Time{})
+	if f.Token != "" && f.Token != storage.TokenNone {
+		if id, err := strconv.ParseInt(f.Token, 10, 64); err != nil || id <= 0 {
+			return f, u, badRequest{fmt.Errorf("invalid token %q (want a token ID or %q)", f.Token, storage.TokenNone)}
+		}
+	}
 	var err error
 	if f.From, err = timeParam(q.Get("from"), "from"); err != nil {
 		return f, u, err
@@ -182,15 +215,7 @@ func presetViews(action string, u uiFilter) []presetView {
 		if k.key != "today" {
 			q.Set("range", k.key)
 		}
-		if u.Source != "" {
-			q.Set("source", u.Source)
-		}
-		if u.Provider != "" {
-			q.Set("provider", u.Provider)
-		}
-		if u.Model != "" {
-			q.Set("model", u.Model)
-		}
+		u.setDims(q)
 		if u.Conversation != "" {
 			q.Set("conversation", u.Conversation)
 		}
@@ -262,15 +287,7 @@ func conversationURL(u uiFilter, conv string) string {
 	if u.Range != "" {
 		q.Set("range", u.Range)
 	}
-	if u.Source != "" {
-		q.Set("source", u.Source)
-	}
-	if u.Provider != "" {
-		q.Set("provider", u.Provider)
-	}
-	if u.Model != "" {
-		q.Set("model", u.Model)
-	}
+	u.setDims(q)
 	q.Set("conversation", conv)
 	return "/sessions?" + q.Encode()
 }
@@ -282,15 +299,7 @@ func withoutConversationURL(action string, u uiFilter) string {
 	if u.Range != "" {
 		q.Set("range", u.Range)
 	}
-	if u.Source != "" {
-		q.Set("source", u.Source)
-	}
-	if u.Provider != "" {
-		q.Set("provider", u.Provider)
-	}
-	if u.Model != "" {
-		q.Set("model", u.Model)
-	}
+	u.setDims(q)
 	if u.FromParam != "" {
 		q.Set("from", u.FromParam)
 	}

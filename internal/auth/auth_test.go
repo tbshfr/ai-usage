@@ -19,7 +19,7 @@ func (testDiscard) Write(p []byte) (int, error) { return len(p), nil }
 
 func TestBearerAcceptsValidToken(t *testing.T) {
 	called := false
-	h := Bearer(testLogger(), "s3cret", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	h := Bearer(testLogger(), StaticToken("s3cret"), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		called = true
 	}))
 	req := httptest.NewRequest("POST", "/v1/traces", nil)
@@ -44,7 +44,7 @@ func TestBearerRejectsMissingWrongOrMalformed(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			called := false
-			h := Bearer(testLogger(), "s3cret", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			h := Bearer(testLogger(), StaticToken("s3cret"), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				called = true
 			}))
 			rec := httptest.NewRecorder()

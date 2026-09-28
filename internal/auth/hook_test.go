@@ -13,7 +13,7 @@ import (
 
 func TestBearerWithHookCountsRejections(t *testing.T) {
 	rejects := 0
-	h := BearerWithHook(testLogger(), "s3cret", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}), func() { rejects++ })
+	h := BearerWithHook(testLogger(), StaticToken("s3cret"), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}), func() { rejects++ })
 
 	// Rejections bump the hook.
 	req := httptest.NewRequest("POST", "/v1/traces", nil)
@@ -33,7 +33,7 @@ func TestBearerWithHookCountsRejections(t *testing.T) {
 
 func TestGRPCInterceptorWithHookCountsRejections(t *testing.T) {
 	rejects := 0
-	ic := GRPCUnaryInterceptorWithHook(testLogger(), "s3cret", func() { rejects++ })
+	ic := GRPCUnaryInterceptorWithHook(testLogger(), StaticToken("s3cret"), func() { rejects++ })
 
 	info := &grpc.UnaryServerInfo{FullMethod: "/test/Export"}
 	_, err := ic(context.Background(), nil, info, func(ctx context.Context, req any) (any, error) {

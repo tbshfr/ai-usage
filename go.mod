@@ -4,7 +4,7 @@ go 1.26.7
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.47.0
-	github.com/aws/aws-sdk-go-v2/credentials v1.20.4
+	github.com/aws/aws-sdk-go-v2/credentials v1.20.5
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.113.1
 	go.opentelemetry.io/collector/pdata v1.67.0
 	go.opentelemetry.io/proto/otlp v1.11.0

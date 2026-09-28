@@ -142,15 +142,20 @@ func costDecimals(v float64) int {
 
 // costLine is the card-level cost line: only meaningful when at least one
 // row in range has a known cost; all-unknown renders "—", never "$0.00".
+// The buckets are disjoint and exhaustive: the reported/free "known" count
+// excludes estimates, so known + estimated + unknown equals the row total.
 func costLine(known, unknown int64, total *float64, estimated ...int64) string {
 	if known == 0 {
 		return emDash
 	}
-	label := ""
-	if len(estimated) > 0 && estimated[0] > 0 {
-		label = fmt.Sprintf(", %d estimated", estimated[0])
+	var est int64
+	if len(estimated) > 0 {
+		est = estimated[0]
 	}
-	return "≈ " + cost(total) + fmt.Sprintf(" (%d known%s, %d without cost data)", known, label, unknown)
+	if est > 0 {
+		return "≈ " + cost(total) + fmt.Sprintf(" (%d known, %d estimated, %d without cost data)", known-est, est, unknown)
+	}
+	return "≈ " + cost(total) + fmt.Sprintf(" (%d known, %d without cost data)", known, unknown)
 }
 
 // costCell is the table-level cost cell: total when any row has a known cost.

@@ -248,6 +248,21 @@ func TestPeriodDetailFragmentHasCost(t *testing.T) {
 	}
 }
 
+func TestPeriodDetailCostEstimatedIsDisjointFromKnown(t *testing.T) {
+	db := seedtest.DB(t)
+	if _, err := db.Exec(`UPDATE generations SET cost_source = 'openrouter' WHERE id = 'o1'`); err != nil {
+		t.Fatal(err)
+	}
+	srv := newServerFromDB(t, db)
+	defer srv.Close()
+	status, body := get(t, srv.URL+"/fragments/period-detail?period=all&"+fullRangeQuery)
+	if status != http.StatusOK {
+		t.Fatalf("status %d", status)
+	}
+	// 7 reported + 1 estimated + 12 unknown = 20 requests
+	wantContains(t, body, "≈ $2.8500 (7 known, 1 estimated, 12 without cost data)")
+}
+
 func TestTrendsPageAndFragment(t *testing.T) {
 	srv := newServer(t)
 	defer srv.Close()

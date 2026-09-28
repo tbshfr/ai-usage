@@ -16,7 +16,7 @@ override defaults.
 | `--log-level` | `AI_USAGE_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, or `error` |
 | `--dashboard-user` | `AI_USAGE_DASHBOARD_USER` | unset | Dashboard username |
 | `--dashboard-password` | `AI_USAGE_DASHBOARD_PASSWORD` | unset | Dashboard password |
-| `--otlp-token` | `AI_USAGE_OTLP_TOKEN` | unset | Bearer token imported once as the `default` API token (see [API tokens](#api-tokens)) |
+| `--otlp-token` | `AI_USAGE_OTLP_TOKEN` | unset | Bearer token imported once as the `default` OTLP token (see [OTLP tokens](#otlp-tokens)) |
 | `--backup-s3-bucket` | `AI_USAGE_BACKUP_S3_BUCKET` | disabled | Backup bucket |
 | `--backup-s3-region` | `AI_USAGE_BACKUP_S3_REGION` | required with backups | S3 region; use `auto` for R2 |
 | `--backup-s3-prefix` | `AI_USAGE_BACKUP_S3_PREFIX` | required with backups | Dedicated object prefix ending in `/` |
@@ -49,8 +49,14 @@ endpoint is documented in [client setup](client-setup.md).
 
 An unauthenticated dashboard may bind only to loopback addresses. Startup
 fails if `--http` uses `:8080`, `0.0.0.0`, a public IP, or a hostname without
-dashboard credentials. OTLP listeners are protected by [API tokens](#api-tokens)
+dashboard credentials. OTLP listeners are protected by [OTLP tokens](#otlp-tokens)
 instead.
+
+Without dashboard authentication, dashboard pages and JSON API requests must
+use `localhost` or a loopback IP address as their host. Other hostnames are
+rejected to protect against DNS rebinding. Read-only requests to `/health`,
+`/ready` and static assets remain public on any host. Enable dashboard
+authentication when accessing it through a custom hostname or reverse proxy.
 
 Dashboard authentication requires both values:
 
@@ -66,18 +72,24 @@ logs the user out.
 Generate credentials with a password manager or a command such as
 `openssl rand -hex 32`. Keep them outside the repository and command history.
 
-### API tokens
+### OTLP tokens
 
 OTLP clients authenticate over HTTP and gRPC with a bearer token
-(`Authorization: Bearer <token>`). Create tokens on the dashboard's **Tokens**
+(`Authorization: Bearer <token>`). Create tokens on the dashboard's **OTLP tokens**
 page (`/tokens`). A new token is shown once and cannot be retrieved later;
 only its SHA-256 hash is stored.
+These tokens authenticate ingestion only; the dashboard and JSON API use the
+dashboard login session when dashboard authentication is enabled.
 
 Each token has a name and an optional group, for example `private / machine1`,
-`private / machine2` and `work / laptop`. Stored usage is attributed to the
+`private / machine2` and `work / laptop`. Names and groups accept up to 64
+Unicode characters. Stored usage is attributed to the
 token that sent it, so the dashboard, breakdowns and JSON API can be filtered
 by group (`group=private`) or by a single token (`token=<id>`). Usage received
 without a token is available as `token=none`.
+Select **Ungrouped tokens only** or use `ungrouped=true` to filter usage from
+tokens without a group. This excludes usage received without a token and
+combines with the other filters.
 
 Tokens can be renamed, moved to another group, regenerated or revoked.
 Regenerating issues a new secret for the same token: the old secret stops
@@ -95,11 +107,11 @@ When a token is required:
   token is later revoked.
 
 `--otlp-token` / `AI_USAGE_OTLP_TOKEN` is optional. When set, the value is
-imported at startup as an API token named `default` in group `default`, unless
+imported at startup as an OTLP token named `default` in group `default`, unless
 it is already known (including as a revoked or regenerated token, so either
 change sticks).
 If it is the first token, all previously stored usage is attributed to it. It
-is then managed on the Tokens page like any other token.
+is then managed on the OTLP tokens page like any other token.
 
 Client-specific header configuration is included in each section of
 [client setup](client-setup.md).
@@ -134,7 +146,7 @@ The included Compose example expects:
 - a pre-existing external network named `proxy`;
 - a reverse proxy on that network;
 - a writable `./data` directory;
-- dashboard credentials in `.env`. Create OTLP tokens on the Tokens page
+- dashboard credentials in `.env`. Create OTLP tokens on the OTLP tokens page
   after the first login, or set `AI_USAGE_OTLP_TOKEN` to import one.
 
 The container runs with a read-only root filesystem. It writes the database,

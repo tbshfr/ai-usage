@@ -33,7 +33,7 @@ const shutdownGrace = 10 * time.Second
 // persisted to SQLite; they are also saved once on shutdown.
 const statsSaveInterval = time.Minute
 
-// tokenFlushInterval is how often API token last-used times are persisted.
+// tokenFlushInterval is how often OTLP token last-used times are persisted.
 const tokenFlushInterval = time.Minute
 
 // version is set at build time via -ldflags "-X main.version=...".
@@ -84,21 +84,21 @@ func run(cfg *config.Config, logger *slog.Logger) error {
 
 	tokens, err := auth.NewTokenStore(context.Background(), db, logger)
 	if err != nil {
-		return fmt.Errorf("load api tokens: %w", err)
+		return fmt.Errorf("load otlp tokens: %w", err)
 	}
 	if seeded, err := tokens.Seed(context.Background(), cfg.OTLPToken); err != nil {
 		return fmt.Errorf("seed otlp token: %w", err)
 	} else if seeded {
-		logger.Info("otlp token imported as api token", "name", "default", "group", "default")
+		logger.Info("configured otlp token imported", "name", "default", "group", "default")
 	}
 	tokenCtx, stopTokens := context.WithCancel(context.Background())
 	tokensDone := make(chan struct{})
 	go func() { defer close(tokensDone); tokens.Run(tokenCtx, tokenFlushInterval) }()
 	defer func() { stopTokens(); <-tokensDone }()
-	logger.Info("api tokens loaded", "active", tokens.ActiveCount())
+	logger.Info("otlp tokens loaded", "active", tokens.ActiveCount())
 	for _, addr := range []string{cfg.OTLPHTTPAddr, cfg.OTLPGRPCAddr} {
 		if addr != "" && config.PublicAddr(addr) && tokens.ActiveCount() == 0 {
-			logger.Warn("otlp listener rejects all exports until an api token is created on the dashboard's Tokens page", "addr", addr)
+			logger.Warn("otlp listener rejects all exports until an otlp token is created on the dashboard's OTLP tokens page", "addr", addr)
 		}
 	}
 

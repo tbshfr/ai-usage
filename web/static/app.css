@@ -791,7 +791,7 @@ footer { text-align: center; padding: 1rem; }
 .setup-agent { padding-bottom: 0.4rem; }
 .setup-agent p { max-width: 80ch; }
 
-/* Tokens page */
+/* OTLP tokens page */
 .token-error { padding: 0.6rem 0.9rem; border: 1px solid #b00020; border-radius: 8px; background: #fff0f0; color: #90001a; }
 .token-created { border-color: var(--sage); }
 .token-secret { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }

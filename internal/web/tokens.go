@@ -1,21 +1,21 @@
 package web
 
 import (
-	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
 	"time"
 
-	"github.com/tbshfr/ai-usage/internal/auth"
 	"github.com/tbshfr/ai-usage/internal/storage"
 )
 
-// tokensView is the Tokens page: tokens grouped by their group label with
+// tokensView is the OTLP tokens page: tokens grouped by their group label with
 // all-time usage. Created is set only on the response to a
 // successful create, the one time the plaintext is shown.
 type tokensView struct {
+	CanManage  bool
 	Created    *createdToken
 	Groups     []tokenGroupView
 	Unauth     *storage.Breakdown // usage without a token, nil when none
@@ -49,50 +49,47 @@ type tokenRowView struct {
 	Usage storage.Breakdown
 }
 
-// tokenStore returns the shared token store, loading one from the
-// database when the dashboard was built without WithTokens.
-func (s *server) tokenStore(ctx context.Context) (*auth.TokenStore, error) {
-	s.tokensMu.Lock()
-	defer s.tokensMu.Unlock()
-	if s.tokens != nil {
-		return s.tokens, nil
+// requireTokenStore requires the same store used by the ingestion listeners.
+func (s *server) requireTokenStore(w http.ResponseWriter) bool {
+	if s.tokens == nil {
+		http.Error(w, "token management is unavailable", http.StatusServiceUnavailable)
+		return false
 	}
-	t, err := auth.NewTokenStore(ctx, s.db, nil)
-	if err != nil {
-		return nil, err
-	}
-	s.tokens = t
-	return t, nil
+	return true
 }
 
 func (s *server) tokensPage(w http.ResponseWriter, r *http.Request) {
 	s.renderTokens(w, r, http.StatusOK, nil, tokenForm{}, "")
 }
 
-// renderTokens renders the Tokens page. Usage is all-time: the page is for
+// renderTokens renders the OTLP tokens page. Usage is all-time: the page is for
 // managing tokens, and the dashboard's token/group filters cover ranges.
 func (s *server) renderTokens(w http.ResponseWriter, r *http.Request, status int, created *createdToken, form tokenForm, errMsg string) {
 	ctx := r.Context()
-	d := &pageData{Title: "Tokens", Active: "tokens", Error: errMsg}
+	d := &pageData{
+		Title: "OTLP tokens", Active: "tokens", Error: errMsg,
+		ShowLogout: s.dash != nil, Version: s.version,
+		Tokens: tokensView{CanManage: s.tokens != nil, Created: created, Form: form},
+	}
 	tokens, err := storage.ListTokens(ctx, s.db)
 	if err != nil {
-		writeErr(w, err)
+		renderTokensError(w, status, d, err)
 		return
 	}
 	usage, err := storage.ByToken(ctx, s.db, storage.Filter{})
 	if err != nil {
-		writeErr(w, err)
+		renderTokensError(w, status, d, err)
 		return
 	}
 	var pending map[int64]time.Time
-	if store, err := s.tokenStore(ctx); err == nil {
-		pending = store.PendingUse()
+	if s.tokens != nil {
+		pending = s.tokens.PendingUse()
 	}
 	byKey := make(map[string]storage.Breakdown, len(usage))
 	for _, b := range usage {
 		byKey[b.Key] = b
 	}
-	v := tokensView{Created: created, Form: form}
+	v := tokensView{CanManage: s.tokens != nil, Created: created, Form: form}
 	if b, ok := byKey[""]; ok {
 		v.Unauth = &b
 		v.UnauthURL = dashboardURL("token", storage.TokenNone)
@@ -111,6 +108,8 @@ func (s *server) renderTokens(w http.ResponseWriter, r *http.Request, status int
 			if t.Group != "" {
 				g.URL = dashboardURL("group", t.Group)
 				v.GroupNames = append(v.GroupNames, t.Group)
+			} else {
+				g.URL = dashboardURL("ungrouped", "true")
 			}
 			v.Groups = append(v.Groups, g)
 		}
@@ -126,8 +125,18 @@ func (s *server) renderTokens(w http.ResponseWriter, r *http.Request, status int
 		v.Groups[i].Total = totalBreakdown(rows)
 	}
 	d.Tokens = v
-	d.ShowLogout = s.dash != nil
-	d.Version = s.version
+	renderTemplate(w, pageTmpls["tokens"], "layout", status, d)
+}
+
+// Once a secret is committed, a failure to load the rest of the page must
+// not prevent its one-time display.
+func renderTokensError(w http.ResponseWriter, status int, d *pageData, err error) {
+	if d.Tokens.Created == nil {
+		writeErr(w, err)
+		return
+	}
+	slog.Error("load token page after saving secret", "error", err)
+	d.Error = "Token saved, but its usage details could not be loaded. Copy the secret below."
 	renderTemplate(w, pageTmpls["tokens"], "layout", status, d)
 }
 
@@ -137,6 +146,9 @@ func dashboardURL(key, value string) string {
 }
 
 func (s *server) tokenCreate(w http.ResponseWriter, r *http.Request) {
+	if !s.requireTokenStore(w) {
+		return
+	}
 	form := tokenForm{Name: r.PostFormValue("name"), Group: r.PostFormValue("group")}
 	name, err := storage.CleanTokenField("name", form.Name, true)
 	if err == nil {
@@ -146,12 +158,7 @@ func (s *server) tokenCreate(w http.ResponseWriter, r *http.Request) {
 		s.renderTokens(w, r, http.StatusBadRequest, nil, form, err.Error())
 		return
 	}
-	store, err := s.tokenStore(r.Context())
-	if err != nil {
-		writeErr(w, err)
-		return
-	}
-	plain, _, err := store.Create(r.Context(), name, form.Group)
+	plain, _, err := s.tokens.Create(r.Context(), name, form.Group)
 	if err != nil {
 		writeErr(w, err)
 		return
@@ -165,6 +172,9 @@ func (s *server) tokenCreate(w http.ResponseWriter, r *http.Request) {
 func (s *server) tokenUpdate(w http.ResponseWriter, r *http.Request) {
 	id, ok := tokenIDParam(w, r)
 	if !ok {
+		return
+	}
+	if !s.requireTokenStore(w) {
 		return
 	}
 	name, err := storage.CleanTokenField("name", r.PostFormValue("name"), true)
@@ -188,12 +198,10 @@ func (s *server) tokenRevoke(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	store, err := s.tokenStore(r.Context())
-	if err != nil {
-		writeErr(w, err)
+	if !s.requireTokenStore(w) {
 		return
 	}
-	if err := store.Revoke(r.Context(), id); err != nil {
+	if err := s.tokens.Revoke(r.Context(), id); err != nil {
 		tokenErr(w, r, err)
 		return
 	}
@@ -205,14 +213,7 @@ func (s *server) tokenRegenerate(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	store, err := s.tokenStore(r.Context())
-	if err != nil {
-		writeErr(w, err)
-		return
-	}
-	plain, err := store.Regenerate(r.Context(), id)
-	if err != nil {
-		tokenErr(w, r, err)
+	if !s.requireTokenStore(w) {
 		return
 	}
 	tokens, err := storage.ListTokens(r.Context(), s.db)
@@ -225,6 +226,11 @@ func (s *server) tokenRegenerate(w http.ResponseWriter, r *http.Request) {
 		if t.ID == id {
 			label = t.Label()
 		}
+	}
+	plain, err := s.tokens.Regenerate(r.Context(), id)
+	if err != nil {
+		tokenErr(w, r, err)
+		return
 	}
 	// The plaintext appears only in this response; never cache it.
 	w.Header().Set("Cache-Control", "no-store")

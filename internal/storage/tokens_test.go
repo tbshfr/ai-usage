@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -100,6 +101,18 @@ func TestCleanTokenField(t *testing.T) {
 	}
 	if _, err := storage.CleanTokenField("name", string(long), true); err == nil {
 		t.Error("overlong field must error")
+	}
+	for _, char := range []string{"界", "😀"} {
+		name := strings.Repeat(char, 64)
+		if got, err := storage.CleanTokenField("name", name, true); err != nil || got != name {
+			t.Errorf("64 Unicode characters = %q, %v", got, err)
+		}
+		if _, err := storage.CleanTokenField("name", name+char, true); err == nil {
+			t.Error("65 Unicode characters must error")
+		}
+	}
+	if _, err := storage.CleanTokenField("name", string([]byte{0xff}), true); err == nil {
+		t.Error("invalid UTF-8 must error")
 	}
 }
 
@@ -306,5 +319,52 @@ func TestTokenFiltersAndBreakdowns(t *testing.T) {
 	}
 	if len(rows) != 2 || rows[0].TokenID != work {
 		t.Errorf("recent generations for work token = %+v", rows)
+	}
+}
+
+func TestUngroupedTokenUsage(t *testing.T) {
+	ctx := context.Background()
+	db := seedtest.EmptyDB(t)
+	ungrouped, err := storage.CreateToken(ctx, db, "ungrouped", "", sha256.Sum256([]byte("ungrouped")), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// "none" remains a usable group label; selecting ungrouped tokens
+	// must not reserve a label or include unauthenticated generations.
+	grouped, err := storage.CreateToken(ctx, db, "grouped", "none", sha256.Sum256([]byte("grouped")), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	if _, err := storage.InsertGenerations(ctx, db, []normalize.Generation{
+		{ID: "ungrouped", Source: "opencode", Timestamp: ts, TokenID: ungrouped, InputTokens: seedtest.IP(10)},
+		{ID: "grouped", Source: "opencode", Timestamp: ts, TokenID: grouped, InputTokens: seedtest.IP(20)},
+		{ID: "unauthenticated", Source: "opencode", Timestamp: ts, InputTokens: seedtest.IP(30)},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	groups, err := storage.ByGroup(ctx, db, seedtest.FullRange())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(groups) != 2 || groups[0].Key != "" || groups[0].Requests != 2 || groups[0].InputTokens != 40 {
+		t.Fatalf("empty group must combine unauthenticated and ungrouped usage: %+v", groups)
+	}
+	f := seedtest.FullRange()
+	f.Ungrouped = true
+	summary, err := storage.Summary(ctx, db, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if summary.Requests != 1 || summary.InputTokens != 10 {
+		t.Fatalf("ungrouped filter = %+v", summary)
+	}
+	f.Token = storage.TokenNone
+	summary, err = storage.Summary(ctx, db, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if summary.Requests != 0 {
+		t.Fatal("ungrouped filter must exclude unauthenticated usage")
 	}
 }

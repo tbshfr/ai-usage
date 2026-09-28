@@ -55,13 +55,15 @@ func (s staticToken) Required() bool { return s != "" }
 const tokenPrefix = "aiu_"
 
 // TokenStore is the database-backed set of OTLP bearer tokens. Active
-// token hashes are cached in memory and reloaded after every change; use
-// the store's methods (not storage directly) to create or revoke tokens so
-// the cache stays current. Safe for concurrent use.
+// token hashes are cached in memory and updated after every committed
+// change; use the store's methods (not storage directly) to mutate tokens
+// so the cache stays current. Safe for concurrent use.
 type TokenStore struct {
 	db     *sql.DB
 	logger *slog.Logger
 
+	// Serialize database operations without blocking authentication reads.
+	opMu   sync.Mutex
 	mu     sync.RWMutex
 	hashes map[[32]byte]int64
 	total  int
@@ -84,6 +86,10 @@ func NewTokenStore(ctx context.Context, db *sql.DB, logger *slog.Logger) (*Token
 
 // Reload refreshes the in-memory hash cache from the database.
 func (s *TokenStore) Reload(ctx context.Context) error {
+	// Serialize the read too, so an older snapshot cannot overwrite a
+	// token change committed while that snapshot was being loaded.
+	s.opMu.Lock()
+	defer s.opMu.Unlock()
 	hashes, total, err := storage.TokenHashes(ctx, s.db)
 	if err != nil {
 		return err
@@ -103,8 +109,8 @@ func (s *TokenStore) Verify(token string) (int64, bool) {
 	}
 	h := sha256.Sum256([]byte(token))
 	s.mu.RLock()
+	defer s.mu.RUnlock()
 	id, ok := s.hashes[h]
-	s.mu.RUnlock()
 	if !ok {
 		return 0, false
 	}
@@ -161,19 +167,42 @@ func (s *TokenStore) Create(ctx context.Context, name, group string) (string, in
 	if err != nil {
 		return "", 0, err
 	}
-	id, err := storage.CreateToken(ctx, s.db, name, group, sha256.Sum256([]byte(plain)), tokenHint(plain))
+	s.opMu.Lock()
+	defer s.opMu.Unlock()
+	hash := sha256.Sum256([]byte(plain))
+	id, err := storage.CreateToken(ctx, s.db, name, group, hash, tokenHint(plain))
 	if err != nil {
 		return "", 0, err
 	}
-	return plain, id, s.Reload(ctx)
+	// Publishing the committed change needs no database read and cannot
+	// fail if the request is canceled after the insert succeeds.
+	s.mu.Lock()
+	s.hashes[hash] = id
+	s.total++
+	s.mu.Unlock()
+	return plain, id, nil
 }
 
 // Revoke stops a token from authenticating.
 func (s *TokenStore) Revoke(ctx context.Context, id int64) error {
+	s.opMu.Lock()
+	defer s.opMu.Unlock()
 	if err := storage.RevokeToken(ctx, s.db, id); err != nil {
 		return err
 	}
-	return s.Reload(ctx)
+	s.mu.Lock()
+	s.removeHash(id)
+	s.mu.Unlock()
+	return nil
+}
+
+// removeHash requires mu to be held for writing.
+func (s *TokenStore) removeHash(id int64) {
+	for hash, tokenID := range s.hashes {
+		if tokenID == id {
+			delete(s.hashes, hash)
+		}
+	}
 }
 
 // Regenerate gives an existing (possibly revoked) token a new secret and
@@ -184,14 +213,21 @@ func (s *TokenStore) Regenerate(ctx context.Context, id int64) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if err := storage.RegenerateToken(ctx, s.db, id, sha256.Sum256([]byte(plain)), tokenHint(plain)); err != nil {
+	s.opMu.Lock()
+	defer s.opMu.Unlock()
+	hash := sha256.Sum256([]byte(plain))
+	if err := storage.RegenerateToken(ctx, s.db, id, hash, tokenHint(plain)); err != nil {
 		return "", err
 	}
 	// Drop a pending last-used time recorded under the old secret.
+	s.mu.Lock()
 	s.usedMu.Lock()
 	delete(s.used, id)
 	s.usedMu.Unlock()
-	return plain, s.Reload(ctx)
+	s.removeHash(id)
+	s.hashes[hash] = id
+	s.mu.Unlock()
+	return plain, nil
 }
 
 // Seed imports a configured (env/flag) token; see storage.SeedToken.
@@ -199,11 +235,21 @@ func (s *TokenStore) Seed(ctx context.Context, token string) (bool, error) {
 	if token == "" {
 		return false, nil
 	}
-	inserted, err := storage.SeedToken(ctx, s.db, sha256.Sum256([]byte(token)), tokenHint(token))
+	s.opMu.Lock()
+	defer s.opMu.Unlock()
+	hash := sha256.Sum256([]byte(token))
+	id, err := storage.SeedTokenID(ctx, s.db, hash, tokenHint(token))
 	if err != nil {
 		return false, err
 	}
-	return inserted, s.Reload(ctx)
+	if id == 0 {
+		return false, nil
+	}
+	s.mu.Lock()
+	s.hashes[hash] = id
+	s.total++
+	s.mu.Unlock()
+	return true, nil
 }
 
 // tokenHint is the displayable tail of a token. Short tokens show nothing
@@ -229,6 +275,10 @@ func (s *TokenStore) PendingUse() map[int64]time.Time {
 
 // Flush persists the last-used times collected since the previous flush.
 func (s *TokenStore) Flush(ctx context.Context) error {
+	// Keep regeneration from resetting last-used state while an earlier
+	// secret's timestamps are being persisted or queued for retry.
+	s.opMu.Lock()
+	defer s.opMu.Unlock()
 	s.usedMu.Lock()
 	used := s.used
 	s.used = map[int64]time.Time{}

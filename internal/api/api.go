@@ -28,15 +28,17 @@ func WithBackupStatus(f func() backup.Status) Option {
 	return func(o *options) { o.backupStatus = f }
 }
 
-// WithTokens shares the OTLP listeners' token store with the dashboard.
+// WithTokens shares the OTLP listeners' token store with the dashboard and
+// enables token management. Without it, token metadata remains readable.
 func WithTokens(t *auth.TokenStore) Option {
 	return func(o *options) { o.tokens = t }
 }
 
 // New returns the dashboard-port HTTP handler: liveness/readiness probes plus
 // the JSON API routes from server.go, with debug-level access logging.
-func New(db *sql.DB, logger *slog.Logger, stats StatsFunc, reasons ReasonCountsFunc, hub *live.Hub, version string) http.Handler {
-	return NewWithAuth(db, logger, stats, reasons, hub, version, nil)
+// Token management requires WithTokens with the ingestion listeners' store.
+func New(db *sql.DB, logger *slog.Logger, stats StatsFunc, reasons ReasonCountsFunc, hub *live.Hub, version string, opts ...Option) http.Handler {
+	return NewWithAuth(db, logger, stats, reasons, hub, version, nil, opts...)
 }
 
 // NewWithAuth wraps the dashboard with the login-session guard when dash
@@ -99,6 +101,8 @@ func NewWithAuth(db *sql.DB, logger *slog.Logger, stats StatsFunc, reasons Reaso
 	h := accessLog(logger, mux)
 	if dash != nil {
 		h = dash.Middleware(h)
+	} else {
+		h = auth.LoopbackHost(h)
 	}
 	return web.SecureHeaders(h)
 }

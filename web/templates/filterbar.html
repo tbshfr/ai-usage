@@ -17,11 +17,12 @@
     <option value="">All models</option>
     {{range .F.Models}}<option value="{{.}}"{{if eq . $.F.Selected.Model}} selected{{end}}>{{.}}</option>{{end}}
   </select>
-  {{if .F.Groups}}<select name="group" aria-label="Token group">
+  {{if .F.Groups}}<select name="group" aria-label="OTLP token group">
     <option value="">All groups</option>
     {{range .F.Groups}}<option value="{{.}}"{{if eq . $.F.Selected.Group}} selected{{end}}>{{.}}</option>{{end}}
   </select>{{end}}
-  {{if .F.Tokens}}<select name="token" aria-label="API token">
+  {{if or .F.HasUngroupedTokens .F.Selected.Ungrouped}}<label><input type="checkbox" name="ungrouped" value="true"{{if .F.Selected.Ungrouped}} checked{{end}}> Ungrouped tokens only</label>{{end}}
+  {{if .F.Tokens}}<select name="token" aria-label="OTLP token">
     <option value="">All tokens</option>
     {{range .F.Tokens}}{{$id := printf "%d" .ID}}<option value="{{$id}}"{{if eq $id $.F.Selected.Token}} selected{{end}}>{{.Label}}{{if not .Active}} (revoked){{end}}</option>{{end}}
     <option value="none"{{if eq "none" .F.Selected.Token}} selected{{end}}>Unauthenticated</option>

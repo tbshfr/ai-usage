@@ -16,7 +16,7 @@ func TestBackupDashboardStatus(t *testing.T) {
 	render := func(path string) string {
 		t.Helper()
 		rr := httptest.NewRecorder()
-		handler.ServeHTTP(rr, httptest.NewRequest("GET", path, nil))
+		handler.ServeHTTP(rr, httptest.NewRequest("GET", "http://localhost"+path, nil))
 		if rr.Code != 200 {
 			t.Fatalf("status %d: %s", rr.Code, rr.Body.String())
 		}

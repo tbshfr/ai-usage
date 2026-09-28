@@ -1,5 +1,5 @@
 {{define "content"}}
-<h2>API tokens</h2>
+<h2>OTLP tokens</h2>
 <p class="muted setup-intro">Each client sends one of these tokens as <code>Authorization: Bearer &lt;token&gt;</code> to the OTLP receiver, and its usage is attributed to that token. Group tokens (for example <em>work</em> and <em>private</em>) to compare usage per group, then filter the dashboard by group or by a single token. Once a token exists, every export must carry a valid token.</p>
 
 {{with .Error}}<p class="token-error" role="alert">{{.}}</p>{{end}}
@@ -14,19 +14,19 @@
   <p class="muted">Configure a client on the <a href="/setup">Setup</a> page with this token.</p>
 </section>{{end}}
 
-<form class="panel token-create" method="post" action="/tokens">
+{{if .Tokens.CanManage}}<form class="panel token-create" method="post" action="/tokens">
   <h3>New token</h3>
   <div class="token-fields">
     <label>Name
-      <input type="text" name="name" value="{{.Tokens.Form.Name}}" placeholder="machine1" maxlength="64" required autocomplete="off">
+      <input type="text" name="name" value="{{.Tokens.Form.Name}}" placeholder="machine1" required autocomplete="off">
     </label>
     <label>Group
-      <input type="text" name="group" value="{{.Tokens.Form.Group}}" placeholder="private" maxlength="64" list="token-groups" autocomplete="off">
+      <input type="text" name="group" value="{{.Tokens.Form.Group}}" placeholder="private" list="token-groups" autocomplete="off">
     </label>
     <button type="submit">Create token</button>
   </div>
   <datalist id="token-groups">{{range .Tokens.GroupNames}}<option value="{{.}}">{{end}}</datalist>
-</form>
+</form>{{else}}<p class="muted">Token management is unavailable.</p>{{end}}
 
 <section>
   <div class="table-scroll">
@@ -35,7 +35,7 @@
     {{range .Tokens.Groups}}
     <tbody>
       <tr class="token-group">
-        <td>{{if .URL}}<a href="{{.URL}}">{{.Name}}</a>{{else}}<span class="muted">No group</span>{{end}}</td>
+        <td><a href="{{.URL}}">{{if .Name}}{{.Name}}{{else}}No group{{end}}</a></td>
         <td></td><td></td>
         <td>{{commas .Total.Requests}}</td>
         <td>{{commas .Total.TotalTokens}}</td>
@@ -51,11 +51,12 @@
         <td>{{commas .Usage.TotalTokens}}</td>
         <td>{{costCell .Usage.CostKnownCount .Usage.CostTotal .Usage.CostEstimatedCount}}</td>
         <td class="token-actions">
+          {{if $.Tokens.CanManage}}
           <details>
             <summary>Edit</summary>
             <form method="post" action="/tokens/{{.ID}}" class="token-edit">
-              <input type="text" name="name" value="{{.Name}}" maxlength="64" required aria-label="Name" autocomplete="off">
-              <input type="text" name="group" value="{{.Group}}" maxlength="64" list="token-groups" aria-label="Group" autocomplete="off">
+              <input type="text" name="name" value="{{.Name}}" required aria-label="Name" autocomplete="off">
+              <input type="text" name="group" value="{{.Group}}" list="token-groups" aria-label="Group" autocomplete="off">
               <button type="submit">Save</button>
             </form>
           </details>
@@ -73,6 +74,7 @@
               <button type="submit" class="danger">Revoke {{.Name}}</button>
             </form>
           </details>{{end}}
+          {{end}}
         </td>
       </tr>
       {{end}}
@@ -90,7 +92,7 @@
       </tr>
     </tbody>
     {{end}}
-    {{if not .Tokens.Groups}}
+    {{if and (not .Tokens.Groups) (not .Tokens.Created)}}
     <tbody><tr><td colspan="7" class="muted">No tokens yet. The receiver accepts unauthenticated exports on loopback until the first token is created.</td></tr></tbody>
     {{end}}
   </table>

@@ -414,7 +414,7 @@ func ByModel(ctx context.Context, db *sql.DB, f Filter) ([]Breakdown, error) {
 
 // tokenGroupKeySQL is the group label of the authenticating token; rows
 // without a token and tokens without a group share the empty key.
-const tokenGroupKeySQL = `(SELECT group_name FROM api_tokens WHERE api_tokens.id = token_id)`
+const tokenGroupKeySQL = `COALESCE((SELECT group_name FROM api_tokens WHERE api_tokens.id = token_id), '')`
 
 // ByGroup returns totals grouped by token group label, ordered by total
 // tokens descending. The empty key collects unauthenticated rows and

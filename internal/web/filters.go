@@ -21,6 +21,7 @@ type uiFilter struct {
 	Provider     string
 	Model        string
 	Group        string
+	Ungrouped    bool
 	Token        string
 	Conversation string
 	FromParam    string
@@ -34,7 +35,7 @@ func (u uiFilter) dims(from, to time.Time) storage.Filter {
 	return storage.Filter{
 		From: from, To: to,
 		Source: u.Source, Provider: u.Provider, Model: u.Model,
-		Group: u.Group, Token: u.Token,
+		Group: u.Group, Ungrouped: u.Ungrouped, Token: u.Token,
 		Conversation: u.Conversation,
 	}
 }
@@ -42,6 +43,9 @@ func (u uiFilter) dims(from, to time.Time) storage.Filter {
 // setDims copies the non-empty dimension filters (everything except range,
 // explicit from/to, and conversation) into q.
 func (u uiFilter) setDims(q url.Values) {
+	if u.Ungrouped {
+		q.Set("ungrouped", "true")
+	}
 	for _, kv := range [][2]string{
 		{"source", u.Source}, {"provider", u.Provider}, {"model", u.Model},
 		{"group", u.Group}, {"token", u.Token},
@@ -75,6 +79,12 @@ func parseFilter(r *http.Request) (storage.Filter, uiFilter, error) {
 		Conversation: q.Get("conversation"),
 		FromParam:    q.Get("from"),
 		ToParam:      q.Get("to"),
+	}
+	if value := q.Get("ungrouped"); value != "" {
+		var err error
+		if u.Ungrouped, err = strconv.ParseBool(value); err != nil {
+			return storage.Filter{}, u, badRequest{fmt.Errorf("invalid ungrouped %q (want true or false)", value)}
+		}
 	}
 	f := u.dims(time.Time{}, time.Time{})
 	if f.Token != "" && f.Token != storage.TokenNone {

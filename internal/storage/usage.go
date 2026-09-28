@@ -29,6 +29,8 @@ type Filter struct {
 	Conversation string
 	// Group limits results to tokens with this group label.
 	Group string
+	// Ungrouped limits results to authenticated tokens with no group.
+	Ungrouped bool
 	// Token limits results to one api_tokens ID, or TokenNone for
 	// unauthenticated rows.
 	Token string
@@ -90,6 +92,9 @@ func (f Filter) whereSQL() (string, []any) {
 	if f.Group != "" {
 		conds = append(conds, "token_id IN (SELECT id FROM api_tokens WHERE group_name = ?)")
 		args = append(args, f.Group)
+	}
+	if f.Ungrouped {
+		conds = append(conds, "token_id IN (SELECT id FROM api_tokens WHERE group_name = '')")
 	}
 	switch {
 	case f.Conversation == ConversationNone:

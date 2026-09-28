@@ -11,9 +11,9 @@ each client, with the receiver URL and bearer-token lines filled in.
 
 The examples use a local receiver. For a remote receiver, use an HTTPS endpoint
 and configure the bearer token in the same client section. Create one token
-per machine or client on the dashboard's **Tokens** page (`/tokens`), and
+per machine or client on the dashboard's **OTLP tokens** page (`/tokens`), and
 group them (for example `work` and `private`) to compare usage per group; see
-[API tokens](configuration.md#api-tokens).
+[OTLP tokens](configuration.md#otlp-tokens).
 
 ## OpenCode
 

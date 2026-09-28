@@ -242,7 +242,7 @@ func TestLoopbackAndAuthenticatedBindsPass(t *testing.T) {
 		{"dashboard ipv6 loopback", []string{"--http", "[::1]:8080"}},
 		{"otlp loopback", []string{"--otlp-http", "127.0.0.1:4318", "--otlp-grpc", "localhost:4317"}},
 		{"wildcard with auth", []string{"--http", ":8080", "--otlp-http", ":4318", "--dashboard-user", "u", "--dashboard-password", "p", "--otlp-token", "t"}},
-		// Public OTLP listeners need no configured token: API tokens are
+		// Public OTLP listeners need no configured token: OTLP tokens are
 		// managed on the dashboard and the receiver fails closed until one
 		// exists.
 		{"otlp http wildcard", []string{"--otlp-http", ":4318"}},

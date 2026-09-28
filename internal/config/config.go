@@ -44,7 +44,7 @@ func Load(args []string, lookup envFunc, goos, homeDir string) (*Config, error) 
 	logLevel := fs.String("log-level", "", "log level (debug|info|warn|error)")
 	dashUser := fs.String("dashboard-user", "", "dashboard login username (required for non-loopback binds)")
 	dashPass := fs.String("dashboard-password", "", "dashboard login password (required for non-loopback binds)")
-	otlpToken := fs.String("otlp-token", "", "bearer token imported once as the \"default\" API token; manage tokens on the dashboard's Tokens page")
+	otlpToken := fs.String("otlp-token", "", "bearer token imported once as the \"default\" OTLP token; manage tokens on the dashboard's OTLP tokens page")
 
 	backupBucket := fs.String("backup-s3-bucket", "", "backup bucket (empty disables backups)")
 	backupRegion := fs.String("backup-s3-region", "", "backup region (auto for R2)")
@@ -167,7 +167,7 @@ func (c *Config) validateAuth() error {
 			return err
 		}
 	}
-	// OTLP listeners need no credentials here: API tokens live in the
+	// OTLP listeners need no credentials here: OTLP tokens live in the
 	// database, and non-loopback listeners reject every export until one
 	// exists (see auth.TokenStore.ForListener).
 	for name, addr := range map[string]string{"--otlp-http": c.OTLPHTTPAddr, "--otlp-grpc": c.OTLPGRPCAddr} {

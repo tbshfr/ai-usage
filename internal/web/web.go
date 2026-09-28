@@ -12,7 +12,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/tbshfr/ai-usage"
@@ -37,8 +36,9 @@ const (
 // keepalives). stats may be nil; when set, the live pipeline counters
 // replace today's persisted row. reasons may be nil; when set, the live
 // per-reason breakdown replaces today's persisted rows.
+// Token management requires WithTokens with the ingestion listeners' store.
 func New(db *sql.DB, stats func() ingest.Stats, reasons func() ingest.ReasonCounts, hub *live.Hub, version string, opts ...Option) http.Handler {
-	return newMux(db, stats, reasons, nil, hub, version, opts...)
+	return auth.LoopbackHost(newMux(db, stats, reasons, nil, hub, version, opts...))
 }
 
 // Option configures optional dashboard dependencies.
@@ -49,9 +49,9 @@ func WithBackupStatus(f func() backup.Status) Option {
 	return func(s *server) { s.backupStatus = f }
 }
 
-// WithTokens shares the OTLP listeners' token store with the Tokens page,
-// so tokens created or revoked there take effect immediately. Without it
-// the dashboard loads its own store from the database.
+// WithTokens shares the OTLP listeners' token store with the OTLP tokens page,
+// so tokens created or revoked there take effect immediately. Without it,
+// token management is disabled; the dashboard never creates a private cache.
 func WithTokens(t *auth.TokenStore) Option {
 	return func(s *server) { s.tokens = t }
 }
@@ -129,7 +129,6 @@ type server struct {
 	hub          *live.Hub
 	limiter      *loginLimiter
 	tokens       *auth.TokenStore
-	tokensMu     sync.Mutex
 	version      string
 }
 
@@ -173,20 +172,21 @@ type linkPair struct {
 }
 
 type filterView struct {
-	Action          string
-	ShowDimensions  bool
-	ShowPeriodMode  bool
-	PeriodRolling   bool
-	Collapsible     bool
-	Presets         []presetView
-	Sources         []string
-	Providers       []string
-	Models          []string
-	Groups          []string        // token group labels; empty hides the dropdown
-	Tokens          []storage.Token // all tokens incl. revoked; empty hides the dropdown
-	Selected        uiFilter
-	ConversationURL string // current page minus the conversation filter, "" when no conversation filter is set
-	Hidden          []hiddenInput
+	Action             string
+	ShowDimensions     bool
+	ShowPeriodMode     bool
+	PeriodRolling      bool
+	Collapsible        bool
+	Presets            []presetView
+	Sources            []string
+	Providers          []string
+	Models             []string
+	Groups             []string        // token group labels; empty hides the dropdown
+	Tokens             []storage.Token // all tokens incl. revoked; empty hides the dropdown
+	HasUngroupedTokens bool
+	Selected           uiFilter
+	ConversationURL    string // current page minus the conversation filter, "" when no conversation filter is set
+	Hidden             []hiddenInput
 }
 
 type hiddenInput struct {
@@ -1325,6 +1325,12 @@ func (s *server) base(ctx context.Context, title, active, action string, u uiFil
 	}
 	if d.F.Tokens, err = storage.ListTokens(ctx, s.db); err != nil {
 		return nil, err
+	}
+	for _, token := range d.F.Tokens {
+		if token.Group == "" {
+			d.F.HasUngroupedTokens = true
+			break
+		}
 	}
 	if d.F.Groups, err = storage.TokenGroups(ctx, s.db); err != nil {
 		return nil, err

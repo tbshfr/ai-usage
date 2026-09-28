@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/tbshfr/ai-usage/internal/auth"
 	"github.com/tbshfr/ai-usage/internal/normalize"
 	"github.com/tbshfr/ai-usage/internal/storage"
 	"github.com/tbshfr/ai-usage/internal/storage/seedtest"
@@ -91,5 +92,47 @@ func TestTokenEndpoints(t *testing.T) {
 	}
 	if len(gens) != 1 || gens[0].TokenID == nil || *gens[0].TokenID != id {
 		t.Errorf("/api/generations token filter = %+v", gens)
+	}
+	ungrouped, err := storage.CreateToken(ctx, db, "ungrouped", "", sha256.Sum256([]byte("ungrouped")), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := storage.InsertGenerations(ctx, db, []normalize.Generation{
+		{ID: "c", Timestamp: ts, Source: "opencode", InputTokens: seedtest.IP(3), TokenID: ungrouped},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	status, body = get(t, srv.URL+"/api/summary?"+rng+"&ungrouped=true")
+	if err := json.Unmarshal([]byte(body), &sum); err != nil {
+		t.Fatal(err)
+	}
+	if status != http.StatusOK || sum.Requests != 1 || sum.InputTokens != 3 || !sum.Filter.Ungrouped {
+		t.Errorf("summary ungrouped=true = %d, %+v", status, sum)
+	}
+	if status, _ := get(t, srv.URL+"/api/summary?ungrouped=invalid"); status != http.StatusBadRequest {
+		t.Errorf("invalid ungrouped filter = %d, want 400", status)
+	}
+}
+
+func TestNewWithSharedTokens(t *testing.T) {
+	db := seedtest.EmptyDB(t)
+	store, err := auth.NewTokenStore(context.Background(), db, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := New(db, testLogger(t), nil, nil, nil, "test", WithTokens(store))
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("POST", "http://localhost/tokens", strings.NewReader("name=client"))
+	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	h.ServeHTTP(w, r)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("create through api.New = %d: %s", w.Code, w.Body.String())
+	}
+	tokens, err := storage.ListTokens(context.Background(), db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tokens) != 1 || tokens[0].Name != "client" || store.ActiveCount() != 1 || !store.HasTokens() {
+		t.Fatalf("shared store was not updated: tokens=%+v active=%d", tokens, store.ActiveCount())
 	}
 }

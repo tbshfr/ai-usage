@@ -2,11 +2,13 @@ package web
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"regexp"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/tbshfr/ai-usage/internal/auth"
@@ -144,6 +146,13 @@ func TestTokenFilterAndBreakdowns(t *testing.T) {
 	_, body = get(t, srv.URL+"/breakdowns?"+fullRangeQuery)
 	wantNotContains(t, body, "By token group")
 
+	if _, _, err := store.Create(context.Background(), "ungrouped", ""); err != nil {
+		t.Fatal(err)
+	}
+	_, body = get(t, srv.URL+"/?"+fullRangeQuery)
+	wantNotContains(t, body, `name="group"`)
+	wantContains(t, body, `name="token"`, `name="ungrouped"`)
+
 	if _, _, err := store.Create(context.Background(), "machine1", "private"); err != nil {
 		t.Fatal(err)
 	}
@@ -162,5 +171,185 @@ func TestTokenFilterAndBreakdowns(t *testing.T) {
 
 	if status, _ := get(t, srv.URL+"/?token=abc"); status != http.StatusBadRequest {
 		t.Errorf("invalid token filter = %d, want 400", status)
+	}
+	_, body = get(t, srv.URL+"/tokens")
+	wantContains(t, body, `href="/?ungrouped=true">No group</a>`)
+	_, body = get(t, srv.URL+"/breakdowns?ungrouped=true")
+	wantContains(t, body, `name="ungrouped" value="true" checked`, "/breakdowns?range=7d&amp;ungrouped=true")
+	if status, _ := get(t, srv.URL+"/?ungrouped=invalid"); status != http.StatusBadRequest {
+		t.Errorf("invalid ungrouped filter = %d, want 400", status)
+	}
+}
+
+func TestTokenManagementRequiresSharedStore(t *testing.T) {
+	db := seedtest.EmptyDB(t)
+	listenerStore, err := auth.NewTokenStore(context.Background(), db, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, id, err := listenerStore.Create(context.Background(), "client", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(New(db, nil, nil, nil, "test"))
+	defer srv.Close()
+	_, body := get(t, srv.URL+"/tokens")
+	wantContains(t, body, "Token management is unavailable.")
+	wantNotContains(t, body, `action="/tokens"`, `action="/tokens/1/revoke"`)
+	for _, path := range []string{"/tokens", fmt.Sprintf("/tokens/%d", id), fmt.Sprintf("/tokens/%d/revoke", id), fmt.Sprintf("/tokens/%d/regenerate", id)} {
+		status, _, _ := postForm(t, srv, path, url.Values{"name": {"changed"}}, nil)
+		if status != http.StatusServiceUnavailable {
+			t.Errorf("%s without shared store = %d, want 503", path, status)
+		}
+	}
+	for _, path := range []string{"/tokens/abc", "/tokens/0", "/tokens/-1", "/tokens/abc/revoke", "/tokens/abc/regenerate"} {
+		status, _, _ := postForm(t, srv, path, url.Values{"name": {"changed"}}, nil)
+		if status != http.StatusNotFound {
+			t.Errorf("%s without shared store = %d, want 404", path, status)
+		}
+	}
+	tokens, err := storage.ListTokens(context.Background(), db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tokens) != 1 || tokens[0].Name != "client" || !tokens[0].Active() {
+		t.Fatalf("management without shared store changed tokens: %+v", tokens)
+	}
+}
+
+func TestUngroupedFilterAvailability(t *testing.T) {
+	srv, store := newTokenServer(t)
+	_, id, err := store.Create(context.Background(), "client", "work")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, page := range []string{"/", "/trends", "/breakdowns", "/sessions"} {
+		_, body := get(t, srv.URL+page+"?range=all")
+		wantContains(t, body, `name="token"`)
+		wantNotContains(t, body, `name="ungrouped"`)
+		// Keep a selected filter visible so users can clear an old bookmark
+		// after the last ungrouped token has moved to a group.
+		_, body = get(t, srv.URL+page+"?range=all&ungrouped=true")
+		wantContains(t, body, `name="ungrouped" value="true" checked`)
+	}
+	if status, body, _ := postForm(t, srv, fmt.Sprintf("/tokens/%d", id), url.Values{"name": {"client"}, "group": {""}}, nil); status != http.StatusSeeOther {
+		t.Fatalf("remove group = %d: %s", status, body)
+	}
+	if err := store.Revoke(context.Background(), id); err != nil {
+		t.Fatal(err)
+	}
+	// Revoked tokens still have historical usage and must remain filterable.
+	_, body := get(t, srv.URL+"/?range=all")
+	wantContains(t, body, `name="ungrouped"`)
+}
+
+func TestSavedTokenSecretShownWhenUsageReadFails(t *testing.T) {
+	// Removing the usage table leaves token writes possible but makes the
+	// subsequent page query fail. The successful response must still show
+	// the only recoverable copy of the new secret.
+	db := seedtest.EmptyDB(t)
+	shared, err := auth.NewTokenStore(context.Background(), db, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plain, id, err := shared.Create(context.Background(), "client", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`DROP TABLE generations`); err != nil {
+		t.Fatal(err)
+	}
+	h := New(db, nil, nil, nil, "test", WithTokens(shared))
+	for _, path := range []string{"/tokens", fmt.Sprintf("/tokens/%d/regenerate", id)} {
+		r := httptest.NewRequest("POST", "http://localhost"+path, strings.NewReader("name=new-client"))
+		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		wantStatus := http.StatusCreated
+		if path != "/tokens" {
+			wantStatus = http.StatusOK
+		}
+		secret := plainTokenRE.FindString(w.Body.String())
+		if w.Code != wantStatus || secret == "" || secret == plain || w.Header().Get("Cache-Control") != "no-store" {
+			t.Fatalf("saved secret lost at %s: status %d, body %s", path, w.Code, w.Body.String())
+		}
+		if _, ok := shared.Verify(secret); !ok {
+			t.Fatal("displayed secret does not authenticate")
+		}
+	}
+}
+
+func TestTokenManagementRejectsRebindingHost(t *testing.T) {
+	db := seedtest.EmptyDB(t)
+	store, err := auth.NewTokenStore(context.Background(), db, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plain, id, err := store.Create(context.Background(), "existing", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := New(db, nil, nil, nil, "test", WithTokens(store))
+	for _, path := range []string{"/tokens", fmt.Sprintf("/tokens/%d", id), fmt.Sprintf("/tokens/%d/revoke", id), fmt.Sprintf("/tokens/%d/regenerate", id)} {
+		for _, fetchSite := range []string{"", "same-origin"} {
+			r := httptest.NewRequest("POST", "http://attacker.example:8080"+path, strings.NewReader("name=attacker"))
+			r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+			r.Header.Set("Origin", "http://attacker.example:8080")
+			r.Header.Set("Sec-Fetch-Site", fetchSite)
+			w := httptest.NewRecorder()
+			h.ServeHTTP(w, r)
+			if w.Code != http.StatusForbidden || plainTokenRE.MatchString(w.Body.String()) {
+				t.Fatalf("%s with fetch-site %q: status=%d body=%s", path, fetchSite, w.Code, w.Body.String())
+			}
+		}
+	}
+	tokens, err := storage.ListTokens(context.Background(), db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tokens) != 1 || tokens[0].Name != "existing" || !tokens[0].Active() {
+		t.Fatalf("rejected requests changed tokens: %+v", tokens)
+	}
+	if _, ok := store.Verify(plain); !ok {
+		t.Fatal("rejected requests invalidated original secret")
+	}
+}
+
+func TestAuthenticatedTokenManagementAllowsCustomHost(t *testing.T) {
+	db := seedtest.EmptyDB(t)
+	store, err := auth.NewTokenStore(context.Background(), db, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sessions := mustSessions(t)
+	dash := auth.NewDashboard("admin", "secret", sessions)
+	h := NewAuthed(db, nil, nil, dash, nil, "test", WithTokens(store))
+	issued := httptest.NewRecorder()
+	sessions.Issue(issued)
+	for _, loggedIn := range []bool{false, true} {
+		r := httptest.NewRequest("POST", "https://dashboard.example/tokens", strings.NewReader("name=client"))
+		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		r.Header.Set("Origin", "https://dashboard.example")
+		r.Header.Set("Sec-Fetch-Site", "same-origin")
+		if loggedIn {
+			r.AddCookie(issued.Result().Cookies()[0])
+		}
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		want := http.StatusSeeOther
+		if loggedIn {
+			want = http.StatusCreated
+		}
+		if w.Code != want {
+			t.Fatalf("loggedIn=%v: status=%d body=%s", loggedIn, w.Code, w.Body.String())
+		}
+		if !loggedIn && store.HasTokens() {
+			t.Fatal("unauthenticated request created a token")
+		}
+		if loggedIn {
+			if _, ok := store.Verify(plainTokenRE.FindString(w.Body.String())); !ok {
+				t.Fatal("created secret does not authenticate")
+			}
+		}
 	}
 }

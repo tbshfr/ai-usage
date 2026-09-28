@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 // ErrTokenNotFound is returned when an api_tokens row does not exist.
@@ -45,7 +46,10 @@ func CleanTokenField(field, v string, required bool) (string, error) {
 	if required && v == "" {
 		return "", fmt.Errorf("%s is required", field)
 	}
-	if len(v) > maxTokenFieldLen {
+	if !utf8.ValidString(v) {
+		return "", fmt.Errorf("%s contains invalid UTF-8", field)
+	}
+	if utf8.RuneCountInString(v) > maxTokenFieldLen {
 		return "", fmt.Errorf("%s is longer than %d characters", field, maxTokenFieldLen)
 	}
 	for _, r := range v {
@@ -204,38 +208,49 @@ func TouchTokens(ctx context.Context, db *sql.DB, used map[int64]time.Time) erro
 // used this token.
 // Reports whether a row was inserted.
 func SeedToken(ctx context.Context, db *sql.DB, hash [32]byte, hint string) (bool, error) {
+	id, err := SeedTokenID(ctx, db, hash, hint)
+	return id != 0, err
+}
+
+// SeedTokenID has the same semantics as SeedToken, returning the new row's
+// ID, or 0 when the hash was already known. The ID is returned only after
+// commit so callers can update authentication caches without another read.
+func SeedTokenID(ctx context.Context, db *sql.DB, hash [32]byte, hint string) (int64, error) {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
-		return false, err
+		return 0, err
 	}
 	defer tx.Rollback()
 	var exists bool
 	if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM api_tokens WHERE token_hash = ?1)
 	OR EXISTS(SELECT 1 FROM api_token_retired_hashes WHERE token_hash = ?1)`, hash[:]).Scan(&exists); err != nil {
-		return false, fmt.Errorf("seed token lookup: %w", err)
+		return 0, fmt.Errorf("seed token lookup: %w", err)
 	}
 	if exists {
-		return false, nil
+		return 0, nil
 	}
 	var count int
 	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM api_tokens`).Scan(&count); err != nil {
-		return false, fmt.Errorf("seed token count: %w", err)
+		return 0, fmt.Errorf("seed token count: %w", err)
 	}
 	res, err := tx.ExecContext(ctx, `INSERT INTO api_tokens (name, group_name, token_hash, hint, created_at) VALUES ('default', 'default', ?, ?, ?)`,
 		hash[:], hint, time.Now().UnixMilli())
 	if err != nil {
-		return false, fmt.Errorf("seed token: %w", err)
+		return 0, fmt.Errorf("seed token: %w", err)
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		return 0, err
 	}
 	if count == 0 {
-		id, err := res.LastInsertId()
-		if err != nil {
-			return false, err
-		}
 		if _, err := tx.ExecContext(ctx, `UPDATE generations SET token_id = ? WHERE token_id IS NULL`, id); err != nil {
-			return false, fmt.Errorf("seed token backfill: %w", err)
+			return 0, fmt.Errorf("seed token backfill: %w", err)
 		}
 	}
-	return true, tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	return id, nil
 }
 
 // TokenGroups returns the distinct non-empty group labels.

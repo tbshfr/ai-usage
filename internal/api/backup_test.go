@@ -31,7 +31,7 @@ func TestBackupStatus(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			state = tc.state
 			w := httptest.NewRecorder()
-			handler.ServeHTTP(w, httptest.NewRequest("GET", "/api/backup", nil))
+			handler.ServeHTTP(w, httptest.NewRequest("GET", "http://localhost/api/backup", nil))
 			var got struct {
 				Status       string     `json:"status"`
 				Enabled      bool       `json:"enabled"`
@@ -60,7 +60,7 @@ func TestBackupStatus(t *testing.T) {
 			}
 			for _, path := range []string{"/health", "/ready"} {
 				probe := httptest.NewRecorder()
-				handler.ServeHTTP(probe, httptest.NewRequest("GET", path, nil))
+				handler.ServeHTTP(probe, httptest.NewRequest("GET", "http://localhost"+path, nil))
 				if probe.Code != 200 {
 					t.Fatalf("%s: %d", path, probe.Code)
 				}
@@ -81,7 +81,7 @@ func TestBackupStatus(t *testing.T) {
 func TestBackupStatusWithoutWorker(t *testing.T) {
 	handler := New(seedtest.DB(t), testLogger(t), nil, nil, nil, "test")
 	w := httptest.NewRecorder()
-	handler.ServeHTTP(w, httptest.NewRequest("GET", "/api/backup", nil))
+	handler.ServeHTTP(w, httptest.NewRequest("GET", "http://localhost/api/backup", nil))
 	if w.Code != 200 || w.Body.String() != "{\"status\":\"disabled\",\"enabled\":false,\"running\":false,\"lastSuccess\":null,\"failedAt\":null,\"failureStage\":\"\"}\n" {
 		t.Fatalf("unexpected response: %d %s", w.Code, w.Body.String())
 	}

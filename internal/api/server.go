@@ -362,6 +362,13 @@ func filterParam(w http.ResponseWriter, r *http.Request) (storage.Filter, bool) 
 		Token:        q.Get("token"),
 		Conversation: q.Get("conversation"),
 	}
+	if value := q.Get("ungrouped"); value != "" {
+		var err error
+		if f.Ungrouped, err = strconv.ParseBool(value); err != nil {
+			writeErr(w, http.StatusBadRequest, fmt.Sprintf("invalid ungrouped %q (want true or false)", value))
+			return f, false
+		}
+	}
 	if f.Token != "" && f.Token != storage.TokenNone {
 		if id, err := strconv.ParseInt(f.Token, 10, 64); err != nil || id <= 0 {
 			writeErr(w, http.StatusBadRequest, fmt.Sprintf("invalid token %q (want a token ID or %q)", f.Token, storage.TokenNone))
@@ -435,6 +442,7 @@ func filterEchoOf(r *http.Request, f storage.Filter) filterEcho {
 		Provider:     r.URL.Query().Get("provider"),
 		Model:        r.URL.Query().Get("model"),
 		Group:        r.URL.Query().Get("group"),
+		Ungrouped:    f.Ungrouped,
 		Token:        r.URL.Query().Get("token"),
 		Conversation: r.URL.Query().Get("conversation"),
 	}
@@ -447,6 +455,7 @@ type filterEcho struct {
 	Provider     string `json:"provider"`
 	Model        string `json:"model"`
 	Group        string `json:"group"`
+	Ungrouped    bool   `json:"ungrouped"`
 	Token        string `json:"token"`
 	Conversation string `json:"conversation"`
 }
@@ -490,7 +499,7 @@ func tokenIDPtr(id int64) *int64 {
 	return &id
 }
 
-// tokenInfo is an API token's metadata; the secret is never exposed.
+// tokenInfo is an OTLP token's metadata; the secret is never exposed.
 type tokenInfo struct {
 	ID         int64      `json:"id"`
 	Name       string     `json:"name"`

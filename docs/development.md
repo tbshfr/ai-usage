@@ -21,6 +21,7 @@ go build -o ai-usage ./cmd/ai-usage
 | `cmd/capture` | Local raw OTLP capture tool for refreshing fixtures |
 | `cmd/inspect` | OTLP fixture inspection tool |
 | `cmd/sanitize` | OTLP fixture redaction and JSON conversion |
+| `cmd/seed` | Synthetic demo database for screenshots and manual UI checks |
 | `internal/ingest` | OTLP/HTTP and OTLP/gRPC receivers |
 | `internal/normalize` | Source detection and canonical generation mapping |
 | `internal/storage` | SQLite schema, migrations, and queries |
@@ -74,6 +75,34 @@ go test ./...
 
 Tests use temporary databases and local HTTP servers. They do not require an
 OpenRouter key or a real S3 bucket.
+
+## Demo data
+
+`cmd/seed` creates a database with synthetic usage: five clients, eleven
+current models, four OTLP tokens in two groups (one revoked), and 60 days of
+ingestion stats. The README screenshots use its default output.
+
+```sh
+go run ./cmd/seed -db temp/demo.db
+go run ./cmd/ai-usage --database temp/demo.db
+```
+
+| Flag | Default | Purpose |
+|---|---|---|
+| `-db` | `temp/demo.db` | Database to create; an existing file is refused |
+| `-requests` | `15000` | Exact number of requests to generate |
+| `-days` | `365` | Days of history before today |
+
+The requests are spread over the days with growth over time, quieter
+weekends, and some idle days. The history ends at the current time, so the
+dashboard's today and recent periods are populated. To test with a large
+database, raise `-requests`.
+
+```sh
+go run ./cmd/seed -db temp/large.db -requests 500000
+```
+
+Delete the database and its `-wal`/`-shm` files to reseed.
 
 ## Embedded web assets
 

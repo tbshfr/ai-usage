@@ -45,7 +45,7 @@ main { width: calc(100% - 232px); max-width: 1920px; margin: 0 0 0 max(232px, ca
 .filter-choice span { border-radius: 4px; }
 .filter-choice input:checked + span, .filterbar .presets a.active, .tab.active { color: var(--color-accent-ink); box-shadow: none; }
 .filterbar .presets a, .tab { border-radius: var(--radius-input); white-space: nowrap; }
-.panel, .heatmap-panel, .stat-card, .conv-card, table, .token-inventory, .podium-panel, dl.detail { border-radius: var(--radius-card); box-shadow: var(--shadow-panel); }
+.panel, .heatmap-panel, .stat-card, .conv-card, table, .token-inventory, .leaderboard-panel, dl.detail { border-radius: var(--radius-card); box-shadow: var(--shadow-panel); }
 .stat-card, .conv-card { transition: transform var(--dur-short) var(--ease-out), border-color var(--dur-short), box-shadow var(--dur-short); }
 .stat-card:hover, .conv-card:hover { box-shadow: var(--shadow-panel); }
 .stat-card.hero { padding: var(--space-xl); }
@@ -63,8 +63,6 @@ main { width: calc(100% - 232px); max-width: 1920px; margin: 0 0 0 max(232px, ca
 :root[data-theme="dark"] .heatmap-cell.level-3, :root[data-theme="dark"] .heatmap-legend .level-3 { background: #2ea043; }
 :root[data-theme="dark"] .heatmap-cell.level-4, :root[data-theme="dark"] .heatmap-legend .level-4 { background: #56d364; }
 .heatmap-tooltip { box-shadow: var(--shadow-overlay); }
-.podium-panel { background: var(--panel); }
-.podium-eyebrow { text-transform: none; letter-spacing: 0; }
 th { text-transform: none; letter-spacing: 0; background: var(--panel-hover); }
 th, td { padding: 0.85rem var(--space-md); }
 th { font-size: var(--text-xs); font-weight: 500; }
@@ -165,11 +163,6 @@ dialog.detail-dialog::backdrop, dialog.token-dialog::backdrop { background: var(
 }
 @media (max-width: 375px) { .theme-options button { padding: var(--space-sm); gap: var(--space-xs); } .settings-surface { padding: var(--space-md); } .settings-nav { gap: var(--space-sm) var(--space-md); } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
-.podium-place-0 { --podium-color: var(--accent); --podium-tint: var(--accent-soft); }
-.podium-place-1 { --podium-color: var(--color-chart-3); --podium-tint: var(--panel-hover); }
-.podium-place-2 { --podium-color: var(--color-chart-2); --podium-tint: var(--panel-hover); }
-.podium-place-0 .podium-entry { border-color: var(--accent); box-shadow: none; }
-.podium-step { background: var(--podium-tint); color: var(--podium-color); border-color: var(--border); }
 .filterbar button { color: var(--color-accent-ink); min-height: 44px; }
 .filter-choice label.disabled span, .filter-choice label.disabled:hover span { color: var(--muted); }
 
@@ -194,8 +187,8 @@ dialog.detail-dialog::backdrop, dialog.token-dialog::backdrop { background: var(
 .custom-select-option.is-highlighted { background: var(--panel-hover); color: var(--text); }
 .custom-select-option[aria-selected="true"] { color: var(--accent); background: var(--accent-soft); font-weight: 600; }
 .custom-select-options { max-width: calc(100vw - 24px); }
-.podium-controls .custom-select { width: 100%; }
-.podium-controls .custom-select-trigger { min-width: 160px; font-size: var(--text-sm); }
+.leaderboard-controls .custom-select { width: 100%; }
+.leaderboard-controls .custom-select-trigger { min-width: 160px; font-size: var(--text-sm); }
 @media (max-width: 768px) { .filterbar .custom-select { flex: 1 1 45%; } .filterbar .custom-select-trigger { min-width: 0; } }
 
 .filterbar .custom-select-trigger { background: var(--panel); color: var(--text); border: 1px solid var(--border); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-input); }

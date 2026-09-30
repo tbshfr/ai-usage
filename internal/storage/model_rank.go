@@ -9,7 +9,7 @@ import (
 	"github.com/tbshfr/ai-usage/internal/normalize"
 )
 
-// ModelRankMetric selects how the Trends podium ranks models.
+// ModelRankMetric selects how the Trends leaderboard ranks models.
 type ModelRankMetric string
 
 const (

@@ -38,7 +38,7 @@ func TestTopModelsRanksByTokensDaysAndKnownCost(t *testing.T) {
 			t.Errorf("haiku active days = %d, want 6 (multiple requests on one UTC day count once)", rows[0].ActiveDays)
 		}
 		if tc.metric == storage.RankCost {
-			assertCost(t, rows[0].CostTotal, rows[0].CostKnownCount, 2.85, 8, "podium cost")
+			assertCost(t, rows[0].CostTotal, rows[0].CostKnownCount, 2.85, 8, "leaderboard cost")
 		}
 	}
 }

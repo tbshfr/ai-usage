@@ -26,7 +26,7 @@ type uiFilter struct {
 	Conversation string
 	FromParam    string
 	ToParam      string
-	PodiumMetric string // set only for Trends after validating the metric
+	RankBy       string // set only for Trends after validating the metric
 }
 
 // dims returns the storage filter for the selected dimensions (source,
@@ -229,8 +229,8 @@ func presetViews(action string, u uiFilter) []presetView {
 		if u.Conversation != "" {
 			q.Set("conversation", u.Conversation)
 		}
-		if u.PodiumMetric != "" {
-			q.Set("podium_metric", u.PodiumMetric)
+		if u.RankBy != "" {
+			q.Set("rank_by", u.RankBy)
 		}
 		active := u.Range == k.key || (k.key == "today" && u.Range == "")
 		link := action
@@ -316,8 +316,8 @@ func withoutConversationURL(action string, u uiFilter) string {
 	if u.ToParam != "" {
 		q.Set("to", u.ToParam)
 	}
-	if u.PodiumMetric != "" {
-		q.Set("podium_metric", u.PodiumMetric)
+	if u.RankBy != "" {
+		q.Set("rank_by", u.RankBy)
 	}
 	return action + "?" + q.Encode()
 }

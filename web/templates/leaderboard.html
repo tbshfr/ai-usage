@@ -1,0 +1,45 @@
+{{define "model-leaderboard"}}
+<section class="leaderboard-panel" aria-labelledby="leaderboard-title">
+  <div class="leaderboard-head">
+    <div>
+      <h2 id="leaderboard-title">Top models</h2>
+      <p class="muted leaderboard-description">{{if eq .Leaderboard.Metric "days"}}Distinct UTC days with a request. Copilot autocomplete, title, and progress helpers are excluded.{{else if eq .Leaderboard.Metric "cost"}}Known reported and estimated costs.{{else}}Total tokens across all token types.{{end}}</p>
+    </div>
+    <form id="leaderboard-controls" class="leaderboard-controls" method="get" action="/trends" hx-get="/fragments/trends" hx-trigger="change" hx-target="#trends" hx-include="#filter-bar, #leaderboard-controls" hx-sync="#trends:replace">
+      <label>Rank by
+        <select name="rank_by" aria-label="Leaderboard ranking metric">
+          <option value="tokens"{{if eq .Leaderboard.Metric "tokens"}} selected{{end}}>Most tokens</option>
+          <option value="days"{{if eq .Leaderboard.Metric "days"}} selected{{end}}>Most days used</option>
+          <option value="cost"{{if eq .Leaderboard.Metric "cost"}} selected{{end}}>Highest cost</option>
+        </select>
+      </label>
+      <noscript>
+        {{if .F.Selected.Range}}<input type="hidden" name="range" value="{{.F.Selected.Range}}">{{end}}
+        {{if .F.Selected.Source}}<input type="hidden" name="source" value="{{.F.Selected.Source}}">{{end}}
+        {{if .F.Selected.Provider}}<input type="hidden" name="provider" value="{{.F.Selected.Provider}}">{{end}}
+        {{if .F.Selected.Model}}<input type="hidden" name="model" value="{{.F.Selected.Model}}">{{end}}
+        {{if .F.Selected.Group}}<input type="hidden" name="group" value="{{.F.Selected.Group}}">{{end}}
+        {{if .F.Selected.Ungrouped}}<input type="hidden" name="ungrouped" value="true">{{end}}
+        {{if .F.Selected.Token}}<input type="hidden" name="token" value="{{.F.Selected.Token}}">{{end}}
+        {{if .F.Selected.Conversation}}<input type="hidden" name="conversation" value="{{.F.Selected.Conversation}}">{{end}}
+        {{range .F.Hidden}}{{if .Value}}<input type="hidden" name="{{.Name}}" value="{{.Value}}">{{end}}{{end}}
+        <input type="hidden" name="bucket" value="{{.Charts.Bucket}}">
+        <button type="submit">Apply</button>
+      </noscript>
+    </form>
+  </div>
+  {{if .Leaderboard.Rows}}
+  <ol class="leaderboard-list" aria-label="Top models ranked by {{.Leaderboard.Metric}}">
+    {{range .Leaderboard.Rows}}<li class="leaderboard-row{{if eq .Rank 1}} is-leader{{end}}">
+      <span class="leaderboard-rank" aria-hidden="true">{{.Rank}}</span>
+      <div class="leaderboard-main">
+        <strong class="leaderboard-model">{{.Model}}</strong>
+        <svg class="leaderboard-bar" aria-hidden="true" focusable="false"><rect width="{{printf "%.2f" .Share}}%" height="100%" rx="4"/></svg>
+      </div>
+      <span class="leaderboard-value">{{if eq $.Leaderboard.Metric "days"}}{{commas .ActiveDays}} <small>{{if eq .ActiveDays 1}}day{{else}}days{{end}}</small>{{else if eq $.Leaderboard.Metric "cost"}}{{costCell .CostKnownCount .CostTotal .CostEstimatedCount}}{{else}}{{commas .TotalTokens}} <small>tokens</small>{{end}}</span>
+    </li>{{end}}
+  </ol>
+  {{if eq .Leaderboard.Metric "cost"}}<p class="leaderboard-note muted">Costs can be incomplete when some requests have no price. Models with no cost data are excluded.</p>{{end}}
+  {{else}}<p class="leaderboard-empty muted">{{if eq .Leaderboard.Metric "cost"}}No model cost data in this timeframe.{{else if eq .Leaderboard.Metric "days"}}No eligible model usage in this timeframe.{{else}}No model usage in this timeframe.{{end}}</p>{{end}}
+</section>
+{{end}}

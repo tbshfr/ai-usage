@@ -146,7 +146,7 @@ type pageData struct {
 	Error       string
 	F           filterView
 	Cards       []cardView
-	Podium      podiumView
+	Leaderboard leaderboardView
 	Heatmap     heatmapView
 	Periods     periodModes
 	Detail      *periodDetailView
@@ -217,9 +217,42 @@ type periodModes struct {
 	Rolling bool
 }
 
-type podiumView struct {
+type leaderboardView struct {
 	Metric storage.ModelRankMetric
-	Rows   []storage.ModelRank
+	Rows   []leaderboardRow
+}
+
+// leaderboardRow is one ranked model. Share is its metric as a percentage of the
+// leader's, used for the leaderboard bar width.
+type leaderboardRow struct {
+	storage.ModelRank
+	Rank  int
+	Share float64
+}
+
+func buildLeaderboard(metric storage.ModelRankMetric, ranks []storage.ModelRank) leaderboardView {
+	value := func(r storage.ModelRank) float64 {
+		switch metric {
+		case storage.RankDays:
+			return float64(r.ActiveDays)
+		case storage.RankCost:
+			if r.CostTotal == nil {
+				return 0
+			}
+			return *r.CostTotal
+		default:
+			return float64(r.TotalTokens)
+		}
+	}
+	lb := leaderboardView{Metric: metric, Rows: make([]leaderboardRow, len(ranks))}
+	for i, r := range ranks {
+		lb.Rows[i] = leaderboardRow{ModelRank: r, Rank: i + 1}
+		if lead := value(ranks[0]); lead > 0 && value(r) > 0 {
+			// Keep a sliver visible for tiny values next to a large leader.
+			lb.Rows[i].Share = max(value(r)/lead*100, 1.5)
+		}
+	}
+	return lb
 }
 
 type heatmapView struct {
@@ -606,15 +639,15 @@ func (s *server) trendsData(r *http.Request) (*pageData, error) {
 	if err != nil {
 		return nil, badRequest{err}
 	}
-	metric := storage.ModelRankMetric(r.URL.Query().Get("podium_metric"))
+	metric := storage.ModelRankMetric(r.URL.Query().Get("rank_by"))
 	if metric == "" {
 		metric = storage.RankTokens
 	}
 	if metric != storage.RankTokens && metric != storage.RankDays && metric != storage.RankCost {
-		return nil, badRequest{fmt.Errorf("invalid podium metric %q (want tokens, days, or cost)", metric)}
+		return nil, badRequest{fmt.Errorf("invalid leaderboard metric %q (want tokens, days, or cost)", metric)}
 	}
 	if metric != storage.RankTokens {
-		u.PodiumMetric = string(metric)
+		u.RankBy = string(metric)
 	}
 	bucket, err := trendBucketParam(r, f)
 	if err != nil {
@@ -624,7 +657,7 @@ func (s *server) trendsData(r *http.Request) (*pageData, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Keep explicit date bounds when changing chart grouping or podium metric.
+	// Keep explicit date bounds when changing chart grouping or leaderboard metric.
 	for _, name := range []string{"from", "to"} {
 		if value := r.URL.Query().Get(name); value != "" {
 			d.F.Hidden = append(d.F.Hidden, hiddenInput{Name: name, Value: value})
@@ -632,11 +665,11 @@ func (s *server) trendsData(r *http.Request) (*pageData, error) {
 	}
 	d.Charts.Bucket = bucket
 	d.Charts.Buckets = trendBucketOptions(f, bucket)
-	d.Podium.Metric = metric
-	d.Podium.Rows, err = storage.TopModels(r.Context(), s.db, f, metric)
+	ranks, err := storage.TopModels(r.Context(), s.db, f, metric)
 	if err != nil {
 		return nil, err
 	}
+	d.Leaderboard = buildLeaderboard(metric, ranks)
 	pts, err := storage.Timeseries(r.Context(), s.db, f, bucket)
 	if err != nil {
 		return nil, err

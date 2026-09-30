@@ -109,67 +109,68 @@ func TestDashboardCalendarPeriodMode(t *testing.T) {
 	wantContains(t, body, `<span class="stat-label">This week</span>`, `<span class="stat-label">This month</span>`)
 }
 
-func TestTrendsModelPodiumMetricsAndFragment(t *testing.T) {
+func TestTrendsModelLeaderboardMetricsAndFragment(t *testing.T) {
 	srv := newServer(t)
 	defer srv.Close()
 	status, body := get(t, srv.URL+"/trends?"+fullRangeQuery)
 	if status != http.StatusOK {
 		t.Fatalf("status %d", status)
 	}
-	wantContains(t, body, "Top models", `name="podium_metric"`, `value="tokens" selected`,
-		`hx-include="#filter-bar, #podium-controls"`,
+	wantContains(t, body, "Top models", `name="rank_by"`, `value="tokens" selected`,
+		`hx-include="#filter-bar, #leaderboard-controls"`,
 		`gpt-5.6-luna`, `gpt-4.1`, `claude-haiku-4-5-20251001`)
 	if strings.Index(body, `gpt-5.6-luna</strong>`) > strings.Index(body, `gpt-4.1</strong>`) {
-		t.Error("default token podium order is wrong")
+		t.Error("default token leaderboard order is wrong")
 	}
+	wantContains(t, body, `<rect width="100.00%"`)
 
-	status, body = get(t, srv.URL+"/fragments/trends?"+fullRangeQuery+"&podium_metric=days")
+	status, body = get(t, srv.URL+"/fragments/trends?"+fullRangeQuery+"&rank_by=days")
 	if status != http.StatusOK {
 		t.Fatalf("days fragment status %d", status)
 	}
 	wantContains(t, body, `value="days" selected`, "Copilot autocomplete, title, and progress helpers are excluded", `6 <small>days</small>`)
 	if strings.Index(body, `claude-haiku-4-5-20251001</strong>`) > strings.Index(body, `gpt-5.6-luna</strong>`) {
-		t.Error("distinct-day podium order is wrong")
+		t.Error("distinct-day leaderboard order is wrong")
 	}
 
-	status, body = get(t, srv.URL+"/fragments/trends?"+fullRangeQuery+"&podium_metric=cost")
+	status, body = get(t, srv.URL+"/fragments/trends?"+fullRangeQuery+"&rank_by=cost")
 	if status != http.StatusOK {
 		t.Fatalf("cost fragment status %d", status)
 	}
 	wantContains(t, body, `value="cost" selected`, "$2.8500", "Models with no cost data are excluded")
 	wantNotContains(t, body, `gpt-5.6-luna</strong>`)
-	status, body = get(t, srv.URL+"/trends?range=all&podium_metric=cost")
+	status, body = get(t, srv.URL+"/trends?range=all&rank_by=cost")
 	if status != http.StatusOK {
 		t.Fatalf("cost page status %d", status)
 	}
-	wantContains(t, body, `href="/trends?podium_metric=cost&amp;range=7d"`)
-	status, body = get(t, srv.URL+"/trends?range=all&conversation=conv-copilot&podium_metric=cost")
+	wantContains(t, body, `href="/trends?range=7d&amp;rank_by=cost"`)
+	status, body = get(t, srv.URL+"/trends?range=all&conversation=conv-copilot&rank_by=cost")
 	if status != http.StatusOK {
 		t.Fatalf("conversation cost page status %d", status)
 	}
-	wantContains(t, body, `class="chip" href="/trends?podium_metric=cost&amp;range=all"`)
+	wantContains(t, body, `class="chip" href="/trends?range=all&amp;rank_by=cost"`)
 
-	status, body = get(t, srv.URL+"/fragments/trends?"+fullRangeQuery+"&podium_metric=cost&source=copilot")
+	status, body = get(t, srv.URL+"/fragments/trends?"+fullRangeQuery+"&rank_by=cost&source=copilot")
 	if status != http.StatusOK {
 		t.Fatalf("filtered cost fragment status %d", status)
 	}
 	wantContains(t, body, "No model cost data in this timeframe.")
 }
 
-func TestTrendsModelPodiumPlainFormPreservesFilters(t *testing.T) {
+func TestTrendsModelLeaderboardPlainFormPreservesFilters(t *testing.T) {
 	srv := newServer(t)
 	defer srv.Close()
-	status, body := get(t, srv.URL+"/trends?range=all&source=copilot&provider=github&model=gpt-4.1&conversation=conv-copilot&podium_metric=days&bucket=month")
+	status, body := get(t, srv.URL+"/trends?range=all&source=copilot&provider=github&model=gpt-4.1&conversation=conv-copilot&rank_by=days&bucket=month")
 	if status != http.StatusOK {
 		t.Fatalf("status %d", status)
 	}
-	start := strings.Index(body, `<form id="podium-controls"`)
+	start := strings.Index(body, `<form id="leaderboard-controls"`)
 	if start < 0 {
-		t.Fatal("podium form missing")
+		t.Fatal("leaderboard form missing")
 	}
 	end := strings.Index(body[start:], `</form>`)
 	if end < 0 {
-		t.Fatal("podium form closing tag missing")
+		t.Fatal("leaderboard form closing tag missing")
 	}
 	form := body[start : start+end]
 	wantContains(t, form, `<noscript>`,
@@ -177,18 +178,18 @@ func TestTrendsModelPodiumPlainFormPreservesFilters(t *testing.T) {
 		`name="provider" value="github"`, `name="model" value="gpt-4.1"`,
 		`name="conversation" value="conv-copilot"`, `name="bucket" value="month"`)
 
-	status, body = get(t, srv.URL+"/trends?from=2026-03-01&to=2026-03-03&conversation=conv-copilot&podium_metric=days")
+	status, body = get(t, srv.URL+"/trends?from=2026-03-01&to=2026-03-03&conversation=conv-copilot&rank_by=days")
 	if status != http.StatusOK {
 		t.Fatalf("explicit range status %d", status)
 	}
-	wantContains(t, body, `class="chip" href="/trends?from=2026-03-01&amp;podium_metric=days&amp;to=2026-03-03"`)
-	start = strings.Index(body, `<form id="podium-controls"`)
+	wantContains(t, body, `class="chip" href="/trends?from=2026-03-01&amp;rank_by=days&amp;to=2026-03-03"`)
+	start = strings.Index(body, `<form id="leaderboard-controls"`)
 	end = strings.Index(body[start:], `</form>`)
 	form = body[start : start+end]
 	wantContains(t, form, `name="from" value="2026-03-01"`, `name="to" value="2026-03-03"`)
 }
 
-func TestTrendsModelPodiumUsesSelectedDateRange(t *testing.T) {
+func TestTrendsModelLeaderboardUsesSelectedDateRange(t *testing.T) {
 	srv := newServer(t)
 	defer srv.Close()
 	status, body := get(t, srv.URL+"/trends?from=2026-03-01&to=2026-03-03")
@@ -200,10 +201,10 @@ func TestTrendsModelPodiumUsesSelectedDateRange(t *testing.T) {
 	wantNotContains(t, body, `1,970 <small>tokens</small>`)
 }
 
-func TestTrendsModelPodiumRejectsInvalidSelection(t *testing.T) {
+func TestTrendsModelLeaderboardRejectsInvalidSelection(t *testing.T) {
 	srv := newServer(t)
 	defer srv.Close()
-	status, _ := get(t, srv.URL+"/fragments/trends?podium_metric=requests")
+	status, _ := get(t, srv.URL+"/fragments/trends?rank_by=requests")
 	if status != http.StatusBadRequest {
 		t.Errorf("invalid metric: status %d, want 400", status)
 	}

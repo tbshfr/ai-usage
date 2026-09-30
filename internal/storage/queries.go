@@ -168,7 +168,7 @@ const modelGroupKeySQL = `CASE WHEN provider = 'openrouter' AND instr(model, '/'
 	THEN substr(model, instr(model, '/') + 1) ELSE model END`
 
 // totalTokensSumSQL is the canonical total across the five disjoint token
-// buckets. Use it for model breakdown ordering and podium rankings.
+// buckets. Use it for model breakdown ordering and leaderboard rankings.
 const totalTokensSumSQL = `COALESCE(SUM(` + uncachedInputSQL + `), 0)
 	+ COALESCE(SUM(` + outputTokensSQL + `), 0)
 	+ COALESCE(SUM(cache_read_tokens), 0)

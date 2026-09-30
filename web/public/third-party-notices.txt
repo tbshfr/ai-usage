@@ -41,10 +41,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
-
-
-Twemoji robot face graphic
-Title: 1f916.svg
-Author: Copyright 2020 Twitter, Inc and other contributors
-Source: https://github.com/twitter/twemoji/blob/v14.0.2/assets/svg/1f916.svg
-License: CC BY 4.0, https://creativecommons.org/licenses/by/4.0/

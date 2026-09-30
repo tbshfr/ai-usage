@@ -107,7 +107,7 @@ func newMux(db *sql.DB, stats func() ingest.Stats, reasons func() ingest.ReasonC
 	if dash != nil {
 		mux.HandleFunc("GET /login", s.loginForm)
 		mux.HandleFunc("POST /login", s.loginSubmit)
-		mux.HandleFunc("GET /logout", s.logout)
+		mux.HandleFunc("POST /logout", s.logout)
 	}
 	// Reject cross-origin state-changing requests (token management,
 	// login). This applies without dashboard auth too: a loopback

@@ -153,9 +153,9 @@ func TestLoginLogoutFlow(t *testing.T) {
 	if status != http.StatusOK {
 		t.Fatalf("overview after login: status = %d, want 200", status)
 	}
-	wantContains(t, body, "Sign out", `href="/logout"`)
+	wantContains(t, body, "Sign out", `method="post" action="/logout"`)
 
-	status, _, resp = do(t, srv, "GET", "/logout", "", map[string]string{"Cookie": cookie})
+	status, _, resp = do(t, srv, "POST", "/logout", "", map[string]string{"Cookie": cookie})
 	if status != http.StatusSeeOther {
 		t.Errorf("logout status = %d, want 303", status)
 	}
@@ -174,6 +174,34 @@ func TestLoginLogoutFlow(t *testing.T) {
 	status, _, _ = do(t, srv, "GET", "/", "", nil)
 	if status != http.StatusSeeOther {
 		t.Errorf("after logout: status = %d, want 303", status)
+	}
+}
+
+func TestLogoutRejectsGetAndCrossOrigin(t *testing.T) {
+	srv, _ := newAuthedServer(t)
+	_, resp := login(t, srv, "admin", "s3cret")
+	cookie := sessionCookie(t, resp)
+
+	// A link or redirect from another site must not be able to sign the
+	// user out, so logout is POST-only and covered by the CSRF check.
+	status, _, resp := do(t, srv, "GET", "/logout", "", map[string]string{"Cookie": cookie})
+	if status == http.StatusSeeOther {
+		t.Errorf("GET /logout: status = %d, want it not to log out", status)
+	}
+	if len(resp.Cookies()) != 0 {
+		t.Error("GET /logout set a cookie")
+	}
+
+	status, _, resp = do(t, srv, "POST", "/logout", "", map[string]string{
+		"Cookie":         cookie,
+		"Sec-Fetch-Site": "cross-site",
+		"Origin":         "https://evil.example",
+	})
+	if status != http.StatusForbidden {
+		t.Errorf("cross-origin POST /logout: status = %d, want 403", status)
+	}
+	if len(resp.Cookies()) != 0 {
+		t.Error("cross-origin POST /logout set a cookie")
 	}
 }
 

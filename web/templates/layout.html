@@ -40,7 +40,7 @@
     <a href="/sessions"{{if eq .Active "sessions"}} class="active" aria-current="page"{{end}}>{{template "icon" "sessions"}}Sessions</a>
     <span class="nav-label nav-settings-label">Manage</span>
     <a href="/settings"{{if or (eq .Active "settings") (eq .Active "stats") (eq .Active "tokens") (eq .Active "setup")}} class="active"{{if eq .Active "settings"}} aria-current="page"{{end}}{{end}}>{{template "icon" "settings"}}Settings</a>
-    {{if .ShowLogout}}<div class="sidebar-foot"><a href="/logout" class="logout-link">{{template "icon" "logout"}}Sign out</a></div>{{end}}
+    {{if .ShowLogout}}<div class="sidebar-foot"><form method="post" action="/logout"><button type="submit" class="logout-link">{{template "icon" "logout"}}Sign out</button></form></div>{{end}}
   </nav>
   <div class="topbar-actions">
     <button class="icon-button appearance-toggle" type="button" popovertarget="appearance-popover" aria-label="Change appearance" title="Change appearance">{{template "icon" "palette"}}</button>

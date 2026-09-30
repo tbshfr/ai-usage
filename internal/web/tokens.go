@@ -190,7 +190,7 @@ func (s *server) tokenUpdate(w http.ResponseWriter, r *http.Request) {
 		tokenErr(w, r, err)
 		return
 	}
-	http.Redirect(w, r, "/tokens", http.StatusSeeOther)
+	http.Redirect(w, r, "/settings/tokens", http.StatusSeeOther)
 }
 
 func (s *server) tokenRevoke(w http.ResponseWriter, r *http.Request) {
@@ -205,7 +205,7 @@ func (s *server) tokenRevoke(w http.ResponseWriter, r *http.Request) {
 		tokenErr(w, r, err)
 		return
 	}
-	http.Redirect(w, r, "/tokens", http.StatusSeeOther)
+	http.Redirect(w, r, "/settings/tokens", http.StatusSeeOther)
 }
 
 func (s *server) tokenRegenerate(w http.ResponseWriter, r *http.Request) {

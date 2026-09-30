@@ -80,7 +80,7 @@ func TestDashboardPageRenders(t *testing.T) {
 		"All sources", "All providers", "All models",
 		`<option value="claude-haiku-4-5-20251001"`,
 		"Daily activity", "Tokens per UTC day over the last year",
-		"Calendar", "Rolling", `class="filter-settings"`,
+		"Calendar", "Rolling", `id="filter-bar"`,
 	)
 	wantContains(t, body, `href="/trends?range=7d"`)
 	// Cost is not on the dashboard cards — only in the detail expansion.
@@ -117,7 +117,7 @@ func TestTrendsModelPodiumMetricsAndFragment(t *testing.T) {
 		t.Fatalf("status %d", status)
 	}
 	wantContains(t, body, "Top models", `name="podium_metric"`, `value="tokens" selected`,
-		`hx-include="#filter-bar, #bucket-form, #podium-controls"`,
+		`hx-include="#filter-bar, #podium-controls"`,
 		`gpt-5.6-luna`, `gpt-4.1`, `claude-haiku-4-5-20251001`)
 	if strings.Index(body, `gpt-5.6-luna</strong>`) > strings.Index(body, `gpt-4.1</strong>`) {
 		t.Error("default token podium order is wrong")
@@ -216,7 +216,7 @@ func TestFooterShowsVersion(t *testing.T) {
 	if status != http.StatusOK {
 		t.Fatalf("status %d", status)
 	}
-	wantContains(t, body, "All timestamps are UTC.", "AI Usage · test")
+	wantContains(t, body, "All timestamps are UTC.", "AI Usage · ", `href="https://github.com/tbshfr/ai-usage/releases/tag/test"`, `aria-label="Release notes for test">test</a>`)
 }
 
 func TestPeriodDetailFragmentHasCost(t *testing.T) {
@@ -273,7 +273,7 @@ func TestTrendsPageAndFragment(t *testing.T) {
 	wantContains(t, body,
 		"Tokens over time", "Tokens by source", "Cache hit rate", "Approximate cost over time",
 		`data-chart="chart-tokens"`, `data-chart="chart-sources"`, `data-chart="chart-cache"`, `data-chart="chart-cost"`,
-		`class="filter-settings"`, `<span>Filters</span>`,
+		`id="filter-bar"`,
 	)
 
 	_, body = get(t, srv.URL+"/trends?range=30d")
@@ -284,7 +284,6 @@ func TestTrendsPageAndFragment(t *testing.T) {
 	wantContains(t, body,
 		`"name":"Cache hit rate","fmt":"pct","spanGaps":true`,
 		`"name":"Cost","fmt":"cost"`,
-		`value="month" checked`,
 	)
 	wantNotContains(t, body, `<select name="bucket"`)
 
@@ -295,7 +294,9 @@ func TestTrendsPageAndFragment(t *testing.T) {
 
 	// hour buckets are valid and carry the bucket span for axis padding
 	_, body = get(t, srv.URL+"/fragments/trends?"+fullRangeQuery+"&bucket=hour")
-	wantContains(t, body, `value="hour" checked`, `"span":3600`)
+	wantContains(t, body, `"span":3600`)
+	_, body = get(t, srv.URL+"/trends?"+fullRangeQuery+"&bucket=hour")
+	wantContains(t, body, `value="hour" checked`, `id="bucket-form"`)
 
 	// today is always past the fixed seed dates
 	_, body = get(t, srv.URL+"/fragments/trends?range=today")
@@ -488,7 +489,7 @@ func TestSessionsOtherGroupNone(t *testing.T) {
 func TestDetailPage(t *testing.T) {
 	srv := newServer(t)
 	defer srv.Close()
-	status, body := get(t, srv.URL+"/generations/c1")
+	status, body := get(t, srv.URL+"/sessions/generation-details/c1")
 	if status != http.StatusOK {
 		t.Fatalf("status %d", status)
 	}
@@ -502,36 +503,15 @@ func TestDetailPage(t *testing.T) {
 		t.Errorf("detail page: Reasoning tokens must follow Output tokens (i=%d, j=%d)", i, j)
 	}
 
-	status, body = get(t, srv.URL+"/generations/o1")
+	status, body = get(t, srv.URL+"/sessions/generation-details/o1")
 	if status != http.StatusOK {
 		t.Fatalf("status %d", status)
 	}
 	wantContains(t, body, "$0.1000")
 
-	status, _ = get(t, srv.URL+"/generations/unknown-id")
+	status, _ = get(t, srv.URL+"/sessions/generation-details/unknown-id")
 	if status != http.StatusNotFound {
 		t.Fatalf("unknown id: status %d, want 404", status)
-	}
-}
-
-func TestGenerationsRedirectsToSessions(t *testing.T) {
-	srv := newServer(t)
-	defer srv.Close()
-	client := &http.Client{
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
-	}
-	resp, err := client.Get(srv.URL + "/generations?" + fullRangeQuery)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusMovedPermanently {
-		t.Fatalf("status %d, want 301", resp.StatusCode)
-	}
-	if loc := resp.Header.Get("Location"); !strings.HasPrefix(loc, "/sessions?") || !strings.Contains(loc, "from=2024-01-01") {
-		t.Errorf("Location %q, want /sessions with preserved query", loc)
 	}
 }
 

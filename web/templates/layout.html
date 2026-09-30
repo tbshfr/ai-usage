@@ -38,7 +38,7 @@
     <a href="/sessions"{{if eq .Active "sessions"}} class="active" aria-current="page"{{end}}>{{template "icon" "sessions"}}Sessions</a>
     <span class="nav-label nav-settings-label">Manage</span>
     <a href="/settings"{{if or (eq .Active "settings") (eq .Active "stats") (eq .Active "tokens") (eq .Active "setup")}} class="active"{{if eq .Active "settings"}} aria-current="page"{{end}}{{end}}>{{template "icon" "settings"}}Settings</a>
-    <div class="sidebar-foot"><span class="muted">{{.Version}}</span>{{if .ShowLogout}}<a href="/logout" class="logout-link">Sign out</a>{{end}}</div>
+    {{if .ShowLogout}}<div class="sidebar-foot"><a href="/logout" class="logout-link">{{template "icon" "logout"}}Sign out</a></div>{{end}}
   </nav>
   <div class="topbar-actions">
     <button class="icon-button appearance-toggle" type="button" popovertarget="appearance-popover" aria-label="Change appearance" title="Change appearance">{{template "icon" "palette"}}</button>
@@ -55,21 +55,20 @@
 <main id="main-content" tabindex="-1" hx-sse:connect="/events">
   <header class="page-heading">
     <div>
-    <h1>{{if or (eq .Active "settings") (eq .Active "stats") (eq .Active "tokens") (eq .Active "setup")}}Settings{{else if .D}}Request details{{else}}{{.Title}}{{end}}</h1>
-    {{if ne .Active "dashboard"}}<p class="muted">{{if eq .Active "trends"}}Explore token usage, costs, and cache performance over time.{{else if eq .Active "breakdowns"}}Understand where your usage goes, by tool, provider, and model.{{else if eq .Active "sessions"}}Follow your sessions and inspect individual requests.{{else if or (eq .Active "settings") (eq .Active "stats") (eq .Active "tokens") (eq .Active "setup")}}Make this workspace yours and connect your tools.{{end}}</p>{{end}}
+    <h1>{{if or (eq .Active "settings") (eq .Active "stats") (eq .Active "tokens") (eq .Active "setup")}}Settings{{else if .D}}Generation details{{else}}{{.Title}}{{end}}</h1>
     </div>
-    {{if eq .Active "dashboard"}}<a class="button-link dashboard-connect" href="/setup">{{template "icon" "setup"}}Connect a tool</a>{{end}}
+    {{if eq .Active "dashboard"}}<a class="button-link dashboard-connect" href="/settings/setup">{{template "icon" "setup"}}Connect a tool</a>{{end}}
   </header>
   {{if or (eq .Active "settings") (eq .Active "stats") (eq .Active "tokens") (eq .Active "setup")}}
   <nav class="settings-nav" aria-label="Settings navigation">
     <a href="/settings"{{if eq .Active "settings"}} aria-current="page"{{end}}>General</a>
-    <a href="/tokens"{{if eq .Active "tokens"}} aria-current="page"{{end}}>OTLP tokens</a>
-    <a href="/setup"{{if eq .Active "setup"}} aria-current="page"{{end}}>Client setup</a>
-    <a href="/stats"{{if eq .Active "stats"}} aria-current="page"{{end}}>Ingestion stats</a>
+    <a href="/settings/tokens"{{if eq .Active "tokens"}} aria-current="page"{{end}}>OTLP tokens</a>
+    <a href="/settings/setup"{{if eq .Active "setup"}} aria-current="page"{{end}}>Client setup</a>
+    <a href="/settings/stats"{{if eq .Active "stats"}} aria-current="page"{{end}}>Ingestion stats</a>
   </nav>
   {{end}}
   {{template "content" .}}
 </main>
-<footer class="muted app-footer"><span>All timestamps are UTC.</span><span>AI Usage · {{.Version}}</span></footer>
+<footer class="muted app-footer"><span>All timestamps are UTC.</span><span>AI Usage · {{if eq .Version "dev"}}{{.Version}}{{else}}<a href="https://github.com/tbshfr/ai-usage/releases/tag/{{.Version}}" aria-label="Release notes for {{.Version}}">{{.Version}}</a>{{end}}</span></footer>
 </body>
 </html>{{end}}

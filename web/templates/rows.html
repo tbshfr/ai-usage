@@ -19,7 +19,7 @@
   <tbody>
     {{range .Recent.Rows}}
     <tr>
-      <td><a href="/generations/{{.ID}}">{{utc .Timestamp}}</a></td>
+      <td><a href="/sessions/generation-details/{{.ID}}">{{utc .Timestamp}}</a></td>
       <td>{{friendlySource .Source}}</td>
       {{if not $.F.Selected.Conversation}}<td>{{conversationLink $.F.Selected .ConversationID}}</td>{{end}}
       <td>{{or .Provider "—"}}</td>

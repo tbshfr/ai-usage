@@ -1,128 +1,5 @@
 {{define "breakdowns"}}
-{{if .Breaks.ShowTokens}}<section>
-  <h2>By token group</h2>
-  <div class="table-scroll">
-  <table>
-    {{template "breakdown-columns"}}
-    <thead><tr><th>Group</th><th>Requests</th><th>Total tokens</th><th>Input</th><th>Output</th><th>Reasoning</th><th>Cache read</th><th>Cache creation</th><th>Cache hit</th><th>Cost</th></tr></thead>
-    <tbody>
-      {{range .Breaks.Group}}
-      <tr>
-        <td>{{if .Key}}{{.Key}}{{else}}<span class="muted">No group</span>{{end}}</td>
-        <td>{{commas .Requests}}</td>
-        <td>{{commas .TotalTokens}}</td>
-        <td>{{commas .InputTokens}}</td>
-        <td>{{commas .OutputTokens}}</td>
-        <td>{{commas .ReasoningTokens}}</td>
-        <td>{{commas .CacheReadTokens}}</td>
-        <td>{{commas .CacheCreationTokens}}</td>
-        <td>{{pct .CacheHitRate}}</td>
-        <td>{{costCell .CostKnownCount .CostTotal .CostEstimatedCount}}</td>
-      </tr>
-      {{else}}
-      <tr><td colspan="10" class="muted">No requests in this range.</td></tr>
-      {{end}}
-      {{if .Breaks.Group}}
-      <tr class="totals">
-        <td>Total</td>
-        <td>{{commas .Breaks.GroupTotal.Requests}}</td>
-        <td>{{commas .Breaks.GroupTotal.TotalTokens}}</td>
-        <td>{{commas .Breaks.GroupTotal.InputTokens}}</td>
-        <td>{{commas .Breaks.GroupTotal.OutputTokens}}</td>
-        <td>{{commas .Breaks.GroupTotal.ReasoningTokens}}</td>
-        <td>{{commas .Breaks.GroupTotal.CacheReadTokens}}</td>
-        <td>{{commas .Breaks.GroupTotal.CacheCreationTokens}}</td>
-        <td>{{pct .Breaks.GroupTotal.CacheHitRate}}</td>
-        <td>{{costCell .Breaks.GroupTotal.CostKnownCount .Breaks.GroupTotal.CostTotal .Breaks.GroupTotal.CostEstimatedCount}}</td>
-      </tr>
-      {{end}}
-    </tbody>
-  </table>
-</div>
-</section>
-<section>
-  <h2>By token</h2>
-  <div class="table-scroll">
-  <table>
-    {{template "breakdown-columns"}}
-    <thead><tr><th>Token</th><th>Requests</th><th>Total tokens</th><th>Input</th><th>Output</th><th>Reasoning</th><th>Cache read</th><th>Cache creation</th><th>Cache hit</th><th>Cost</th></tr></thead>
-    <tbody>
-      {{range .Breaks.Token}}
-      <tr>
-        <td>{{.Label}}{{if .Revoked}} <span class="muted">(revoked)</span>{{end}}</td>
-        <td>{{commas .Requests}}</td>
-        <td>{{commas .TotalTokens}}</td>
-        <td>{{commas .InputTokens}}</td>
-        <td>{{commas .OutputTokens}}</td>
-        <td>{{commas .ReasoningTokens}}</td>
-        <td>{{commas .CacheReadTokens}}</td>
-        <td>{{commas .CacheCreationTokens}}</td>
-        <td>{{pct .CacheHitRate}}</td>
-        <td>{{costCell .CostKnownCount .CostTotal .CostEstimatedCount}}</td>
-      </tr>
-      {{else}}
-      <tr><td colspan="10" class="muted">No requests in this range.</td></tr>
-      {{end}}
-      {{if .Breaks.Token}}
-      <tr class="totals">
-        <td>Total</td>
-        <td>{{commas .Breaks.TokenTotal.Requests}}</td>
-        <td>{{commas .Breaks.TokenTotal.TotalTokens}}</td>
-        <td>{{commas .Breaks.TokenTotal.InputTokens}}</td>
-        <td>{{commas .Breaks.TokenTotal.OutputTokens}}</td>
-        <td>{{commas .Breaks.TokenTotal.ReasoningTokens}}</td>
-        <td>{{commas .Breaks.TokenTotal.CacheReadTokens}}</td>
-        <td>{{commas .Breaks.TokenTotal.CacheCreationTokens}}</td>
-        <td>{{pct .Breaks.TokenTotal.CacheHitRate}}</td>
-        <td>{{costCell .Breaks.TokenTotal.CostKnownCount .Breaks.TokenTotal.CostTotal .Breaks.TokenTotal.CostEstimatedCount}}</td>
-      </tr>
-      {{end}}
-    </tbody>
-  </table>
-</div>
-</section>{{end}}
-<section>
-  <h2>By source</h2>
-  <div class="table-scroll">
-  <table>
-    {{template "breakdown-columns"}}
-    <thead><tr><th>Source</th><th>Requests</th><th>Total tokens</th><th>Input</th><th>Output</th><th>Reasoning</th><th>Cache read</th><th>Cache creation</th><th>Cache hit</th><th>Cost</th></tr></thead>
-    <tbody>
-      {{range .Breaks.Source}}
-      <tr>
-        <td>{{friendlySource .Key}}</td>
-        <td>{{commas .Requests}}</td>
-        <td>{{commas .TotalTokens}}</td>
-        <td>{{commas .InputTokens}}</td>
-        <td>{{commas .OutputTokens}}</td>
-        <td>{{commas .ReasoningTokens}}</td>
-        <td>{{commas .CacheReadTokens}}</td>
-        <td>{{commas .CacheCreationTokens}}</td>
-        <td>{{pct .CacheHitRate}}</td>
-        <td>{{costCell .CostKnownCount .CostTotal .CostEstimatedCount}}</td>
-      </tr>
-      {{else}}
-      <tr><td colspan="10" class="muted">No requests in this range.</td></tr>
-      {{end}}
-      {{if .Breaks.Source}}
-      <tr class="totals">
-        <td>Total</td>
-        <td>{{commas .Breaks.SourceTotal.Requests}}</td>
-        <td>{{commas .Breaks.SourceTotal.TotalTokens}}</td>
-        <td>{{commas .Breaks.SourceTotal.InputTokens}}</td>
-        <td>{{commas .Breaks.SourceTotal.OutputTokens}}</td>
-        <td>{{commas .Breaks.SourceTotal.ReasoningTokens}}</td>
-        <td>{{commas .Breaks.SourceTotal.CacheReadTokens}}</td>
-        <td>{{commas .Breaks.SourceTotal.CacheCreationTokens}}</td>
-        <td>{{pct .Breaks.SourceTotal.CacheHitRate}}</td>
-        <td>{{costCell .Breaks.SourceTotal.CostKnownCount .Breaks.SourceTotal.CostTotal .Breaks.SourceTotal.CostEstimatedCount}}</td>
-      </tr>
-      {{end}}
-    </tbody>
-  </table>
-</div>
-</section>
-<section>
+<section data-breakdown="provider">
   <h2>By provider</h2>
   <p class="muted">Providers are shown as reported by each source. Codex is the exception: its provider is derived as <code>openai</code>. The model table groups matching models across sources and omits OpenRouter creator prefixes; its creator column comes from the grouped model name.</p>
   <div class="table-scroll">
@@ -164,7 +41,7 @@
   </table>
 </div>
 </section>
-<section>
+<section data-breakdown="model">
   <h2>By model</h2>
   <div class="table-scroll">
   <table class="breakdown-model">
@@ -201,6 +78,129 @@
         <td>{{commas .Breaks.ModelTotal.CacheCreationTokens}}</td>
         <td>{{pct .Breaks.ModelTotal.CacheHitRate}}</td>
         <td>{{costCell .Breaks.ModelTotal.CostKnownCount .Breaks.ModelTotal.CostTotal .Breaks.ModelTotal.CostEstimatedCount}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+</section>
+<section data-breakdown="source">
+  <h2>By source</h2>
+  <div class="table-scroll">
+  <table>
+    {{template "breakdown-columns"}}
+    <thead><tr><th>Source</th><th>Requests</th><th>Total tokens</th><th>Input</th><th>Output</th><th>Reasoning</th><th>Cache read</th><th>Cache creation</th><th>Cache hit</th><th>Cost</th></tr></thead>
+    <tbody>
+      {{range .Breaks.Source}}
+      <tr>
+        <td>{{friendlySource .Key}}</td>
+        <td>{{commas .Requests}}</td>
+        <td>{{commas .TotalTokens}}</td>
+        <td>{{commas .InputTokens}}</td>
+        <td>{{commas .OutputTokens}}</td>
+        <td>{{commas .ReasoningTokens}}</td>
+        <td>{{commas .CacheReadTokens}}</td>
+        <td>{{commas .CacheCreationTokens}}</td>
+        <td>{{pct .CacheHitRate}}</td>
+        <td>{{costCell .CostKnownCount .CostTotal .CostEstimatedCount}}</td>
+      </tr>
+      {{else}}
+      <tr><td colspan="10" class="muted">No requests in this range.</td></tr>
+      {{end}}
+      {{if .Breaks.Source}}
+      <tr class="totals">
+        <td>Total</td>
+        <td>{{commas .Breaks.SourceTotal.Requests}}</td>
+        <td>{{commas .Breaks.SourceTotal.TotalTokens}}</td>
+        <td>{{commas .Breaks.SourceTotal.InputTokens}}</td>
+        <td>{{commas .Breaks.SourceTotal.OutputTokens}}</td>
+        <td>{{commas .Breaks.SourceTotal.ReasoningTokens}}</td>
+        <td>{{commas .Breaks.SourceTotal.CacheReadTokens}}</td>
+        <td>{{commas .Breaks.SourceTotal.CacheCreationTokens}}</td>
+        <td>{{pct .Breaks.SourceTotal.CacheHitRate}}</td>
+        <td>{{costCell .Breaks.SourceTotal.CostKnownCount .Breaks.SourceTotal.CostTotal .Breaks.SourceTotal.CostEstimatedCount}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+</section>
+<section data-breakdown="group">
+  <h2>By token group</h2>
+  <div class="table-scroll">
+  <table>
+    {{template "breakdown-columns"}}
+    <thead><tr><th>Group</th><th>Requests</th><th>Total tokens</th><th>Input</th><th>Output</th><th>Reasoning</th><th>Cache read</th><th>Cache creation</th><th>Cache hit</th><th>Cost</th></tr></thead>
+    <tbody>
+      {{range .Breaks.Group}}
+      <tr>
+        <td>{{if .Key}}{{.Key}}{{else}}<span class="muted">No group</span>{{end}}</td>
+        <td>{{commas .Requests}}</td>
+        <td>{{commas .TotalTokens}}</td>
+        <td>{{commas .InputTokens}}</td>
+        <td>{{commas .OutputTokens}}</td>
+        <td>{{commas .ReasoningTokens}}</td>
+        <td>{{commas .CacheReadTokens}}</td>
+        <td>{{commas .CacheCreationTokens}}</td>
+        <td>{{pct .CacheHitRate}}</td>
+        <td>{{costCell .CostKnownCount .CostTotal .CostEstimatedCount}}</td>
+      </tr>
+      {{else}}
+      <tr><td colspan="10" class="muted">No requests in this range.</td></tr>
+      {{end}}
+      {{if .Breaks.Group}}
+      <tr class="totals">
+        <td>Total</td>
+        <td>{{commas .Breaks.GroupTotal.Requests}}</td>
+        <td>{{commas .Breaks.GroupTotal.TotalTokens}}</td>
+        <td>{{commas .Breaks.GroupTotal.InputTokens}}</td>
+        <td>{{commas .Breaks.GroupTotal.OutputTokens}}</td>
+        <td>{{commas .Breaks.GroupTotal.ReasoningTokens}}</td>
+        <td>{{commas .Breaks.GroupTotal.CacheReadTokens}}</td>
+        <td>{{commas .Breaks.GroupTotal.CacheCreationTokens}}</td>
+        <td>{{pct .Breaks.GroupTotal.CacheHitRate}}</td>
+        <td>{{costCell .Breaks.GroupTotal.CostKnownCount .Breaks.GroupTotal.CostTotal .Breaks.GroupTotal.CostEstimatedCount}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+</section>
+<section data-breakdown="token">
+  <h2>By token</h2>
+  <div class="table-scroll">
+  <table>
+    {{template "breakdown-columns"}}
+    <thead><tr><th>Token</th><th>Requests</th><th>Total tokens</th><th>Input</th><th>Output</th><th>Reasoning</th><th>Cache read</th><th>Cache creation</th><th>Cache hit</th><th>Cost</th></tr></thead>
+    <tbody>
+      {{range .Breaks.Token}}
+      <tr>
+        <td>{{.Label}}{{if .Revoked}} <span class="muted">(revoked)</span>{{end}}</td>
+        <td>{{commas .Requests}}</td>
+        <td>{{commas .TotalTokens}}</td>
+        <td>{{commas .InputTokens}}</td>
+        <td>{{commas .OutputTokens}}</td>
+        <td>{{commas .ReasoningTokens}}</td>
+        <td>{{commas .CacheReadTokens}}</td>
+        <td>{{commas .CacheCreationTokens}}</td>
+        <td>{{pct .CacheHitRate}}</td>
+        <td>{{costCell .CostKnownCount .CostTotal .CostEstimatedCount}}</td>
+      </tr>
+      {{else}}
+      <tr><td colspan="10" class="muted">No requests in this range.</td></tr>
+      {{end}}
+      {{if .Breaks.Token}}
+      <tr class="totals">
+        <td>Total</td>
+        <td>{{commas .Breaks.TokenTotal.Requests}}</td>
+        <td>{{commas .Breaks.TokenTotal.TotalTokens}}</td>
+        <td>{{commas .Breaks.TokenTotal.InputTokens}}</td>
+        <td>{{commas .Breaks.TokenTotal.OutputTokens}}</td>
+        <td>{{commas .Breaks.TokenTotal.ReasoningTokens}}</td>
+        <td>{{commas .Breaks.TokenTotal.CacheReadTokens}}</td>
+        <td>{{commas .Breaks.TokenTotal.CacheCreationTokens}}</td>
+        <td>{{pct .Breaks.TokenTotal.CacheHitRate}}</td>
+        <td>{{costCell .Breaks.TokenTotal.CostKnownCount .Breaks.TokenTotal.CostTotal .Breaks.TokenTotal.CostEstimatedCount}}</td>
       </tr>
       {{end}}
     </tbody>

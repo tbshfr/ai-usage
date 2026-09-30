@@ -41,13 +41,13 @@ func postForm(t *testing.T, srv *httptest.Server, path string, form url.Values, 
 
 func TestTokensPageLifecycle(t *testing.T) {
 	srv, store := newTokenServer(t)
-	status, body := get(t, srv.URL+"/tokens")
+	status, body := get(t, srv.URL+"/settings/tokens")
 	if status != http.StatusOK {
 		t.Fatalf("GET /tokens = %d", status)
 	}
-	wantContains(t, body, "No tokens yet", `href="/tokens" aria-current="page"`)
+	wantContains(t, body, "No tokens yet", `href="/settings/tokens" aria-current="page"`)
 
-	status, body, resp := postForm(t, srv, "/tokens", url.Values{"name": {"laptop"}, "group": {"work"}}, nil)
+	status, body, resp := postForm(t, srv, "/settings/tokens", url.Values{"name": {"laptop"}, "group": {"work"}}, nil)
 	if status != http.StatusCreated {
 		t.Fatalf("create = %d: %s", status, body)
 	}
@@ -64,17 +64,17 @@ func TestTokensPageLifecycle(t *testing.T) {
 		t.Fatal("created token does not authenticate")
 	}
 
-	_, body = get(t, srv.URL+"/tokens")
+	_, body = get(t, srv.URL+"/settings/tokens")
 	wantNotContains(t, body, plain, ">never<", `id="filter-bar"`)
 	wantContains(t, body, "laptop", "…"+plain[len(plain)-4:], "/?group=work", "Unauthenticated")
 
-	status, body, _ = postForm(t, srv, "/tokens", url.Values{"name": {"  "}, "group": {"work"}}, nil)
+	status, body, _ = postForm(t, srv, "/settings/tokens", url.Values{"name": {"  "}, "group": {"work"}}, nil)
 	if status != http.StatusBadRequest {
 		t.Errorf("empty name = %d, want 400", status)
 	}
 	wantContains(t, body, "name is required")
 
-	idPath := "/tokens/" + strconv.FormatInt(id, 10)
+	idPath := "/settings/tokens/" + strconv.FormatInt(id, 10)
 	if status, _, _ := postForm(t, srv, idPath, url.Values{"name": {"laptop2"}, "group": {"home"}}, nil); status != http.StatusSeeOther {
 		t.Errorf("update = %d, want 303", status)
 	}
@@ -84,7 +84,7 @@ func TestTokensPageLifecycle(t *testing.T) {
 	if _, ok := store.Verify(plain); ok {
 		t.Error("revoked token still authenticates")
 	}
-	_, body = get(t, srv.URL+"/tokens")
+	_, body = get(t, srv.URL+"/settings/tokens")
 	wantContains(t, body, "laptop2", "/?group=home", "(revoked ")
 
 	status, body, resp = postForm(t, srv, idPath+"/regenerate", nil, nil)
@@ -105,14 +105,14 @@ func TestTokensPageLifecycle(t *testing.T) {
 	if _, ok := store.Verify(plain); ok {
 		t.Error("old secret still authenticates after regenerate")
 	}
-	if status, _, _ := postForm(t, srv, "/tokens/999/regenerate", nil, nil); status != http.StatusNotFound {
+	if status, _, _ := postForm(t, srv, "/settings/tokens/999/regenerate", nil, nil); status != http.StatusNotFound {
 		t.Errorf("regenerate missing = %d, want 404", status)
 	}
 
-	if status, _, _ := postForm(t, srv, "/tokens/999/revoke", nil, nil); status != http.StatusNotFound {
+	if status, _, _ := postForm(t, srv, "/settings/tokens/999/revoke", nil, nil); status != http.StatusNotFound {
 		t.Errorf("revoke missing = %d, want 404", status)
 	}
-	if status, _, _ := postForm(t, srv, "/tokens/abc", url.Values{"name": {"x"}}, nil); status != http.StatusNotFound {
+	if status, _, _ := postForm(t, srv, "/settings/tokens/abc", url.Values{"name": {"x"}}, nil); status != http.StatusNotFound {
 		t.Errorf("update bad id = %d, want 404", status)
 	}
 }
@@ -124,7 +124,7 @@ func TestTokensRejectCrossOrigin(t *testing.T) {
 		"origin":         {"Origin": "https://evil.example"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			status, _, _ := postForm(t, srv, "/tokens", url.Values{"name": {"x"}}, hdr)
+			status, _, _ := postForm(t, srv, "/settings/tokens", url.Values{"name": {"x"}}, hdr)
 			if status != http.StatusForbidden {
 				t.Errorf("cross-origin create = %d, want 403", status)
 			}
@@ -133,7 +133,7 @@ func TestTokensRejectCrossOrigin(t *testing.T) {
 	if store.HasTokens() {
 		t.Error("cross-origin request created a token")
 	}
-	status, _, _ := postForm(t, srv, "/tokens", url.Values{"name": {"x"}}, map[string]string{"Sec-Fetch-Site": "same-origin"})
+	status, _, _ := postForm(t, srv, "/settings/tokens", url.Values{"name": {"x"}}, map[string]string{"Sec-Fetch-Site": "same-origin"})
 	if status != http.StatusCreated {
 		t.Errorf("same-origin create = %d, want 201", status)
 	}
@@ -144,7 +144,7 @@ func TestTokenFilterAndBreakdowns(t *testing.T) {
 	_, body := get(t, srv.URL+"/?"+fullRangeQuery)
 	wantNotContains(t, body, `name="token"`, `name="group"`)
 	_, body = get(t, srv.URL+"/breakdowns?"+fullRangeQuery)
-	wantNotContains(t, body, "By token group")
+	wantContains(t, body, "By provider", "By model", "By source", "By token group", "By token")
 
 	if _, _, err := store.Create(context.Background(), "ungrouped", ""); err != nil {
 		t.Fatal(err)
@@ -172,7 +172,7 @@ func TestTokenFilterAndBreakdowns(t *testing.T) {
 	if status, _ := get(t, srv.URL+"/?token=abc"); status != http.StatusBadRequest {
 		t.Errorf("invalid token filter = %d, want 400", status)
 	}
-	_, body = get(t, srv.URL+"/tokens")
+	_, body = get(t, srv.URL+"/settings/tokens")
 	wantContains(t, body, `href="/?ungrouped=true">View usage</a>`, `<span>No group</span>`, `aria-expanded="false"`, `id="token-group-rows-0" hidden`)
 	_, body = get(t, srv.URL+"/breakdowns?ungrouped=true")
 	wantContains(t, body, `name="ungrouped" value="true" checked`, "/breakdowns?range=7d&amp;ungrouped=true")
@@ -257,16 +257,16 @@ func TestTokenManagementRequiresSharedStore(t *testing.T) {
 	}
 	srv := httptest.NewServer(New(db, nil, nil, nil, "test"))
 	defer srv.Close()
-	_, body := get(t, srv.URL+"/tokens")
+	_, body := get(t, srv.URL+"/settings/tokens")
 	wantContains(t, body, "Token management is unavailable.")
-	wantNotContains(t, body, `action="/tokens"`, `action="/tokens/1/revoke"`)
-	for _, path := range []string{"/tokens", fmt.Sprintf("/tokens/%d", id), fmt.Sprintf("/tokens/%d/revoke", id), fmt.Sprintf("/tokens/%d/regenerate", id)} {
+	wantNotContains(t, body, `action="/settings/tokens"`, `action="/settings/tokens/1/revoke"`)
+	for _, path := range []string{"/settings/tokens", fmt.Sprintf("/settings/tokens/%d", id), fmt.Sprintf("/settings/tokens/%d/revoke", id), fmt.Sprintf("/settings/tokens/%d/regenerate", id)} {
 		status, _, _ := postForm(t, srv, path, url.Values{"name": {"changed"}}, nil)
 		if status != http.StatusServiceUnavailable {
 			t.Errorf("%s without shared store = %d, want 503", path, status)
 		}
 	}
-	for _, path := range []string{"/tokens/abc", "/tokens/0", "/tokens/-1", "/tokens/abc/revoke", "/tokens/abc/regenerate"} {
+	for _, path := range []string{"/settings/tokens/abc", "/settings/tokens/0", "/settings/tokens/-1", "/settings/tokens/abc/revoke", "/settings/tokens/abc/regenerate"} {
 		status, _, _ := postForm(t, srv, path, url.Values{"name": {"changed"}}, nil)
 		if status != http.StatusNotFound {
 			t.Errorf("%s without shared store = %d, want 404", path, status)
@@ -296,7 +296,7 @@ func TestUngroupedFilterAvailability(t *testing.T) {
 		_, body = get(t, srv.URL+page+"?range=all&ungrouped=true")
 		wantContains(t, body, `name="ungrouped" value="true" checked`)
 	}
-	if status, body, _ := postForm(t, srv, fmt.Sprintf("/tokens/%d", id), url.Values{"name": {"client"}, "group": {""}}, nil); status != http.StatusSeeOther {
+	if status, body, _ := postForm(t, srv, fmt.Sprintf("/settings/tokens/%d", id), url.Values{"name": {"client"}, "group": {""}}, nil); status != http.StatusSeeOther {
 		t.Fatalf("remove group = %d: %s", status, body)
 	}
 	if err := store.Revoke(context.Background(), id); err != nil {
@@ -324,13 +324,13 @@ func TestSavedTokenSecretShownWhenUsageReadFails(t *testing.T) {
 		t.Fatal(err)
 	}
 	h := New(db, nil, nil, nil, "test", WithTokens(shared))
-	for _, path := range []string{"/tokens", fmt.Sprintf("/tokens/%d/regenerate", id)} {
+	for _, path := range []string{"/settings/tokens", fmt.Sprintf("/settings/tokens/%d/regenerate", id)} {
 		r := httptest.NewRequest("POST", "http://localhost"+path, strings.NewReader("name=new-client"))
 		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, r)
 		wantStatus := http.StatusCreated
-		if path != "/tokens" {
+		if path != "/settings/tokens" {
 			wantStatus = http.StatusOK
 		}
 		secret := plainTokenRE.FindString(w.Body.String())
@@ -354,7 +354,7 @@ func TestTokenManagementRejectsRebindingHost(t *testing.T) {
 		t.Fatal(err)
 	}
 	h := New(db, nil, nil, nil, "test", WithTokens(store))
-	for _, path := range []string{"/tokens", fmt.Sprintf("/tokens/%d", id), fmt.Sprintf("/tokens/%d/revoke", id), fmt.Sprintf("/tokens/%d/regenerate", id)} {
+	for _, path := range []string{"/settings/tokens", fmt.Sprintf("/settings/tokens/%d", id), fmt.Sprintf("/settings/tokens/%d/revoke", id), fmt.Sprintf("/settings/tokens/%d/regenerate", id)} {
 		for _, fetchSite := range []string{"", "same-origin"} {
 			r := httptest.NewRequest("POST", "http://attacker.example:8080"+path, strings.NewReader("name=attacker"))
 			r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -391,7 +391,7 @@ func TestAuthenticatedTokenManagementAllowsCustomHost(t *testing.T) {
 	issued := httptest.NewRecorder()
 	sessions.Issue(issued)
 	for _, loggedIn := range []bool{false, true} {
-		r := httptest.NewRequest("POST", "https://dashboard.example/tokens", strings.NewReader("name=client"))
+		r := httptest.NewRequest("POST", "https://dashboard.example/settings/tokens", strings.NewReader("name=client"))
 		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		r.Header.Set("Origin", "https://dashboard.example")
 		r.Header.Set("Sec-Fetch-Site", "same-origin")

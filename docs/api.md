@@ -290,7 +290,7 @@ one minute. The process also saves it during a clean shutdown.
 
 ### `GET /api/stats/reasons?day=YYYY-MM-DD`
 
-The per-reason breakdown behind the day rows on the `/stats` page: fixed
+The per-reason breakdown behind the day rows on the `/settings/stats` page: fixed
 `kind`/`reason` pairs (no free-form values), so the response is always a
 small bounded list. Today's row serves the live counters; older days serve
 persisted rows.

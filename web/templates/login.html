@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#ffffff">
 <script src="{{staticURL "theme.js"}}"></script>
@@ -18,8 +19,10 @@
 <body class="login-page">
 <main class="login-wrap">
   <div class="login-card">
+    <div class="login-heading">
     <div class="login-symbol" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 6v2"/></svg></div>
     <h1>Sign in</h1>
+    </div>
     {{with .Error}}<p class="login-error" role="alert">{{.}}</p>{{end}}
     <form method="post" action="/login">
       <label for="username">Username</label>

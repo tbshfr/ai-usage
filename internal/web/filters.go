@@ -247,13 +247,13 @@ func presetViews(action string, u uiFilter) []presetView {
 }
 
 func statsPresetViews(u uiFilter) []presetView {
-	out := presetViews("/stats", u)
+	out := presetViews("/settings/stats", u)
 	for i := range out {
 		switch out[i].Label {
 		case "Today":
-			out[i].URL = "/stats?range=today"
+			out[i].URL = "/settings/stats?range=today"
 		case "7d":
-			out[i].URL = "/stats"
+			out[i].URL = "/settings/stats"
 		}
 	}
 	return out

@@ -3,12 +3,22 @@
   <div class="settings-description"><h2 id="appearance-heading">Appearance</h2><p class="muted">Choose a theme and an accent color. System follows your device’s light or dark preference.</p><p class="muted">These preferences stay in this browser.</p></div>
   <div class="settings-surface">{{template "appearance" .}}</div>
 </section>
+<section class="settings-section" aria-labelledby="breakdowns-heading">
+  <div class="settings-description"><h2 id="breakdowns-heading">Breakdowns</h2><p class="muted">Choose categories and their order. Saved in this browser.</p></div>
+  <div class="settings-surface"><div class="breakdown-preferences">
+    <div class="breakdown-preference" data-breakdown-preference="provider"><label><input type="checkbox" data-breakdown-visible="provider" checked>Provider</label><button type="button" class="icon-button" data-breakdown-move="up" aria-label="Move provider up">↑</button><button type="button" class="icon-button" data-breakdown-move="down" aria-label="Move provider down">↓</button></div>
+    <div class="breakdown-preference" data-breakdown-preference="model"><label><input type="checkbox" data-breakdown-visible="model" checked>Model</label><button type="button" class="icon-button" data-breakdown-move="up" aria-label="Move model up">↑</button><button type="button" class="icon-button" data-breakdown-move="down" aria-label="Move model down">↓</button></div>
+    <div class="breakdown-preference" data-breakdown-preference="source"><label><input type="checkbox" data-breakdown-visible="source" checked>Source</label><button type="button" class="icon-button" data-breakdown-move="up" aria-label="Move source up">↑</button><button type="button" class="icon-button" data-breakdown-move="down" aria-label="Move source down">↓</button></div>
+    <div class="breakdown-preference" data-breakdown-preference="group"><label><input type="checkbox" data-breakdown-visible="group" checked>Token group</label><button type="button" class="icon-button" data-breakdown-move="up" aria-label="Move token group up">↑</button><button type="button" class="icon-button" data-breakdown-move="down" aria-label="Move token group down">↓</button></div>
+    <div class="breakdown-preference" data-breakdown-preference="token"><label><input type="checkbox" data-breakdown-visible="token" checked>Token</label><button type="button" class="icon-button" data-breakdown-move="up" aria-label="Move token up">↑</button><button type="button" class="icon-button" data-breakdown-move="down" aria-label="Move token down">↓</button></div>
+  </div><p class="muted" data-breakdown-status role="status"></p></div>
+</section>
 <section class="settings-section" aria-labelledby="connections-heading">
   <div class="settings-description"><h2 id="connections-heading">Connections &amp; diagnostics</h2><p class="muted">Connect your coding tools, manage receiver access, and check that telemetry is arriving.</p></div>
   <div class="settings-links">
-    <a href="/tokens" class="settings-link">{{template "icon" "tokens"}}<div><h3>OTLP tokens</h3><p>Create tokens, organize groups, and manage client access.</p></div>{{template "icon" "arrow"}}</a>
-    <a href="/setup" class="settings-link">{{template "icon" "setup"}}<div><h3>Client setup</h3><p>Configuration instructions for your AI coding tools.</p></div>{{template "icon" "arrow"}}</a>
-    <a href="/stats" class="settings-link">{{template "icon" "trends"}}<div><h3>Ingestion stats</h3><p>Inspect received telemetry, duplicates, and errors.</p></div>{{template "icon" "arrow"}}</a>
+    <a href="/settings/tokens" class="settings-link">{{template "icon" "tokens"}}<div><h3>OTLP tokens</h3><p>Create tokens, organize groups, and manage client access.</p></div>{{template "icon" "arrow"}}</a>
+    <a href="/settings/setup" class="settings-link">{{template "icon" "setup"}}<div><h3>Client setup</h3><p>Configuration instructions for your AI coding tools.</p></div>{{template "icon" "arrow"}}</a>
+    <a href="/settings/stats" class="settings-link">{{template "icon" "trends"}}<div><h3>Ingestion stats</h3><p>Inspect received telemetry, duplicates, and errors.</p></div>{{template "icon" "arrow"}}</a>
   </div>
 </section>
 {{end}}

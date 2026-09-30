@@ -37,14 +37,14 @@ func TestStatsPageShowsTodayWithoutStatsFunc(t *testing.T) {
 	srv := httptest.NewServer(New(db, nil, nil, nil, "test"))
 	defer srv.Close()
 
-	status, body := get(t, srv.URL+"/stats")
+	status, body := get(t, srv.URL+"/settings/stats")
 	if status != http.StatusOK {
 		t.Fatalf("status %d", status)
 	}
 	wantContains(t, body, "777", "700", "421", "Total (2 days)")
-	wantContains(t, body, `href="/stats" class="active">7d</a>`, `href="/stats?range=today"`)
+	wantContains(t, body, `href="/settings/stats" class="active">7d</a>`, `href="/settings/stats?range=today"`)
 	wantContains(t, body, `<input type="hidden" name="range" value="7d">`)
-	wantContains(t, body, `class="filter-settings"`, `<span>Filters</span>`)
+	wantContains(t, body, `id="filter-bar"`)
 	wantNotContains(t, body, `aria-label="Source"`, `aria-label="Provider"`, `aria-label="Model"`)
 	wantNotContains(t, body, "(live)")
 }
@@ -52,7 +52,7 @@ func TestStatsPageShowsTodayWithoutStatsFunc(t *testing.T) {
 func TestStatsFilterPreservesExplicitRange(t *testing.T) {
 	srv := newServer(t)
 	defer srv.Close()
-	status, body := get(t, srv.URL+"/stats?range=30d")
+	status, body := get(t, srv.URL+"/settings/stats?range=30d")
 	if status != http.StatusOK {
 		t.Fatalf("status %d", status)
 	}
@@ -67,7 +67,7 @@ func TestStatsPageLiveRowReplacesPersistedToday(t *testing.T) {
 	}, nil, nil, "test"))
 	defer srv.Close()
 
-	status, body := get(t, srv.URL+"/stats")
+	status, body := get(t, srv.URL+"/settings/stats")
 	if status != http.StatusOK {
 		t.Fatalf("status %d", status)
 	}
@@ -99,7 +99,7 @@ func TestStatsPageKeepsRejectionOnlyTodayWithLive(t *testing.T) {
 		}, nil, "test"))
 	defer srv.Close()
 
-	status, body := get(t, srv.URL+"/stats")
+	status, body := get(t, srv.URL+"/settings/stats")
 	if status != http.StatusOK {
 		t.Fatalf("status %d", status)
 	}

@@ -699,3 +699,78 @@ document.addEventListener('scroll', event => {
   if (openSelect && !openSelect.list.contains(event.target)) openSelect.close();
 }, true);
 window.addEventListener('resize', () => openSelect?.close());
+
+// Browser-local breakdown order and visibility, also applied after live refreshes.
+(() => {
+  const key = 'ai-usage.breakdowns';
+  const defaults = ['provider', 'model', 'source', 'group', 'token'];
+  let preference;
+  function read() {
+    let saved;
+    try { saved = JSON.parse(localStorage.getItem(key) || '{}'); } catch { /* Use defaults. */ }
+    const order = Array.isArray(saved?.order) ? [...new Set(saved.order.filter(id => defaults.includes(id)))] : [];
+    preference = {
+      order: [...order, ...defaults.filter(id => !order.includes(id))],
+      hidden: Array.isArray(saved?.hidden) ? saved.hidden.filter(id => defaults.includes(id)) : [],
+    };
+  }
+  function apply() {
+    const sections = document.getElementById('breakdowns');
+    const controls = document.querySelector('.breakdown-preferences');
+    preference.order.forEach((id, index) => {
+      const section = sections?.querySelector(`[data-breakdown="${id}"]`);
+      if (section) {
+        section.hidden = preference.hidden.includes(id);
+        sections.append(section);
+      }
+      const row = controls?.querySelector(`[data-breakdown-preference="${id}"]`);
+      if (row) {
+        row.querySelector('input').checked = !preference.hidden.includes(id);
+        row.querySelector('[data-breakdown-move="up"]').disabled = index === 0;
+        row.querySelector('[data-breakdown-move="down"]').disabled = index === defaults.length - 1;
+        // Leave rows in place unless their order changed, preserving checkbox focus.
+        if (controls.children[index] !== row) controls.insertBefore(row, controls.children[index] || null);
+      }
+    });
+  }
+  function save() {
+    let message = '';
+    try { localStorage.setItem(key, JSON.stringify(preference)); }
+    catch { message = 'Breakdown preferences could not be saved. Browser storage is unavailable.'; }
+    const status = document.querySelector('[data-breakdown-status]');
+    if (status) status.textContent = message;
+    apply();
+  }
+  document.addEventListener('change', event => {
+    const id = event.target.dataset.breakdownVisible;
+    if (!defaults.includes(id)) return;
+    preference.hidden = preference.hidden.filter(value => value !== id);
+    if (!event.target.checked) preference.hidden.push(id);
+    save();
+  });
+  document.addEventListener('click', event => {
+    const button = event.target.closest('[data-breakdown-move]');
+    if (!button) return;
+    const id = button.closest('[data-breakdown-preference]').dataset.breakdownPreference;
+    const index = preference.order.indexOf(id);
+    const next = index + (button.dataset.breakdownMove === 'up' ? -1 : 1);
+    if (index < 0 || next < 0 || next >= preference.order.length) return;
+    [preference.order[index], preference.order[next]] = [preference.order[next], preference.order[index]];
+    save();
+    button.focus();
+  });
+  read();
+  document.addEventListener('DOMContentLoaded', apply);
+  document.addEventListener('htmx:after:settle', apply);
+  window.addEventListener('storage', event => {
+    if (event.key === key || event.key === null) { read(); apply(); }
+  });
+})();
+
+// Preserve desktop access to every filter; mobile starts with ranges only.
+document.addEventListener('DOMContentLoaded', () => {
+  const mobile = window.matchMedia('(max-width: 768px)');
+  const sync = () => document.querySelectorAll('.filter-disclosure').forEach(el => { el.open = !mobile.matches; });
+  sync();
+  mobile.addEventListener('change', sync);
+});

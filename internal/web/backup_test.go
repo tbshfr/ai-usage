@@ -26,7 +26,7 @@ func TestBackupDashboardStatus(t *testing.T) {
 	state.Enabled = true
 	wantContains(t, render("/"), "data-changed from:body delay:2s")
 	wantNotContains(t, render("/"), "Waiting for first backup", "Backup status", "every 10s")
-	wantContains(t, render("/stats"), "Waiting for first backup", "Backup status")
+	wantContains(t, render("/settings/stats"), "Waiting for first backup", "Backup status")
 	state.FailureStage = "upload"
 	state.FailedAt = time.Now()
 	body := render("/")

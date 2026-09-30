@@ -76,7 +76,7 @@ Generate credentials with a password manager or a command such as
 
 OTLP clients authenticate over HTTP and gRPC with a bearer token
 (`Authorization: Bearer <token>`). Create tokens on the dashboard's **OTLP tokens**
-page (`/tokens`). A new token is shown once and cannot be retrieved later;
+page (`/settings/tokens`). A new token is shown once and cannot be retrieved later;
 only its SHA-256 hash is stored.
 These tokens authenticate ingestion only; the dashboard and JSON API use the
 dashboard login session when dashboard authentication is enabled.

@@ -6,12 +6,12 @@ Start `ai-usage` with the OTLP/HTTP receiver before configuring a client:
 ai-usage --otlp-http 127.0.0.1:4318
 ```
 
-The dashboard's **Setup** page (`/setup`) shows the same configuration for
+The dashboard's **Setup** page (`/settings/setup`) shows the same configuration for
 each client, with the receiver URL and bearer-token lines filled in.
 
 The examples use a local receiver. For a remote receiver, use an HTTPS endpoint
 and configure the bearer token in the same client section. Create one token
-per machine or client on the dashboard's **OTLP tokens** page (`/tokens`), and
+per machine or client on the dashboard's **OTLP tokens** page (`/settings/tokens`), and
 group them (for example `work` and `private`) to compare usage per group; see
 [OTLP tokens](configuration.md#otlp-tokens).
 

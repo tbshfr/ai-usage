@@ -79,16 +79,15 @@ func newMux(db *sql.DB, stats func() ingest.Stats, reasons func() ingest.ReasonC
 	mux.HandleFunc("GET /trends", s.trends)
 	mux.HandleFunc("GET /breakdowns", s.breakdowns)
 	mux.HandleFunc("GET /sessions", s.sessions)
-	mux.HandleFunc("GET /stats", s.statsPage)
-	mux.HandleFunc("GET /setup", s.setupPage)
+	mux.HandleFunc("GET /settings/stats", s.statsPage)
+	mux.HandleFunc("GET /settings/setup", s.setupPage)
 	mux.HandleFunc("GET /settings", s.settingsPage)
-	mux.HandleFunc("GET /tokens", s.tokensPage)
-	mux.HandleFunc("POST /tokens", s.tokenCreate)
-	mux.HandleFunc("POST /tokens/{id}", s.tokenUpdate)
-	mux.HandleFunc("POST /tokens/{id}/revoke", s.tokenRevoke)
-	mux.HandleFunc("POST /tokens/{id}/regenerate", s.tokenRegenerate)
-	mux.HandleFunc("GET /generations", s.redirectSessions)
-	mux.HandleFunc("GET /generations/{id}", s.detail)
+	mux.HandleFunc("GET /settings/tokens", s.tokensPage)
+	mux.HandleFunc("POST /settings/tokens", s.tokenCreate)
+	mux.HandleFunc("POST /settings/tokens/{id}", s.tokenUpdate)
+	mux.HandleFunc("POST /settings/tokens/{id}/revoke", s.tokenRevoke)
+	mux.HandleFunc("POST /settings/tokens/{id}/regenerate", s.tokenRegenerate)
+	mux.HandleFunc("GET /sessions/generation-details/{id}", s.detail)
 	mux.HandleFunc("GET /events", s.serveEvents)
 	mux.HandleFunc("GET /fragments/dashboard-stats", s.fragDashboardStats)
 	mux.HandleFunc("GET /fragments/period-detail", s.fragPeriodDetail)
@@ -177,7 +176,6 @@ type filterView struct {
 	ShowDimensions     bool
 	ShowPeriodMode     bool
 	PeriodRolling      bool
-	Collapsible        bool
 	Presets            []presetView
 	Sources            []string
 	Providers          []string
@@ -301,8 +299,7 @@ type convsView struct {
 type breaksView struct {
 	Source, Provider, Model                []storage.Breakdown
 	SourceTotal, ProviderTotal, ModelTotal storage.Breakdown
-	// ShowTokens hides the group/token tables until a token exists.
-	ShowTokens bool
+
 	Group      []storage.Breakdown
 	GroupTotal storage.Breakdown
 	Token      []tokenBreakdown
@@ -391,7 +388,6 @@ func (s *server) dashboard(w http.ResponseWriter, r *http.Request) {
 	}
 	d.F.ShowPeriodMode = true
 	d.F.PeriodRolling = d.Periods.Rolling
-	d.F.Collapsible = true
 	if d.Cards, err = s.cards(r.Context(), u, d.Periods); err != nil {
 		writeErr(w, err)
 		return
@@ -672,9 +668,7 @@ func (s *server) breakdowns(w http.ResponseWriter, r *http.Request) {
 	s.render(w, "breakdowns", d)
 }
 
-// loadBreaks fills the breakdown tables for f. The group/token tables are
-// only loaded once a token exists; d.F.Tokens must already be populated
-// (see base).
+// loadBreaks fills all breakdown tables for f; base populates token labels.
 func (s *server) loadBreaks(ctx context.Context, f storage.Filter, d *pageData) error {
 	var err error
 	if d.Breaks.Source, err = storage.BySource(ctx, s.db, f); err != nil {
@@ -689,10 +683,6 @@ func (s *server) loadBreaks(ctx context.Context, f storage.Filter, d *pageData) 
 	d.Breaks.SourceTotal = totalBreakdown(d.Breaks.Source)
 	d.Breaks.ProviderTotal = totalBreakdown(d.Breaks.Provider)
 	d.Breaks.ModelTotal = totalBreakdown(d.Breaks.Model)
-	if len(d.F.Tokens) == 0 {
-		return nil
-	}
-	d.Breaks.ShowTokens = true
 	if d.Breaks.Group, err = storage.ByGroup(ctx, s.db, f); err != nil {
 		return err
 	}
@@ -777,7 +767,7 @@ func (s *server) statsPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	d := &pageData{Title: "Stats", Active: "stats"}
-	d.F = filterView{Action: "/stats", Selected: u, Presets: statsPresetViews(u), Collapsible: true}
+	d.F = filterView{Action: "/settings/stats", Selected: u, Presets: statsPresetViews(u)}
 	if err := s.loadStats(r.Context(), d, from, to, limit); err != nil {
 		writeErr(w, err)
 		return
@@ -1283,15 +1273,6 @@ func swapParamPageURL(r *http.Request, key, val string) string {
 	return "/sessions?" + swapParamQuery(r, key, val).Encode()
 }
 
-// redirectSessions keeps old /generations bookmarks working.
-func (s *server) redirectSessions(w http.ResponseWriter, r *http.Request) {
-	target := "/sessions"
-	if r.URL.RawQuery != "" {
-		target += "?" + r.URL.RawQuery
-	}
-	http.Redirect(w, r, target, http.StatusMovedPermanently)
-}
-
 func (s *server) detail(w http.ResponseWriter, r *http.Request) {
 	g, found, err := storage.GenerationByID(r.Context(), s.db, r.PathValue("id"))
 	if err != nil {
@@ -1312,7 +1293,6 @@ func (s *server) base(ctx context.Context, title, active, action string, u uiFil
 	d := &pageData{Title: title, Active: active}
 	d.F.Action = action
 	d.F.ShowDimensions = true
-	d.F.Collapsible = true
 	d.F.Selected = u
 	d.F.Presets = presetViews(action, u)
 	if u.Conversation != "" {

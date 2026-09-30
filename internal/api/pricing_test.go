@@ -82,13 +82,13 @@ func TestPricingProvenanceTotalsAndUI(t *testing.T) {
 		}
 	}
 	for _, tc := range []struct{ path, expected string }{
-		{"/generations/openrouter", "(estimated)"},
-		{"/generations/openrouter", "Prices fetched"},
-		{"/generations/manual", "(manual estimate)"},
-		{"/generations/manual", "Prices updated"},
-		{"/generations/free", "(free)"},
-		{"/generations/harness", "(reported)"},
-		{"/generations/unknown", "<dt>Cost</dt><dd>—</dd>"},
+		{"/sessions/generation-details/openrouter", "(estimated)"},
+		{"/sessions/generation-details/openrouter", "Prices fetched"},
+		{"/sessions/generation-details/manual", "(manual estimate)"},
+		{"/sessions/generation-details/manual", "Prices updated"},
+		{"/sessions/generation-details/free", "(free)"},
+		{"/sessions/generation-details/harness", "(reported)"},
+		{"/sessions/generation-details/unknown", "<dt>Cost</dt><dd>—</dd>"},
 		{"/breakdowns?range=all", `<abbr class="cost-estimate" title="Includes estimated costs from OpenRouter or manual rates">≈</abbr>`},
 		{"/sessions?range=all", `<abbr class="cost-estimate" title="Includes estimated costs from OpenRouter or manual rates">≈</abbr>`},
 	} {

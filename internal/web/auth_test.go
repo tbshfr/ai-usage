@@ -98,7 +98,7 @@ func TestLoginPageRenders(t *testing.T) {
 	if status != http.StatusOK {
 		t.Fatalf("status = %d, want 200", status)
 	}
-	wantContains(t, body, "Username", "Password", `action="/login"`, `type="password"`)
+	wantContains(t, body, "Username", "Password", `action="/login"`, `type="password"`, `<meta name="robots" content="noindex, nofollow">`)
 }
 
 func TestLoginPageRedirectsLoggedIn(t *testing.T) {

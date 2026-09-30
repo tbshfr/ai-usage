@@ -6,7 +6,7 @@
       <h2 id="podium-title">Top models</h2>
       <p class="muted podium-description">{{if eq .Podium.Metric "days"}}Distinct UTC days with a request. Copilot autocomplete, title, and progress helpers are excluded.{{else if eq .Podium.Metric "cost"}}Known reported and estimated costs.{{else}}Total tokens across all token types.{{end}}</p>
     </div>
-    <form id="podium-controls" class="podium-controls" method="get" action="/trends" hx-get="/fragments/trends" hx-trigger="change" hx-target="#trends" hx-include="#filter-bar, #bucket-form, #podium-controls" hx-sync="#trends:replace">
+    <form id="podium-controls" class="podium-controls" method="get" action="/trends" hx-get="/fragments/trends" hx-trigger="change" hx-target="#trends" hx-include="#filter-bar, #podium-controls" hx-sync="#trends:replace">
       <label>Rank by
         <select name="podium_metric" aria-label="Podium ranking metric">
           <option value="tokens"{{if eq .Podium.Metric "tokens"}} selected{{end}}>Most tokens</option>

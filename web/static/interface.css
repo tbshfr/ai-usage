@@ -162,6 +162,9 @@ dialog.detail-dialog::backdrop, dialog.token-dialog::backdrop { background: var(
   .tabs { flex-wrap: wrap; }
   dl.detail { grid-template-columns: minmax(0, 1fr); }
   dl.detail dd { overflow-wrap: anywhere; }
+  #breakdowns table { table-layout: auto; min-width: 0; }
+  #breakdowns .breakdown-label, #breakdowns .breakdown-model-label, #breakdowns .breakdown-metrics { width: auto; }
+  #breakdowns td:first-child, #breakdowns .breakdown-model td:nth-child(2) { white-space: nowrap; }
 }
 @media (max-width: 375px) { .theme-options button { padding: var(--space-sm); gap: var(--space-xs); } .settings-surface { padding: var(--space-md); } .settings-nav { gap: var(--space-sm) var(--space-md); } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }

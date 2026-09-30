@@ -99,6 +99,7 @@ document.addEventListener('htmx:after:settle', e => initializeHeatmapNavigation(
 function updateHeatmapNavigation(scroller) {
   const calendar = scroller.closest('.heatmap-calendar');
   if (!calendar) return;
+  calendar.classList.toggle('is-fit', scroller.scrollWidth <= scroller.clientWidth + 1);
   // RTL scroll containers use zero at the right edge and negative offsets leftward.
   calendar.querySelector('[data-heatmap-direction="-1"]').disabled = scroller.scrollWidth - scroller.clientWidth + scroller.scrollLeft <= 1;
   calendar.querySelector('[data-heatmap-direction="1"]').disabled = scroller.scrollLeft >= -1;

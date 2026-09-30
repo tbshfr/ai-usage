@@ -281,7 +281,7 @@ button.heatmap-cell { cursor: pointer; touch-action: manipulation; }
 .heatmap-cell.level-2, .heatmap-legend .level-2 { background: #afc3a8; }
 .heatmap-cell.level-3, .heatmap-legend .level-3 { background: #7d9b76; }
 .heatmap-cell.level-4, .heatmap-legend .level-4 { background: #526f4d; }
-.heatmap-legend { display: flex; align-items: center; justify-content: flex-end; gap: 4px; margin-top: 0.45rem; font-size: 0.76rem; white-space: nowrap; }
+.heatmap-legend { display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: 0.45rem; font-size: 0.76rem; white-space: nowrap; }
 .heatmap-legend i { width: 11px; height: 11px; }
 .stat-card {
   display: block;
@@ -667,6 +667,9 @@ footer { text-align: center; padding: 1rem; }
 .heatmap-nav:hover:not(:disabled) { background: var(--panel-hover); color: var(--text); }
 .heatmap-nav:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .heatmap-nav:disabled { opacity: 0.3; cursor: default; }
+.heatmap-calendar.is-fit { justify-content: center; }
+.heatmap-calendar.is-fit .heatmap-scroll { flex: 0 1 auto; }
+.heatmap-calendar.is-fit .heatmap-nav { display: none; }
 
 @media (max-width: 640px) {
   .heatmap-nav { display: none; }

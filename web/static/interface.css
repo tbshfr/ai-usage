@@ -58,6 +58,10 @@ main { width: calc(100% - 232px); max-width: 1920px; margin: 0 0 0 max(232px, ca
 .heatmap-cell.level-2, .heatmap-legend .level-2 { background: color-mix(in srgb, var(--color-activity) 40%, var(--panel)); }
 .heatmap-cell.level-3, .heatmap-legend .level-3 { background: color-mix(in srgb, var(--color-activity) 70%, var(--panel)); }
 .heatmap-cell.level-4, .heatmap-legend .level-4 { background: var(--color-activity); }
+:root[data-theme="dark"] .heatmap-cell.level-1, :root[data-theme="dark"] .heatmap-legend .level-1 { background: #033a16; }
+:root[data-theme="dark"] .heatmap-cell.level-2, :root[data-theme="dark"] .heatmap-legend .level-2 { background: #196c2e; }
+:root[data-theme="dark"] .heatmap-cell.level-3, :root[data-theme="dark"] .heatmap-legend .level-3 { background: #2ea043; }
+:root[data-theme="dark"] .heatmap-cell.level-4, :root[data-theme="dark"] .heatmap-legend .level-4 { background: #56d364; }
 .heatmap-tooltip { box-shadow: var(--shadow-overlay); }
 .podium-panel { background: var(--panel); }
 .podium-eyebrow { text-transform: none; letter-spacing: 0; }
@@ -223,7 +227,7 @@ dialog.detail-dialog::backdrop, dialog.token-dialog::backdrop { background: var(
 .heatmap-head { margin-bottom: 1.5rem; }
 .heatmap-head h2, .chart-head h2 { font-size: 1rem; font-weight: 600; letter-spacing: -0.025em; }
 .heatmap-head p { margin-top: 0.3rem; font-size: var(--text-xs); }
-.heatmap-month { border: 0; padding: 0 12px; }
+.heatmap-month { padding: 0 6px; }
 .heatmap-cell, .heatmap-legend i { border-radius: 3px; }
 .heatmap-legend { margin-top: 1rem; gap: 5px; font-size: 0.7rem; }
 .stat-unit { font-size: var(--text-xs); }

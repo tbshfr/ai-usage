@@ -94,7 +94,7 @@ function initializeHeatmapNavigation(root = document) {
 }
 
 document.addEventListener('DOMContentLoaded', () => initializeHeatmapNavigation());
-document.addEventListener('htmx:after:settle', e => initializeHeatmapNavigation(e.target));
+document.addEventListener('htmx:before:settle', e => initializeHeatmapNavigation(e.target));
 
 function updateHeatmapNavigation(scroller) {
   const calendar = scroller.closest('.heatmap-calendar');

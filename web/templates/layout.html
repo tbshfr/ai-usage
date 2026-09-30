@@ -1,9 +1,11 @@
 {{define "layout"}}<!doctype html>
-<html lang="en">
+<html lang="en" data-theme="{{.Settings.Appearance.Theme}}" data-color="{{.Settings.Appearance.Color}}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#ffffff">
+<meta name="theme-color" content="{{if eq .Settings.Appearance.Theme "dark"}}#09090b{{else}}#ffffff{{end}}">
+<script type="application/json" id="dashboard-settings">{{toJSON .Settings}}</script>
+<script src="{{staticURL "settings.js"}}"></script>
 <script src="{{staticURL "theme.js"}}"></script>
 <link rel="manifest" href="/site.webmanifest">
 <link rel="icon" href="/favicon.ico" sizes="any">
@@ -57,7 +59,7 @@
     <div>
     <h1>{{if or (eq .Active "settings") (eq .Active "stats") (eq .Active "tokens") (eq .Active "setup")}}Settings{{else if .D}}Generation details{{else}}{{.Title}}{{end}}</h1>
     </div>
-    {{if eq .Active "dashboard"}}<a class="button-link dashboard-connect" href="/settings/setup">{{template "icon" "setup"}}Connect a tool</a>{{end}}
+    {{if eq .Active "dashboard"}}<a class="button-link dashboard-connect" href="/settings/setup">{{template "icon" "setup"}}Connect a client</a>{{end}}
   </header>
   {{if or (eq .Active "settings") (eq .Active "stats") (eq .Active "tokens") (eq .Active "setup")}}
   <nav class="settings-nav" aria-label="Settings navigation">
@@ -70,5 +72,6 @@
   {{template "content" .}}
 </main>
 <footer class="muted app-footer"><span>All timestamps are UTC.</span><span>AI Usage · {{if eq .Version "dev"}}{{.Version}}{{else}}<a href="https://github.com/tbshfr/ai-usage/releases/tag/{{.Version}}" aria-label="Release notes for {{.Version}}">{{.Version}}</a>{{end}}</span></footer>
+<div class="toast" role="status" data-settings-toast></div>
 </body>
 </html>{{end}}

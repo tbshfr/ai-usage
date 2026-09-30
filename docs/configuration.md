@@ -119,6 +119,16 @@ Client-specific header configuration is included in each section of
 `GET /health` and `GET /ready` remain public for probes. All other dashboard
 and API routes require a login when dashboard authentication is enabled.
 
+## Dashboard preferences
+
+Appearance, breakdown order and visibility, and client setup receiver options
+are saved in SQLite and shared across devices. Pages are rendered with the
+current preferences embedded, so they paint correctly without an extra
+request or a browser-local cache. Changes apply immediately, are saved in the
+background, and reach other open tabs of the same browser; other devices pick
+them up on their next page load. Settings require a dashboard login when
+authentication is enabled. The login page does not load saved settings.
+
 ## Remote deployment
 
 Run the service behind an HTTPS reverse proxy. The binary serves plain HTTP

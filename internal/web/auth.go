@@ -119,7 +119,7 @@ func (s *server) loginForm(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
-	s.render(w, "login", &pageData{Title: "Sign in"})
+	s.renderLogin(w, http.StatusOK, "")
 }
 
 func (s *server) loginSubmit(w http.ResponseWriter, r *http.Request) {
@@ -131,7 +131,7 @@ func (s *server) loginSubmit(w http.ResponseWriter, r *http.Request) {
 	if retry, blocked := s.limiter.blocked(ip); blocked {
 		slog.Warn("login rate limited", "ip", ip, "retry_after", retry.String())
 		w.Header().Set("Retry-After", fmt.Sprintf("%.0f", retry.Seconds()))
-		s.renderLoginError(w, http.StatusTooManyRequests, "Too many failed attempts. Try again later.")
+		s.renderLogin(w, http.StatusTooManyRequests, "Too many failed attempts. Try again later.")
 		return
 	}
 	if err := r.ParseForm(); err != nil {
@@ -147,10 +147,10 @@ func (s *server) loginSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 	s.limiter.recordFailure(ip)
 	time.Sleep(bruteForceDelay)
-	s.renderLoginError(w, http.StatusUnauthorized, "Wrong username or password.")
+	s.renderLogin(w, http.StatusUnauthorized, "Wrong username or password.")
 }
 
-func (s *server) renderLoginError(w http.ResponseWriter, status int, msg string) {
+func (s *server) renderLogin(w http.ResponseWriter, status int, msg string) {
 	d := &pageData{Title: "Sign in", Error: msg}
 	renderTemplate(w, pageTmpls["login"], "layout", status, d)
 }

@@ -1,5 +1,16 @@
 {{define "breakdowns"}}
-<section data-breakdown="provider">
+{{range .BreakdownPreferences}}
+<section data-breakdown="{{.ID}}"{{if .Hidden}} hidden{{end}}>
+{{if eq .ID "provider"}}{{template "breakdown-provider" $}}
+{{else if eq .ID "model"}}{{template "breakdown-model" $}}
+{{else if eq .ID "source"}}{{template "breakdown-source" $}}
+{{else if eq .ID "group"}}{{template "breakdown-group" $}}
+{{else if eq .ID "token"}}{{template "breakdown-token" $}}
+{{end}}
+</section>
+{{end}}
+{{end}}
+{{define "breakdown-provider"}}
   <h2>By provider</h2>
   <p class="muted">Providers are shown as reported by each source. Codex is the exception: its provider is derived as <code>openai</code>. The model table groups matching models across sources and omits OpenRouter creator prefixes; its creator column comes from the grouped model name.</p>
   <div class="table-scroll">
@@ -40,8 +51,8 @@
     </tbody>
   </table>
 </div>
-</section>
-<section data-breakdown="model">
+{{end}}
+{{define "breakdown-model"}}
   <h2>By model</h2>
   <div class="table-scroll">
   <table class="breakdown-model">
@@ -83,8 +94,8 @@
     </tbody>
   </table>
 </div>
-</section>
-<section data-breakdown="source">
+{{end}}
+{{define "breakdown-source"}}
   <h2>By source</h2>
   <div class="table-scroll">
   <table>
@@ -124,8 +135,8 @@
     </tbody>
   </table>
 </div>
-</section>
-<section data-breakdown="group">
+{{end}}
+{{define "breakdown-group"}}
   <h2>By token group</h2>
   <div class="table-scroll">
   <table>
@@ -165,8 +176,8 @@
     </tbody>
   </table>
 </div>
-</section>
-<section data-breakdown="token">
+{{end}}
+{{define "breakdown-token"}}
   <h2>By token</h2>
   <div class="table-scroll">
   <table>
@@ -206,7 +217,6 @@
     </tbody>
   </table>
 </div>
-</section>
 {{end}}
 {{define "breakdown-columns"}}
 <colgroup><col class="breakdown-label"><col class="breakdown-metrics" span="9"></colgroup>

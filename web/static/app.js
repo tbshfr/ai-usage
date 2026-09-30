@@ -376,9 +376,7 @@ document.addEventListener('click', e => {
 // Setup page: the receiver form rewrites the endpoint in every snippet and
 // shows the bearer-token lines. The endpoint defaults to the dashboard's own
 // host on the default OTLP/HTTP port; only a URL the user typed is saved, so
-// the default keeps following the host. Storage may be unavailable (private
-// mode), so every access is guarded.
-const SETUP_KEY = 'ai-usage-setup';
+// the default keeps following the host.
 
 function setupDefaultEndpoint() {
   const { protocol, hostname } = window.location;
@@ -388,7 +386,9 @@ function setupDefaultEndpoint() {
 
 function applySetupReceiver(form) {
   const endpoint = form.endpoint.value.trim().replace(/\/+$/, '') || setupDefaultEndpoint();
-  for (const el of document.querySelectorAll('[data-endpoint]')) el.textContent = endpoint;
+  // Percent-encode string delimiters so copied JSON, TOML, and Lua stay data.
+  const quotedEndpoint = endpoint.replace(/["\\\u0000-\u0020\u007f]/g, encodeURIComponent);
+  for (const el of document.querySelectorAll('[data-endpoint]')) el.textContent = quotedEndpoint;
   for (const el of document.querySelectorAll('[data-auth]')) el.hidden = !form.auth.checked;
 }
 
@@ -397,33 +397,33 @@ function initSetupReceiver() {
   if (!form) return;
   const fallback = setupDefaultEndpoint();
   form.endpoint.placeholder = fallback;
-  form.endpoint.value = fallback;
-  try {
-    const saved = JSON.parse(localStorage.getItem(SETUP_KEY) || '{}');
-    if (typeof saved.endpoint === 'string' && saved.endpoint) form.endpoint.value = saved.endpoint;
-    form.auth.checked = saved.auth === true;
-  } catch (e) { /* storage unavailable or corrupt: keep defaults */ }
-  applySetupReceiver(form);
-  const save = () => {
+  // Unsaved edits win over changes saved in another tab until they are saved.
+  let editing = false;
+  const load = () => {
+    const saved = window.dashboardSettings.settings.setup;
+    form.endpoint.value = saved.endpoint || fallback;
+    form.auth.checked = saved.auth;
     applySetupReceiver(form);
-    const endpoint = form.endpoint.value.trim();
-    try {
-      localStorage.setItem(SETUP_KEY, JSON.stringify({
-        endpoint: endpoint === fallback ? '' : endpoint,
-        auth: form.auth.checked,
-      }));
-    } catch (e) { /* not persisted */ }
   };
-  form.addEventListener('input', save);
+  const save = () => {
+    editing = false;
+    const endpoint = form.endpoint.value.trim();
+    window.dashboardSettings.save('setup', { endpoint: endpoint === fallback ? '' : endpoint, auth: form.auth.checked });
+  };
+  load();
+  form.addEventListener('input', () => { editing = true; applySetupReceiver(form); });
   form.addEventListener('change', save);
-  form.addEventListener('submit', e => e.preventDefault());
+  form.addEventListener('submit', e => { e.preventDefault(); save(); });
+  // `change` does not fire when the page is left mid-edit.
+  window.addEventListener('pagehide', save);
   form.querySelector('[data-setup-reset]').addEventListener('click', () => {
-    try {
-      localStorage.removeItem(SETUP_KEY);
-    } catch (e) { /* nothing stored */ }
     form.endpoint.value = fallback;
     form.auth.checked = false;
     applySetupReceiver(form);
+    save();
+  });
+  document.addEventListener('settingschange', event => {
+    if (event.detail.section === 'setup' && !editing) load();
   });
 }
 
@@ -700,71 +700,57 @@ document.addEventListener('scroll', event => {
 }, true);
 window.addEventListener('resize', () => openSelect?.close());
 
-// Browser-local breakdown order and visibility, also applied after live refreshes.
 (() => {
-  const key = 'ai-usage.breakdowns';
-  const defaults = ['provider', 'model', 'source', 'group', 'token'];
-  let preference;
-  function read() {
-    let saved;
-    try { saved = JSON.parse(localStorage.getItem(key) || '{}'); } catch { /* Use defaults. */ }
-    const order = Array.isArray(saved?.order) ? [...new Set(saved.order.filter(id => defaults.includes(id)))] : [];
-    preference = {
-      order: [...order, ...defaults.filter(id => !order.includes(id))],
-      hidden: Array.isArray(saved?.hidden) ? saved.hidden.filter(id => defaults.includes(id)) : [],
-    };
-  }
+  const { settings } = window.dashboardSettings;
   function apply() {
+    const { order, hidden } = settings.breakdowns;
     const sections = document.getElementById('breakdowns');
     const controls = document.querySelector('.breakdown-preferences');
-    preference.order.forEach((id, index) => {
+    order.forEach((id, index) => {
       const section = sections?.querySelector(`[data-breakdown="${id}"]`);
       if (section) {
-        section.hidden = preference.hidden.includes(id);
-        sections.append(section);
+        section.hidden = hidden.includes(id);
+        if (sections.children[index] !== section) sections.insertBefore(section, sections.children[index] || null);
       }
       const row = controls?.querySelector(`[data-breakdown-preference="${id}"]`);
       if (row) {
-        row.querySelector('input').checked = !preference.hidden.includes(id);
+        row.querySelector('input').checked = !hidden.includes(id);
         row.querySelector('[data-breakdown-move="up"]').disabled = index === 0;
-        row.querySelector('[data-breakdown-move="down"]').disabled = index === defaults.length - 1;
+        row.querySelector('[data-breakdown-move="down"]').disabled = index === order.length - 1;
         // Leave rows in place unless their order changed, preserving checkbox focus.
         if (controls.children[index] !== row) controls.insertBefore(row, controls.children[index] || null);
       }
     });
   }
-  function save() {
-    let message = '';
-    try { localStorage.setItem(key, JSON.stringify(preference)); }
-    catch { message = 'Breakdown preferences could not be saved. Browser storage is unavailable.'; }
-    const status = document.querySelector('[data-breakdown-status]');
-    if (status) status.textContent = message;
+  function save(change) {
+    const next = structuredClone(settings.breakdowns);
+    change(next);
+    window.dashboardSettings.save('breakdowns', next);
     apply();
   }
   document.addEventListener('change', event => {
     const id = event.target.dataset.breakdownVisible;
-    if (!defaults.includes(id)) return;
-    preference.hidden = preference.hidden.filter(value => value !== id);
-    if (!event.target.checked) preference.hidden.push(id);
-    save();
+    if (!settings.breakdowns.order.includes(id)) return;
+    save(next => {
+      next.hidden = next.hidden.filter(value => value !== id);
+      if (!event.target.checked) next.hidden.push(id);
+    });
   });
   document.addEventListener('click', event => {
     const button = event.target.closest('[data-breakdown-move]');
     if (!button) return;
     const id = button.closest('[data-breakdown-preference]').dataset.breakdownPreference;
-    const index = preference.order.indexOf(id);
-    const next = index + (button.dataset.breakdownMove === 'up' ? -1 : 1);
-    if (index < 0 || next < 0 || next >= preference.order.length) return;
-    [preference.order[index], preference.order[next]] = [preference.order[next], preference.order[index]];
-    save();
+    const index = settings.breakdowns.order.indexOf(id);
+    const target = index + (button.dataset.breakdownMove === 'up' ? -1 : 1);
+    if (index < 0 || target < 0 || target >= settings.breakdowns.order.length) return;
+    save(next => { [next.order[index], next.order[target]] = [next.order[target], next.order[index]]; });
     button.focus();
   });
-  read();
-  document.addEventListener('DOMContentLoaded', apply);
-  document.addEventListener('htmx:after:settle', apply);
-  window.addEventListener('storage', event => {
-    if (event.key === key || event.key === null) { read(); apply(); }
+  document.addEventListener('settingschange', event => {
+    if (event.detail.section === 'breakdowns') apply();
   });
+  // A live refresh can render before an in-flight save lands.
+  document.addEventListener('htmx:after:settle', apply);
 })();
 
 // Preserve desktop access to every filter; mobile starts with ranges only.

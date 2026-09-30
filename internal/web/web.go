@@ -74,20 +74,22 @@ func newMux(db *sql.DB, stats func() ingest.Stats, reasons func() ingest.ReasonC
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", s.dashboard)
 	mux.HandleFunc("GET /fragments/backup-banner", func(w http.ResponseWriter, r *http.Request) {
-		s.renderFrag(w, "backup-banner", &pageData{Backup: s.currentBackupStatus()})
+		s.renderFrag(w, r, "backup-banner", &pageData{Backup: s.currentBackupStatus()})
 	})
 	mux.HandleFunc("GET /trends", s.trends)
 	mux.HandleFunc("GET /breakdowns", s.breakdowns)
 	mux.HandleFunc("GET /sessions", s.sessions)
-	mux.HandleFunc("GET /stats", s.statsPage)
-	mux.HandleFunc("GET /setup", s.setupPage)
-	mux.HandleFunc("GET /tokens", s.tokensPage)
-	mux.HandleFunc("POST /tokens", s.tokenCreate)
-	mux.HandleFunc("POST /tokens/{id}", s.tokenUpdate)
-	mux.HandleFunc("POST /tokens/{id}/revoke", s.tokenRevoke)
-	mux.HandleFunc("POST /tokens/{id}/regenerate", s.tokenRegenerate)
-	mux.HandleFunc("GET /generations", s.redirectSessions)
-	mux.HandleFunc("GET /generations/{id}", s.detail)
+	mux.HandleFunc("GET /settings/stats", s.statsPage)
+	mux.HandleFunc("GET /settings/setup", s.setupPage)
+	mux.HandleFunc("GET /settings", s.settingsPage)
+	mux.HandleFunc("GET /settings/preferences", s.readSettings)
+	mux.HandleFunc("PUT /settings/preferences/{section}", s.saveSettings)
+	mux.HandleFunc("GET /settings/tokens", s.tokensPage)
+	mux.HandleFunc("POST /settings/tokens", s.tokenCreate)
+	mux.HandleFunc("POST /settings/tokens/{id}", s.tokenUpdate)
+	mux.HandleFunc("POST /settings/tokens/{id}/revoke", s.tokenRevoke)
+	mux.HandleFunc("POST /settings/tokens/{id}/regenerate", s.tokenRegenerate)
+	mux.HandleFunc("GET /sessions/generation-details/{id}", s.detail)
 	mux.HandleFunc("GET /events", s.serveEvents)
 	mux.HandleFunc("GET /fragments/dashboard-stats", s.fragDashboardStats)
 	mux.HandleFunc("GET /fragments/period-detail", s.fragPeriodDetail)
@@ -135,6 +137,7 @@ type server struct {
 // pageData is the single view model passed to every template set; each
 // template only reads the fields it needs.
 type pageData struct {
+	Settings    storage.DashboardSettings
 	Backup      backup.Status
 	Title       string
 	Active      string
@@ -176,7 +179,6 @@ type filterView struct {
 	ShowDimensions     bool
 	ShowPeriodMode     bool
 	PeriodRolling      bool
-	Collapsible        bool
 	Presets            []presetView
 	Sources            []string
 	Providers          []string
@@ -300,8 +302,7 @@ type convsView struct {
 type breaksView struct {
 	Source, Provider, Model                []storage.Breakdown
 	SourceTotal, ProviderTotal, ModelTotal storage.Breakdown
-	// ShowTokens hides the group/token tables until a token exists.
-	ShowTokens bool
+
 	Group      []storage.Breakdown
 	GroupTotal storage.Breakdown
 	Token      []tokenBreakdown
@@ -390,7 +391,6 @@ func (s *server) dashboard(w http.ResponseWriter, r *http.Request) {
 	}
 	d.F.ShowPeriodMode = true
 	d.F.PeriodRolling = d.Periods.Rolling
-	d.F.Collapsible = true
 	if d.Cards, err = s.cards(r.Context(), u, d.Periods); err != nil {
 		writeErr(w, err)
 		return
@@ -400,7 +400,7 @@ func (s *server) dashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	d.Backup = s.currentBackupStatus()
-	s.render(w, "dashboard", d)
+	s.render(w, r, "dashboard", d)
 }
 
 func (s *server) fragDashboardStats(w http.ResponseWriter, r *http.Request) {
@@ -428,7 +428,7 @@ func (s *server) fragDashboardStats(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, err)
 		return
 	}
-	s.renderFrag(w, "dashboard-stats", d)
+	s.renderFrag(w, r, "dashboard-stats", d)
 }
 
 // fragPeriodDetail swaps the inline detail expansion under the dashboard
@@ -468,7 +468,7 @@ func (s *server) fragPeriodDetail(w http.ResponseWriter, r *http.Request) {
 		}
 		d.Detail.Since = since
 	}
-	s.renderFrag(w, "period-detail", d)
+	s.renderFrag(w, r, "period-detail", d)
 }
 
 func periodStart(period string, now time.Time, modes periodModes) (time.Time, string, bool) {
@@ -589,7 +589,7 @@ func (s *server) trends(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, err)
 		return
 	}
-	s.render(w, "trends", d)
+	s.render(w, r, "trends", d)
 }
 
 func (s *server) fragTrends(w http.ResponseWriter, r *http.Request) {
@@ -598,7 +598,7 @@ func (s *server) fragTrends(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, err)
 		return
 	}
-	s.renderFrag(w, "trends", d)
+	s.renderFrag(w, r, "trends", d)
 }
 
 func (s *server) trendsData(r *http.Request) (*pageData, error) {
@@ -668,12 +668,10 @@ func (s *server) breakdowns(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, err)
 		return
 	}
-	s.render(w, "breakdowns", d)
+	s.render(w, r, "breakdowns", d)
 }
 
-// loadBreaks fills the breakdown tables for f. The group/token tables are
-// only loaded once a token exists; d.F.Tokens must already be populated
-// (see base).
+// loadBreaks fills all breakdown tables for f; base populates token labels.
 func (s *server) loadBreaks(ctx context.Context, f storage.Filter, d *pageData) error {
 	var err error
 	if d.Breaks.Source, err = storage.BySource(ctx, s.db, f); err != nil {
@@ -688,10 +686,6 @@ func (s *server) loadBreaks(ctx context.Context, f storage.Filter, d *pageData) 
 	d.Breaks.SourceTotal = totalBreakdown(d.Breaks.Source)
 	d.Breaks.ProviderTotal = totalBreakdown(d.Breaks.Provider)
 	d.Breaks.ModelTotal = totalBreakdown(d.Breaks.Model)
-	if len(d.F.Tokens) == 0 {
-		return nil
-	}
-	d.Breaks.ShowTokens = true
 	if d.Breaks.Group, err = storage.ByGroup(ctx, s.db, f); err != nil {
 		return err
 	}
@@ -764,7 +758,7 @@ func (s *server) fragBreakdowns(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, err)
 		return
 	}
-	s.renderFrag(w, "breakdowns", d)
+	s.renderFrag(w, r, "breakdowns", d)
 }
 
 // statsPage renders range-selectable per-day ingestion counters. Today's row
@@ -776,13 +770,13 @@ func (s *server) statsPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	d := &pageData{Title: "Stats", Active: "stats"}
-	d.F = filterView{Action: "/stats", Selected: u, Presets: statsPresetViews(u), Collapsible: true}
+	d.F = filterView{Action: "/settings/stats", Selected: u, Presets: statsPresetViews(u)}
 	if err := s.loadStats(r.Context(), d, from, to, limit); err != nil {
 		writeErr(w, err)
 		return
 	}
 	d.Backup = s.currentBackupStatus()
-	s.render(w, "stats", d)
+	s.render(w, r, "stats", d)
 }
 
 // fragStats is the SSE-refreshable section of the stats page.
@@ -798,7 +792,7 @@ func (s *server) fragStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	d.Backup = s.currentBackupStatus()
-	s.renderFrag(w, "stats", d)
+	s.renderFrag(w, r, "stats", d)
 }
 
 // fragStatsReasons swaps the per-day rejection/error/dedup breakdown on
@@ -824,7 +818,7 @@ func (s *server) fragStatsReasons(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	d.Reasons = view
-	s.renderFrag(w, "stats-reasons", d)
+	s.renderFrag(w, r, "stats-reasons", d)
 }
 
 // reasonsDetail assembles one day's per-reason breakdown. For today the
@@ -1148,8 +1142,12 @@ func buildStatsChart(rows []statsRow) (chartJSON, bool) {
 	return chart, anyNonZero
 }
 
-// setupPage renders per-client configuration instructions. The receiver URL
-// and token toggle are applied client-side, so the page needs no server state.
+func (s *server) settingsPage(w http.ResponseWriter, r *http.Request) {
+	s.render(w, r, "settings", &pageData{Title: "Settings", Active: "settings"})
+}
+
+// setupPage renders per-client configuration instructions. The saved receiver
+// URL and token toggle are applied client-side from the embedded settings.
 func (s *server) setupPage(w http.ResponseWriter, r *http.Request) {
 	agent := r.URL.Query().Get("agent")
 	if agent == "" {
@@ -1166,7 +1164,7 @@ func (s *server) setupPage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "unknown agent (want "+strings.Join(setupAgents, ", ")+")", http.StatusBadRequest)
 		return
 	}
-	s.render(w, "setup", d)
+	s.render(w, r, "setup", d)
 }
 
 // sessions renders the sessions page: conversation cards on top, drilling
@@ -1177,7 +1175,7 @@ func (s *server) sessions(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, err)
 		return
 	}
-	s.render(w, "sessions", d)
+	s.render(w, r, "sessions", d)
 }
 
 func (s *server) fragSessionList(w http.ResponseWriter, r *http.Request) {
@@ -1186,7 +1184,7 @@ func (s *server) fragSessionList(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, err)
 		return
 	}
-	s.renderFrag(w, "session-list", d)
+	s.renderFrag(w, r, "session-list", d)
 }
 
 func (s *server) sessionsData(r *http.Request) (*pageData, error) {
@@ -1278,15 +1276,6 @@ func swapParamPageURL(r *http.Request, key, val string) string {
 	return "/sessions?" + swapParamQuery(r, key, val).Encode()
 }
 
-// redirectSessions keeps old /generations bookmarks working.
-func (s *server) redirectSessions(w http.ResponseWriter, r *http.Request) {
-	target := "/sessions"
-	if r.URL.RawQuery != "" {
-		target += "?" + r.URL.RawQuery
-	}
-	http.Redirect(w, r, target, http.StatusMovedPermanently)
-}
-
 func (s *server) detail(w http.ResponseWriter, r *http.Request) {
 	g, found, err := storage.GenerationByID(r.Context(), s.db, r.PathValue("id"))
 	if err != nil {
@@ -1298,7 +1287,7 @@ func (s *server) detail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	d := &pageData{Title: "Generation " + g.ID, Active: "sessions", D: g}
-	s.render(w, "detail", d)
+	s.render(w, r, "detail", d)
 }
 
 // base loads the shared filter view: presets for the page action plus the
@@ -1307,7 +1296,6 @@ func (s *server) base(ctx context.Context, title, active, action string, u uiFil
 	d := &pageData{Title: title, Active: active}
 	d.F.Action = action
 	d.F.ShowDimensions = true
-	d.F.Collapsible = true
 	d.F.Selected = u
 	d.F.Presets = presetViews(action, u)
 	if u.Conversation != "" {
@@ -1518,16 +1506,25 @@ func toAny(v []int64) []any {
 	return out
 }
 
-func (s *server) render(w http.ResponseWriter, name string, d *pageData) {
-	d.ShowLogout = s.dash != nil
-	d.Version = s.version
-	renderTemplate(w, pageTmpls[name], "layout", http.StatusOK, d)
+func (s *server) render(w http.ResponseWriter, r *http.Request, name string, d *pageData) {
+	s.renderStatus(w, r, http.StatusOK, name, d)
 }
 
-func (s *server) renderFrag(w http.ResponseWriter, name string, d *pageData) {
+func (s *server) renderStatus(w http.ResponseWriter, r *http.Request, status int, name string, d *pageData) {
+	s.fillPageData(w, r, d)
+	renderTemplate(w, pageTmpls[name], "layout", status, d)
+}
+
+func (s *server) renderFrag(w http.ResponseWriter, r *http.Request, name string, d *pageData) {
+	s.fillPageData(w, r, d)
+	renderTemplate(w, fragTmpls[name], name, http.StatusOK, d)
+}
+
+// fillPageData sets the fields every page and fragment template may read.
+func (s *server) fillPageData(w http.ResponseWriter, r *http.Request, d *pageData) {
+	d.Settings = s.pageSettings(r.Context(), w)
 	d.ShowLogout = s.dash != nil
 	d.Version = s.version
-	renderTemplate(w, fragTmpls[name], name, http.StatusOK, d)
 }
 
 type badRequest struct{ err error }

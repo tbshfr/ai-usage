@@ -1,0 +1,32 @@
+{{define "appearance"}}
+<div class="appearance-controls">
+  <div class="appearance-label">Theme</div>
+  <div class="theme-options" role="group" aria-label="Theme">
+    {{range .ThemeOptions}}<button type="button" data-theme-value="{{.ID}}" aria-pressed="{{.Selected}}">{{template "icon" .Icon}}{{.Label}}</button>
+    {{end}}
+  </div>
+  <div class="appearance-label">Accent color</div>
+  <div class="color-options" role="group" aria-label="Accent color">
+    {{range .ColorOptions}}<button type="button" data-color-value="{{.ID}}" aria-pressed="{{.Selected}}"><i class="swatch swatch-{{.ID}}" aria-hidden="true"></i>{{.Label}}</button>
+    {{end}}
+  </div>
+</div>
+{{end}}
+{{define "icon"}}<svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+{{if eq . "dashboard"}}<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
+{{else if eq . "trends"}}<path d="M3 3v18h18M6 15l5-5 4 3 6-8"/>
+{{else if eq . "breakdowns"}}<path d="M4 7h16M4 12h10M4 17h6"/>
+{{else if eq . "sessions"}}<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18m-12 0v11"/>
+{{else if eq . "settings"}}<path d="m12 3 2 3 3-.2.5 3L20 12l-2.5 3.2-.5 3-3-.2-2 3-2-3-3 .2-.5-3L4 12l2.5-3.2.5-3 3 .2Z"/><circle cx="12" cy="12" r="3"/>
+{{else if eq . "sun"}}<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/>
+{{else if eq . "moon"}}<path d="M20.5 13A9 9 0 0 1 11 3.5 9 9 0 1 0 20.5 13Z"/>
+{{else if eq . "monitor"}}<rect x="3" y="3" width="18" height="13" rx="2"/><path d="M8 21h8m-4-5v5"/>
+{{else if eq . "palette"}}<path d="M12 3a9 9 0 1 0 0 18h1a2 2 0 0 0 0-4h-.5a1.5 1.5 0 0 1 0-3H16a5 5 0 0 0 5-5c0-3.3-4-6-9-6Z"/><path d="M7 9h.01M10 6.5h.01M15 7h.01M17 10h.01"/>
+{{else if eq . "tokens"}}<circle cx="8" cy="9" r="5"/><path d="m12 13 8 8m-4-4 2-2m0 4 2-2"/>
+{{else if eq . "setup"}}<path d="m8 7-5 5 5 5m8-10 5 5-5 5m-3-13-2 20"/>
+{{else if eq . "logout"}}<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4m7 14 5-5-5-5m5 5H9"/>
+{{else if eq . "arrow"}}<path d="M5 12h14m-5-5 5 5-5 5"/>
+{{else if eq . "filter"}}<path d="M4 7h16M4 17h16M8 4v6m8 4v6"/>
+{{else if eq . "close"}}<path d="m6 6 12 12M6 18 18 6"/>
+{{else if eq . "menu"}}<path d="M4 6h16M4 12h16M4 18h16"/>
+{{end}}</svg>{{end}}

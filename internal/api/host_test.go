@@ -31,7 +31,7 @@ func TestDashboardHostProtection(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			h := NewWithAuth(db, testLogger(t), nil, nil, nil, "test", tc.dash)
-			for _, path := range []string{"/tokens", "/api/tokens", "/health", "/ready", "/static/app.css", "/favicon.ico"} {
+			for _, path := range []string{"/settings/tokens", "/api/tokens", "/health", "/ready", "/static/app.css", "/favicon.ico"} {
 				want := tc.want
 				if path == "/health" || path == "/ready" || path == "/static/app.css" || path == "/favicon.ico" {
 					want = http.StatusOK

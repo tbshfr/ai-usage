@@ -1,5 +1,4 @@
 {{define "content"}}
-<h2>Client setup</h2>
 <p class="muted setup-intro">Each client exports OpenTelemetry to the <code>ai-usage</code> OTLP receiver. Start the receiver with <code>--otlp-http 127.0.0.1:4318</code> (or <code>AI_USAGE_OTLP_HTTP_ADDR</code>), then configure a client below. The snippets update as you edit the receiver settings.</p>
 
 <form class="panel setup-receiver" id="setup-receiver">
@@ -12,12 +11,12 @@
   </div>
   <label class="setup-check">
     <input type="checkbox" name="auth">
-    <span>Receiver requires a bearer token (create one on the <a href="/tokens">OTLP tokens</a> page)</span>
+    <span>Receiver requires a bearer token (create one on the <a href="/settings/tokens">OTLP tokens</a> page)</span>
   </label>
 </form>
 
 <nav class="tabs setup-tabs" aria-label="Clients">
-  {{range .Setup.Agents}}<a class="tab{{if .Active}} active{{end}}" href="/setup?agent={{.Key}}"{{if .Active}} aria-current="page"{{end}}>{{.Name}}</a>
+  {{range .Setup.Agents}}<a class="tab{{if .Active}} active{{end}}" href="/settings/setup?agent={{.Key}}"{{if .Active}} aria-current="page"{{end}}>{{.Name}}</a>
   {{end}}
 </nav>
 
@@ -60,7 +59,7 @@
   {{template "setup-snippet" "maki-config"}}
   <p class="muted">Keep the token out of a committed <code>init.lua</code>. Leave <code>log_user_prompts</code> and <code>log_tool_details</code> disabled. Maki reports no reasoning-token count or subagent identifier, so reasoning shows as unknown.</p>
 {{end}}
-  <p>After a request, check <a href="/sessions?source={{.Setup.Agent}}&amp;view=requests">its requests</a>. If nothing arrives, the <a href="/stats">Stats</a> page shows whether telemetry was received, rejected or ignored.</p>
+  <p>After a request, check <a href="/sessions?source={{.Setup.Agent}}&amp;view=requests">its requests</a>. If nothing arrives, the <a href="/settings/stats">Stats</a> page shows whether telemetry was received, rejected or ignored.</p>
 </section>
 <p class="muted">For gRPC, start <code>ai-usage</code> with <code>--otlp-grpc 127.0.0.1:4317</code> and point the client at port 4317 with its gRPC protocol. Full notes are in <code>docs/client-setup.md</code>.</p>
 {{end}}

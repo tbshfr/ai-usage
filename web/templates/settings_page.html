@@ -1,0 +1,22 @@
+{{define "content"}}
+<section class="settings-section" aria-labelledby="appearance-heading">
+  <div class="settings-description"><h2 id="appearance-heading">Appearance</h2><p class="muted">Choose a theme and an accent color. System follows your device’s light or dark preference.</p><p class="muted">Preferences are saved on the server and shared across devices.</p></div>
+  <div class="settings-surface">{{template "appearance" .}}</div>
+</section>
+<section class="settings-section" aria-labelledby="breakdowns-heading">
+  <div class="settings-description"><h2 id="breakdowns-heading">Breakdowns</h2><p class="muted">Choose categories and their order.</p></div>
+  <div class="settings-surface breakdown-preferences">
+    {{range .BreakdownPreferences}}
+    <div class="breakdown-preference" data-breakdown-preference="{{.ID}}"><label><input type="checkbox" data-breakdown-visible="{{.ID}}"{{if not .Hidden}} checked{{end}}>{{.Label}}</label><button type="button" class="icon-button" data-breakdown-move="up" aria-label="Move {{.Label}} up"{{if .First}} disabled{{end}}>↑</button><button type="button" class="icon-button" data-breakdown-move="down" aria-label="Move {{.Label}} down"{{if .Last}} disabled{{end}}>↓</button></div>
+    {{end}}
+  </div>
+</section>
+<section class="settings-section" aria-labelledby="connections-heading">
+  <div class="settings-description"><h2 id="connections-heading">Connections &amp; diagnostics</h2><p class="muted">Connect your coding tools, manage receiver access, and check that telemetry is arriving.</p></div>
+  <div class="settings-links">
+    <a href="/settings/tokens" class="settings-link">{{template "icon" "tokens"}}<div><h3>OTLP tokens</h3><p>Create tokens, organize groups, and manage client access.</p></div>{{template "icon" "arrow"}}</a>
+    <a href="/settings/setup" class="settings-link">{{template "icon" "setup"}}<div><h3>Client setup</h3><p>Configuration instructions for your AI coding tools.</p></div>{{template "icon" "arrow"}}</a>
+    <a href="/settings/stats" class="settings-link">{{template "icon" "trends"}}<div><h3>Ingestion stats</h3><p>Inspect received telemetry, duplicates, and errors.</p></div>{{template "icon" "arrow"}}</a>
+  </div>
+</section>
+{{end}}

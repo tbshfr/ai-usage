@@ -1,9 +1,12 @@
 {{define "layout"}}<!doctype html>
-<html lang="en">
+<html lang="en" data-theme="{{.Settings.Appearance.Theme}}" data-color="{{.Settings.Appearance.Color}}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#faf5ee">
+<meta name="theme-color" content="{{if eq .Settings.Appearance.Theme "dark"}}#09090b{{else}}#ffffff{{end}}">
+<script type="application/json" id="dashboard-settings">{{toJSON .Settings}}</script>
+<script src="{{staticURL "settings.js"}}"></script>
+<script src="{{staticURL "theme.js"}}"></script>
 <link rel="manifest" href="/site.webmanifest">
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
@@ -12,6 +15,8 @@
 <title>{{.Title}} · AI Usage</title>
 <link rel="stylesheet" href="{{staticURL "vendor/uplot.min.css"}}">
 <link rel="stylesheet" href="{{staticURL "app.css"}}">
+<link rel="stylesheet" href="{{staticURL "tokens.css"}}">
+<link rel="stylesheet" href="{{staticURL "interface.css"}}">
 <!-- htmx 4 injects indicator styles through a CSSStyleSheet, which the
      CSP (style-src 'self') blocks too; the rules live in app.css instead. -->
 <meta name="htmx-config" content='{"includeIndicatorCSS":false}'>
@@ -23,30 +28,50 @@
 <script src="{{staticURL "app.js"}}"></script>
 </head>
 <body>
+<a href="#main-content" class="skip-link">Skip to content</a>
 <header class="topbar">
-  <a class="brand" href="/">AI Usage</a>
-  <nav id="site-nav">
-    <button class="nav-close" type="button" aria-controls="site-nav" aria-label="Close menu">
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15"/></svg>
-    </button>
-    <a href="/"{{if eq .Active "dashboard"}} class="active"{{end}}>Dashboard</a>
-    <a href="/trends?range=7d"{{if eq .Active "trends"}} class="active"{{end}}>Trends</a>
-    <a href="/breakdowns"{{if eq .Active "breakdowns"}} class="active"{{end}}>Breakdowns</a>
-    <a href="/sessions"{{if eq .Active "sessions"}} class="active"{{end}}>Sessions</a>
-    <a href="/stats"{{if eq .Active "stats"}} class="active"{{end}}>Stats</a>
-    <a href="/tokens"{{if eq .Active "tokens"}} class="active"{{end}}>OTLP tokens</a>
-    <a href="/setup"{{if eq .Active "setup"}} class="active"{{end}}>Setup</a>
-    {{if .ShowLogout}}<a href="/logout" class="logout-link drawer-only">Sign out</a>{{end}}
+  <a class="brand" href="/">{{template "icon" "trends"}}<span>AI Usage</span></a>
+  <nav id="site-nav" aria-label="Main navigation">
+    <button class="nav-close icon-button" type="button" aria-controls="site-nav" aria-label="Close menu">{{template "icon" "close"}}</button>
+    <span class="nav-label">Workspace</span>
+    <a href="/"{{if eq .Active "dashboard"}} class="active" aria-current="page"{{end}}>{{template "icon" "dashboard"}}Dashboard</a>
+    <a href="/trends?range=7d"{{if eq .Active "trends"}} class="active" aria-current="page"{{end}}>{{template "icon" "trends"}}Trends</a>
+    <a href="/breakdowns"{{if eq .Active "breakdowns"}} class="active" aria-current="page"{{end}}>{{template "icon" "breakdowns"}}Breakdowns</a>
+    <a href="/sessions"{{if eq .Active "sessions"}} class="active" aria-current="page"{{end}}>{{template "icon" "sessions"}}Sessions</a>
+    <span class="nav-label nav-settings-label">Manage</span>
+    <a href="/settings"{{if or (eq .Active "settings") (eq .Active "stats") (eq .Active "tokens") (eq .Active "setup")}} class="active"{{if eq .Active "settings"}} aria-current="page"{{end}}{{end}}>{{template "icon" "settings"}}Settings</a>
+    {{if .ShowLogout}}<div class="sidebar-foot"><a href="/logout" class="logout-link">{{template "icon" "logout"}}Sign out</a></div>{{end}}
   </nav>
-  {{if .ShowLogout}}<a href="/logout" class="logout-link">Sign out</a>{{end}}
-  <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Menu">
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14"/></svg>
-  </button>
+  <div class="topbar-actions">
+    <button class="icon-button appearance-toggle" type="button" popovertarget="appearance-popover" aria-label="Change appearance" title="Change appearance">{{template "icon" "palette"}}</button>
+    <button class="menu-toggle icon-button" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Menu">{{template "icon" "menu"}}</button>
+  </div>
 </header>
+<div id="appearance-popover" class="appearance-popover" popover>
+  <h2>Appearance</h2>
+  {{template "appearance" .}}
+  <a class="appearance-settings-link" href="/settings">All settings {{template "icon" "arrow"}}</a>
+</div>
 <div class="nav-overlay"></div>
-<!-- One SSE stream signals visible fragments to refresh. pauseOnBackground
-     closes it while the page is hidden, avoiding one idle connection per tab. -->
-<main hx-sse:connect="/events">{{template "content" .}}</main>
-<footer class="muted">All timestamps are UTC. · {{.Version}}</footer>
+<!-- One SSE stream signals visible fragments to refresh. -->
+<main id="main-content" tabindex="-1" hx-sse:connect="/events">
+  <header class="page-heading">
+    <div>
+    <h1>{{if or (eq .Active "settings") (eq .Active "stats") (eq .Active "tokens") (eq .Active "setup")}}Settings{{else if .D}}Generation details{{else}}{{.Title}}{{end}}</h1>
+    </div>
+    {{if eq .Active "dashboard"}}<a class="button-link dashboard-connect" href="/settings/setup">{{template "icon" "setup"}}Connect a client</a>{{end}}
+  </header>
+  {{if or (eq .Active "settings") (eq .Active "stats") (eq .Active "tokens") (eq .Active "setup")}}
+  <nav class="settings-nav" aria-label="Settings navigation">
+    <a href="/settings"{{if eq .Active "settings"}} aria-current="page"{{end}}>General</a>
+    <a href="/settings/tokens"{{if eq .Active "tokens"}} aria-current="page"{{end}}>OTLP tokens</a>
+    <a href="/settings/setup"{{if eq .Active "setup"}} aria-current="page"{{end}}>Client setup</a>
+    <a href="/settings/stats"{{if eq .Active "stats"}} aria-current="page"{{end}}>Ingestion stats</a>
+  </nav>
+  {{end}}
+  {{template "content" .}}
+</main>
+<footer class="muted app-footer"><span>All timestamps are UTC.</span><span>AI Usage · {{if eq .Version "dev"}}{{.Version}}{{else}}<a href="https://github.com/tbshfr/ai-usage/releases/tag/{{.Version}}" aria-label="Release notes for {{.Version}}">{{.Version}}</a>{{end}}</span></footer>
+<div class="toast" role="status" data-settings-toast></div>
 </body>
 </html>{{end}}

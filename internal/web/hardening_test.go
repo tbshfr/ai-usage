@@ -43,7 +43,7 @@ func TestDetailRendersUnknownModel(t *testing.T) {
 	}
 
 	srv := serverOnDB(t, db)
-	status, body := get(t, srv.URL+"/generations/unknown-model")
+	status, body := get(t, srv.URL+"/sessions/generation-details/unknown-model")
 	if status != http.StatusOK {
 		t.Fatalf("status %d", status)
 	}
@@ -84,7 +84,7 @@ func TestDetailRendersSparseTokens(t *testing.T) {
 	}
 
 	srv := serverOnDB(t, db)
-	status, body := get(t, srv.URL+"/generations/sparse")
+	status, body := get(t, srv.URL+"/sessions/generation-details/sparse")
 	if status != http.StatusOK {
 		t.Fatalf("status %d", status)
 	}

@@ -1,9 +1,11 @@
 {{define "layout"}}<!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light" data-color="neutral">
 <head>
 <meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#faf5ee">
+<meta name="theme-color" content="#ffffff">
+<script src="{{staticURL "theme.js"}}"></script>
 <link rel="manifest" href="/site.webmanifest">
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
@@ -11,12 +13,17 @@
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
 <title>{{.Title}}</title>
 <link rel="stylesheet" href="{{staticURL "app.css"}}">
+<link rel="stylesheet" href="{{staticURL "tokens.css"}}">
+<link rel="stylesheet" href="{{staticURL "interface.css"}}">
 </head>
-<body>
+<body class="login-page">
 <main class="login-wrap">
   <div class="login-card">
+    <div class="login-heading">
+    <div class="login-symbol" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 6v2"/></svg></div>
     <h1>Sign in</h1>
-    {{with .Error}}<p class="login-error">{{.}}</p>{{end}}
+    </div>
+    {{with .Error}}<p class="login-error" role="alert">{{.}}</p>{{end}}
     <form method="post" action="/login">
       <label for="username">Username</label>
       <input id="username" name="username" type="text" autocomplete="username" autofocus required>

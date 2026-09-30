@@ -1,8 +1,7 @@
 {{define "content"}}
 <div class="tokens-page">
 <header class="token-page-head">
-<h2>OTLP tokens</h2>
-<p class="muted setup-intro">Each client sends one of these tokens as <code>Authorization: Bearer &lt;token&gt;</code> to the OTLP receiver, and its usage is attributed to that token. Group tokens (for example <em>work</em> and <em>private</em>) to compare usage per group, then filter the dashboard by group or by a single token. Once a token exists, every export must carry a valid token.</p>
+<p class="muted setup-intro">Each client sends one of these tokens as <code>Authorization: Bearer &lt;token&gt;</code> to the OTLP receiver, and its usage is attributed to that token. Group tokens (for example <em>work</em> and <em>private</em>) to compare usage per group, then filter the dashboard by group or by a single token.<br>Once a token exists, every export must carry a valid token.</p>
 </header>
 
 {{with .Error}}<p class="token-error" role="alert">{{.}}</p>{{end}}
@@ -14,10 +13,10 @@
     <code>{{.Plain}}</code>
     <button type="button" data-copy="{{.Plain}}">Copy</button>
   </div>
-  <p class="muted">Configure a client on the <a href="/setup">Setup</a> page with this token.</p>
+  <p class="muted">Configure a client on the <a href="/settings/setup">Setup</a> page with this token.</p>
 </section>{{end}}
 
-{{if .Tokens.CanManage}}<form class="panel token-create" method="post" action="/tokens">
+{{if .Tokens.CanManage}}<form class="panel token-create" method="post" action="/settings/tokens">
   <h3>New token</h3>
   <p class="muted">Give each client its own token. Choose an existing group or create one.</p>
   <div class="token-fields">
@@ -98,7 +97,7 @@
 {{if .Tokens.CanManage}}
 {{range .Tokens.Groups}}{{range .Tokens}}
 <dialog id="token-edit-{{.ID}}" class="token-dialog" aria-labelledby="token-edit-title-{{.ID}}">
-  <form method="post" action="/tokens/{{.ID}}" class="token-edit">
+  <form method="post" action="/settings/tokens/{{.ID}}" class="token-edit">
     <h3 id="token-edit-title-{{.ID}}">Edit token</h3>
     <p class="muted">Update the name or group. The secret and usage history stay the same.</p>
     <label for="token-name-{{.ID}}">Name</label>
@@ -111,7 +110,7 @@
   </form>
 </dialog>
 <dialog id="token-regenerate-{{.ID}}" class="token-dialog" aria-labelledby="token-regenerate-title-{{.ID}}">
-  <form method="post" action="/tokens/{{.ID}}/regenerate" class="token-edit">
+  <form method="post" action="/settings/tokens/{{.ID}}/regenerate" class="token-edit">
     <h3 id="token-regenerate-title-{{.ID}}">{{if .Active}}Regenerate{{else}}Reactivate{{end}} token</h3>
     <p class="token-dialog-name">{{.Name}}</p>
     <p>{{if .Active}}A new secret will be issued and the current secret will stop working immediately. Update every client that uses this token.{{else}}A new secret will be issued and this token will become active again.{{end}}</p>
@@ -121,7 +120,7 @@
 </dialog>
 {{if .Active}}
 <dialog id="token-revoke-{{.ID}}" class="token-dialog" aria-labelledby="token-revoke-title-{{.ID}}">
-  <form method="post" action="/tokens/{{.ID}}/revoke" class="token-edit">
+  <form method="post" action="/settings/tokens/{{.ID}}/revoke" class="token-edit">
     <h3 id="token-revoke-title-{{.ID}}">Revoke token</h3>
     <p class="token-dialog-name">{{.Name}}</p>
     <p>Clients using this token will be rejected immediately.</p>

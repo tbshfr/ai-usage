@@ -62,8 +62,8 @@ func TestServesUIFromEmptyWorkingDirectory(t *testing.T) {
 	}{
 		{path: "/", wantStatus: http.StatusOK, wantInBody: "<html"},
 		{path: "/breakdowns", wantStatus: http.StatusOK, wantInBody: "<html"},
-		{path: "/generations", wantStatus: http.StatusOK, wantInBody: "<html"},
-		{path: "/generations/nonexistent-id", wantStatus: http.StatusNotFound},
+		{path: "/sessions?view=requests", wantStatus: http.StatusOK, wantInBody: "<html"},
+		{path: "/sessions/generation-details/nonexistent-id", wantStatus: http.StatusNotFound},
 		{path: "/fragments/dashboard-stats", wantStatus: http.StatusOK, wantInBody: "<div"},
 		{path: "/api/summary", wantStatus: http.StatusOK, contentType: "application/json"},
 		{path: "/static/app.css", wantStatus: http.StatusOK, contentType: "text/css"},

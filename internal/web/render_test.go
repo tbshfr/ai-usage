@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/tbshfr/ai-usage/internal/normalize"
+	"github.com/tbshfr/ai-usage/internal/storage/seedtest"
 )
 
 func TestAllTemplatesRender(t *testing.T) {
@@ -36,7 +37,7 @@ func TestAllTemplatesRender(t *testing.T) {
 }
 
 func TestRenderFailureDiscardsPartialOutput(t *testing.T) {
-	s := &server{}
+	s := &server{db: seedtest.DB(t)}
 	for _, kind := range []string{"page", "fragment", "login"} {
 		t.Run(kind, func(t *testing.T) {
 			templates, name, entry := pageTmpls, "dashboard", "layout"
@@ -53,11 +54,11 @@ func TestRenderFailureDiscardsPartialOutput(t *testing.T) {
 			rec := httptest.NewRecorder()
 			switch kind {
 			case "page":
-				s.render(rec, name, &pageData{})
+				s.render(rec, httptest.NewRequest("GET", "/", nil), name, &pageData{})
 			case "fragment":
-				s.renderFrag(rec, name, &pageData{})
+				s.renderFrag(rec, httptest.NewRequest("GET", "/", nil), name, &pageData{})
 			case "login":
-				s.renderLoginError(rec, http.StatusUnauthorized, "Wrong credentials")
+				s.renderLogin(rec, http.StatusUnauthorized, "Wrong credentials")
 			}
 			if rec.Code != http.StatusInternalServerError {
 				t.Fatalf("status = %d, want 500", rec.Code)
@@ -75,7 +76,7 @@ func TestRenderFailureDiscardsPartialOutput(t *testing.T) {
 func TestRenderLoginErrorPreservesStatus(t *testing.T) {
 	for _, status := range []int{http.StatusUnauthorized, http.StatusTooManyRequests} {
 		rec := httptest.NewRecorder()
-		(&server{}).renderLoginError(rec, status, "Try again")
+		(&server{}).renderLogin(rec, status, "Try again")
 		if rec.Code != status {
 			t.Fatalf("status = %d, want %d", rec.Code, status)
 		}

@@ -73,7 +73,7 @@ func login(t *testing.T, srv *httptest.Server, user, pass string) (int, *http.Re
 
 func TestLoginRequiredForPages(t *testing.T) {
 	srv, _ := newAuthedServer(t)
-	for _, p := range []string{"/", "/breakdowns", "/sessions", "/fragments/dashboard-stats"} {
+	for _, p := range []string{"/", "/settings", "/breakdowns", "/sessions", "/fragments/dashboard-stats"} {
 		status, _, resp := do(t, srv, "GET", p, "", nil)
 		if status != http.StatusSeeOther {
 			t.Errorf("%s: status = %d, want 303", p, status)
@@ -98,7 +98,7 @@ func TestLoginPageRenders(t *testing.T) {
 	if status != http.StatusOK {
 		t.Fatalf("status = %d, want 200", status)
 	}
-	wantContains(t, body, "Username", "Password", `action="/login"`, `type="password"`)
+	wantContains(t, body, "Username", "Password", `action="/login"`, `type="password"`, `<meta name="robots" content="noindex, nofollow">`)
 }
 
 func TestLoginPageRedirectsLoggedIn(t *testing.T) {

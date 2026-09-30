@@ -371,6 +371,9 @@ func TestGenerationsList(t *testing.T) {
 	}
 
 	status, body = get(t, srv.URL+"/api/generations?"+fullRangeQuery+"&limit=2&offset=3")
+	if status != http.StatusOK {
+		t.Fatalf("pagination status = %d", status)
+	}
 	if err := json.Unmarshal([]byte(body), &gens); err != nil {
 		t.Fatal(err)
 	}

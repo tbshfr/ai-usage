@@ -122,7 +122,7 @@ func TestNewWithSharedTokens(t *testing.T) {
 	}
 	h := New(db, testLogger(t), nil, nil, nil, "test", WithTokens(store))
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest("POST", "http://localhost/tokens", strings.NewReader("name=client"))
+	r := httptest.NewRequest("POST", "http://localhost/settings/tokens", strings.NewReader("name=client"))
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	h.ServeHTTP(w, r)
 	if w.Code != http.StatusCreated {

@@ -68,17 +68,16 @@ func (s *server) renderTokens(w http.ResponseWriter, r *http.Request, status int
 	ctx := r.Context()
 	d := &pageData{
 		Title: "OTLP tokens", Active: "tokens", Error: errMsg,
-		ShowLogout: s.dash != nil, Version: s.version,
 		Tokens: tokensView{CanManage: s.tokens != nil, Created: created, Form: form},
 	}
 	tokens, err := storage.ListTokens(ctx, s.db)
 	if err != nil {
-		renderTokensError(w, status, d, err)
+		s.renderTokensError(w, r, status, d, err)
 		return
 	}
 	usage, err := storage.ByToken(ctx, s.db, storage.Filter{})
 	if err != nil {
-		renderTokensError(w, status, d, err)
+		s.renderTokensError(w, r, status, d, err)
 		return
 	}
 	var pending map[int64]time.Time
@@ -125,19 +124,19 @@ func (s *server) renderTokens(w http.ResponseWriter, r *http.Request, status int
 		v.Groups[i].Total = totalBreakdown(rows)
 	}
 	d.Tokens = v
-	renderTemplate(w, pageTmpls["tokens"], "layout", status, d)
+	s.renderStatus(w, r, status, "tokens", d)
 }
 
 // Once a secret is committed, a failure to load the rest of the page must
 // not prevent its one-time display.
-func renderTokensError(w http.ResponseWriter, status int, d *pageData, err error) {
+func (s *server) renderTokensError(w http.ResponseWriter, r *http.Request, status int, d *pageData, err error) {
 	if d.Tokens.Created == nil {
 		writeErr(w, err)
 		return
 	}
 	slog.Error("load token page after saving secret", "error", err)
 	d.Error = "Token saved, but its usage details could not be loaded. Copy the secret below."
-	renderTemplate(w, pageTmpls["tokens"], "layout", status, d)
+	s.renderStatus(w, r, status, "tokens", d)
 }
 
 // dashboardURL links to the dashboard filtered by one dimension.
@@ -190,7 +189,7 @@ func (s *server) tokenUpdate(w http.ResponseWriter, r *http.Request) {
 		tokenErr(w, r, err)
 		return
 	}
-	http.Redirect(w, r, "/tokens", http.StatusSeeOther)
+	http.Redirect(w, r, "/settings/tokens", http.StatusSeeOther)
 }
 
 func (s *server) tokenRevoke(w http.ResponseWriter, r *http.Request) {
@@ -205,7 +204,7 @@ func (s *server) tokenRevoke(w http.ResponseWriter, r *http.Request) {
 		tokenErr(w, r, err)
 		return
 	}
-	http.Redirect(w, r, "/tokens", http.StatusSeeOther)
+	http.Redirect(w, r, "/settings/tokens", http.StatusSeeOther)
 }
 
 func (s *server) tokenRegenerate(w http.ResponseWriter, r *http.Request) {

@@ -76,7 +76,7 @@ Generate credentials with a password manager or a command such as
 
 OTLP clients authenticate over HTTP and gRPC with a bearer token
 (`Authorization: Bearer <token>`). Create tokens on the dashboard's **OTLP tokens**
-page (`/tokens`). A new token is shown once and cannot be retrieved later;
+page (`/settings/tokens`). A new token is shown once and cannot be retrieved later;
 only its SHA-256 hash is stored.
 These tokens authenticate ingestion only; the dashboard and JSON API use the
 dashboard login session when dashboard authentication is enabled.
@@ -118,6 +118,16 @@ Client-specific header configuration is included in each section of
 
 `GET /health` and `GET /ready` remain public for probes. All other dashboard
 and API routes require a login when dashboard authentication is enabled.
+
+## Dashboard preferences
+
+Appearance, breakdown order and visibility, and client setup receiver options
+are saved in SQLite and shared across devices. Pages are rendered with the
+current preferences embedded, so they paint correctly without an extra
+request or a browser-local cache. Changes apply immediately, are saved in the
+background, and reach other open tabs of the same browser; other devices pick
+them up on their next page load. Settings require a dashboard login when
+authentication is enabled. The login page does not load saved settings.
 
 ## Remote deployment
 

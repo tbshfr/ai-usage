@@ -17,7 +17,7 @@
   {{if eq .D.CostSource "manual"}}
   <dt>Prices updated</dt><dd>{{utc .D.PricingFetchedAt}}, the manual pricing date.</dd>
   {{else}}
-  <dt>Prices fetched</dt><dd>{{utc .D.PricingFetchedAt}}. The estimate uses rates fetched on this date, including for older requests.</dd>
+  <dt>Prices fetched</dt><dd>{{utc .D.PricingFetchedAt}}. The estimate uses rates fetched on this date.</dd>
   {{end}}
   {{end}}
   <dt>Reasoning effort</dt><dd>{{or .D.ReasoningEffort "—"}}</dd>

@@ -9,6 +9,22 @@ The dashboard shows token use, cache hit rates, costs, trends, model and provide
 breakdowns, and requests grouped by session. The web UI, JSON API, OTLP
 receivers, database migrations, and static assets ship in one Go binary.
 
+![Dashboard with usage cards and a daily activity heatmap](docs/screenshots/dashboard-light.png)
+
+## Screenshots
+
+The dashboard has light, dark, and system themes and five accent colors. The
+data below is synthetic; see [demo data](docs/development.md#demo-data).
+
+| | |
+|---|---|
+| ![Dashboard in the dark theme](docs/screenshots/dashboard-dark.png) | ![Trends with the top models leaderboard and token chart](docs/screenshots/trends-dark.png) |
+| Dashboard, dark | Trends, dark with green accent |
+| ![Breakdowns by provider and model](docs/screenshots/breakdowns-light.png) | ![Sessions grouped by conversation](docs/screenshots/sessions-dark.png) |
+| Breakdowns, light with violet accent | Sessions, dark with orange accent |
+| ![Settings for appearance and breakdowns](docs/screenshots/settings-light.png) | ![Client setup with the Claude Code configuration snippet](docs/screenshots/setup-dark.png) |
+| Settings, light with rose accent | Client setup, dark |
+
 ## Quick start
 
 1. Download a binary from [GitHub Releases](https://github.com/tbshfr/ai-usage/releases)

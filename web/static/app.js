@@ -765,6 +765,30 @@ window.addEventListener('resize', () => openSelect?.close());
   document.addEventListener('htmx:after:settle', apply);
 })();
 
+// The backup time is saved with the browser's time zone, so it stays at the
+// same local time across daylight saving changes.
+function initBackupSchedule() {
+  const input = document.querySelector('[data-backup-time]');
+  if (!input) return;
+  const { settings } = window.dashboardSettings;
+  const zoneLabel = document.querySelector('[data-backup-zone]');
+  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  function render() {
+    const { time, timezone } = settings.backup;
+    if (document.activeElement !== input) input.value = time;
+    zoneLabel.textContent = timezone ? ` (${timezone})` : '';
+  }
+  input.addEventListener('change', () => {
+    if (input.value) window.dashboardSettings.save('backup', { time: input.value, timezone: zone });
+    render();
+  });
+  input.addEventListener('blur', render);
+  document.addEventListener('settingschange', event => {
+    if (event.detail.section === 'backup') render();
+  });
+}
+document.addEventListener('DOMContentLoaded', initBackupSchedule);
+
 // Preserve desktop access to every filter; mobile starts with ranges only.
 document.addEventListener('DOMContentLoaded', () => {
   const mobile = window.matchMedia('(max-width: 768px)');

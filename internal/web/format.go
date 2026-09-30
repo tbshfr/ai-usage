@@ -46,10 +46,10 @@ var pageTmpls = map[string]*template.Template{
 	"breakdowns": mustParse("layout.html", "filterbar.html", "breakdowns.html", "breakdowns_page.html"),
 	"sessions":   mustParse("layout.html", "filterbar.html", "session_list.html", "conversations.html", "rows.html", "sessions_page.html"),
 	"detail":     mustParse("layout.html", "detail.html"),
-	"stats":      mustParse("layout.html", "filterbar.html", "stats_page.html", "stats.html", "backup-status.html"),
+	"stats":      mustParse("layout.html", "filterbar.html", "stats_page.html", "stats.html"),
 	"setup":      mustParse("layout.html", "setup_page.html"),
 	"tokens":     mustParse("layout.html", "tokens_page.html"),
-	"settings":   mustParse("layout.html", "settings_page.html"),
+	"settings":   mustParse("layout.html", "settings_page.html", "backup-status.html"),
 }
 
 // fragTmpls render bare page sections (no layout); the same named templates
@@ -57,12 +57,13 @@ var pageTmpls = map[string]*template.Template{
 // full-HTML-renderable page section.
 var fragTmpls = map[string]*template.Template{
 	"backup-banner":   mustParse("backup-status.html"),
+	"backup-settings": mustParse("backup-status.html"),
 	"dashboard-stats": mustParse("cards.html"),
 	"period-detail":   mustParse("cards.html"),
 	"trends":          mustParse("chart.html", "leaderboard.html"),
 	"breakdowns":      mustParse("breakdowns.html"),
 	"session-list":    mustParse("session_list.html", "conversations.html", "rows.html"),
-	"stats":           mustParse("stats.html", "backup-status.html"),
+	"stats":           mustParse("stats.html"),
 	"stats-reasons":   mustParse("stats-reasons.html"),
 }
 

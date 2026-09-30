@@ -147,13 +147,29 @@ AWS IAM policy JSON is not an R2 bucket policy.
 
 ## Scheduling, monitoring, and resources
 
-On startup the worker runs immediately unless its last successful snapshot is
-less than 24 hours old. After downtime it creates one current backup. Only one
+Backups run once a day at a fixed time. Until you choose one, that is the UTC
+time of day of the first backup, which runs at the first startup with backups
+enabled (after an upgrade, the time of the last successful backup, so an
+existing cycle does not move). The **Backups** section of the Settings page
+changes the time; it is saved with the browser's time zone so it follows
+daylight saving changes, and stored in the database, so it survives restarts
+and applies without one. Changing the time never starts a backup at once:
+choosing an earlier time of day than the last backup waits until that time
+tomorrow.
+
+The next backup is the first occurrence of the daily time after the previous
+snapshot, so one missed while the app was down runs at startup. Only one
 worker runs per process; run one application process per database. A private
 directory named `<database>.backups-<destination-hash>` contains success.json,
 recording snapshot time, completion time, and key via atomic replacement.
+It also holds schedule.json, recording when the backup time was last changed,
+so a restart after the change does not back up early.
 Keep this directory with the deployment; deleting its state causes an immediate
 backup next startup. Changing database path or destination starts a new schedule.
+
+**Back up now** on the Settings page starts a backup immediately, including
+during a retry delay after a failure. It is ignored while a backup is already
+running and does not move the daily time.
 
 Each attempt has a 30-minute deadline. The SDK retries transient uploads up to
 three times using the same local file and key. Failed attempts retry with
@@ -255,4 +271,4 @@ batch latency with and without backup activity. Synthetic results are not a
 capacity guarantee; measure your real database and deployment resource limits
 before relying on the daily recovery window.
 
-When backups are configured, the stats page shows backup status and the last successful completion time below ingestion counters. Backup changes notify the existing SSE feed, which triggers HTMX fragment refreshes. The dashboard only shows a backup banner when an attempt has failed. A failed attempt displays a banner with the failure stage and time; it remains visible during retries until a backup succeeds. The last success is restored from local state after restart; failure status is tracked for the current process.
+When backups are configured, the Settings page shows backup status, the last successful completion time, and the next scheduled backup. When they are not configured, the Settings page shows a short setup guide. Backup changes notify the existing SSE feed, which triggers HTMX fragment refreshes. The dashboard only shows a backup banner when an attempt has failed. A failed attempt displays a banner with the failure stage and time; it remains visible during retries until a backup succeeds. The last success is restored from local state after restart; failure status is tracked for the current process.

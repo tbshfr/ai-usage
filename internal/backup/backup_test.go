@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -45,9 +46,10 @@ func testWorker(t *testing.T) *Worker {
 		t.Fatal(err)
 	}
 	w := &Worker{db: db, dir: filepath.Join(t.TempDir(), "backups"), bucket: "bucket", prefix: "home/", version: "test",
-		logger: slog.New(slog.NewTextHandler(io.Discard, nil)), now: time.Now, wait: wait, snapshot: storage.Snapshot,
+		logger: slog.New(slog.NewTextHandler(io.Discard, nil)), now: time.Now, snapshot: storage.Snapshot, wake: make(chan struct{}, 1),
 		client: uploadFunc(func(context.Context, *s3.PutObjectInput) error { return nil })}
 	w.save = w.saveState
+	w.wait = w.sleep
 	if err := w.prepare(); err != nil {
 		t.Fatal(err)
 	}
@@ -322,7 +324,7 @@ func TestScheduleFailureAndCancellation(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	entered := make(chan struct{})
-	w.wait = wait
+	w.wait = w.sleep
 	w.client = uploadFunc(func(ctx context.Context, _ *s3.PutObjectInput) error { close(entered); <-ctx.Done(); return ctx.Err() })
 	done := make(chan struct{})
 	go func() { defer close(done); w.Run(ctx) }()
@@ -543,7 +545,7 @@ func TestStatusChangesNotifySSEHub(t *testing.T) {
 
 func TestPrepareRecoveryClearsFailureBeforeScheduledBackup(t *testing.T) {
 	w := testWorker(t)
-	now := time.Now().UTC()
+	now := time.Now().UTC().Truncate(time.Minute)
 	w.now = func() time.Time { return now }
 	last := success{SnapshotTime: now.Add(-time.Hour), CompletionTime: now.Add(-time.Hour), ObjectKey: w.prefix + "saved.sqlite.gz"}
 	if err := w.saveState(last); err != nil {
@@ -582,5 +584,191 @@ func TestPrepareRecoveryClearsFailureBeforeScheduledBackup(t *testing.T) {
 	w.Run(context.Background())
 	if waits != 2 {
 		t.Fatalf("waits = %d", waits)
+	}
+}
+
+func TestNextRun(t *testing.T) {
+	now := time.Date(2026, 9, 8, 12, 0, 0, 0, time.UTC)
+	at := func(s string) time.Time {
+		v, err := time.Parse(time.RFC3339, s)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return v
+	}
+	sched := func(clock, zone string) daily {
+		d, ok := parseDaily(storage.BackupSettings{Time: clock, Timezone: zone})
+		if !ok {
+			t.Fatalf("invalid schedule %s %s", clock, zone)
+		}
+		return d
+	}
+	for _, tc := range []struct {
+		name        string
+		last        time.Time
+		sched       daily
+		rescheduled time.Time
+		want        time.Time
+	}{
+		{"first backup runs now", time.Time{}, sched("03:00", "UTC"), time.Time{}, now},
+		{"later today", at("2026-09-08T10:00:00Z"), sched("20:00", "UTC"), time.Time{}, at("2026-09-08T20:00:00Z")},
+		{"tomorrow", at("2026-09-08T10:00:00Z"), sched("03:00", "UTC"), time.Time{}, at("2026-09-09T03:00:00Z")},
+		{"scheduled run does not repeat", at("2026-09-08T03:00:00Z"), sched("03:00", "UTC"), time.Time{}, at("2026-09-09T03:00:00Z")},
+		{"missed during downtime", at("2026-09-06T03:00:00Z"), sched("03:00", "UTC"), time.Time{}, at("2026-09-07T03:00:00Z")},
+		{"earlier time after change waits", at("2026-09-08T03:00:00Z"), sched("10:00", "UTC"), now, at("2026-09-09T10:00:00Z")},
+		{"time zone", at("2026-09-08T10:00:00Z"), sched("03:00", "Europe/Berlin"), time.Time{}, at("2026-09-09T01:00:00Z")},
+		{"skipped by DST", at("2026-03-07T12:00:00Z"), sched("02:30", "America/New_York"), time.Time{}, at("2026-03-08T06:30:00Z")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := nextRun(success{SnapshotTime: tc.last}, tc.sched, tc.rescheduled, now); !got.Equal(tc.want) {
+				t.Fatalf("next = %s, want %s", got.UTC(), tc.want)
+			}
+		})
+	}
+}
+
+func TestStartAndReschedule(t *testing.T) {
+	w := testWorker(t)
+	now := time.Date(2026, 9, 8, 12, 0, 0, 0, time.UTC)
+	w.now = func() time.Time { return now }
+	if err := w.saveState(success{SnapshotTime: now.Add(-time.Hour), CompletionTime: now.Add(-time.Hour), ObjectKey: "home/previous.sqlite.gz"}); err != nil {
+		t.Fatal(err)
+	}
+	uploads := make(chan struct{}, 2)
+	w.client = uploadFunc(func(context.Context, *s3.PutObjectInput) error { uploads <- struct{}{}; return nil })
+	statuses := make(chan Status, 32)
+	w.notify = func() { statuses <- w.Status() }
+	await := func(what string, ok func(Status) bool) {
+		t.Helper()
+		for {
+			select {
+			case s := <-statuses:
+				if ok(s) {
+					return
+				}
+			case <-time.After(5 * time.Second):
+				t.Fatalf("timed out waiting for %s", what)
+			}
+		}
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { defer close(done); w.Run(ctx) }()
+	defer func() { cancel(); <-done }()
+
+	await("startup", func(s Status) bool { return !s.LastSuccess.IsZero() })
+	if !w.Start() {
+		t.Fatal("start refused")
+	}
+	if w.Start() {
+		t.Fatal("second start accepted while one is requested")
+	}
+	await("manual backup", func(s Status) bool { return !s.Running && s.LastSuccess.Equal(now) })
+	if len(uploads) != 1 {
+		t.Fatalf("uploads = %d", len(uploads))
+	}
+	// The next run is recorded without a notification of its own.
+	for deadline := time.Now().Add(5 * time.Second); !w.Status().NextRun.Equal(now.Add(23 * time.Hour)); time.Sleep(time.Millisecond) {
+		if time.Now().After(deadline) {
+			t.Fatalf("after manual backup: %+v", w.Status())
+		}
+	}
+
+	if err := storage.SaveDashboardSettings(ctx, w.db, "backup", []byte(`{"time":"12:30","timezone":"UTC"}`)); err != nil {
+		t.Fatal(err)
+	}
+	w.Reschedule()
+	await("new schedule", func(s Status) bool { return s.NextRun.Equal(now.Add(30 * time.Minute)) })
+	if len(uploads) != 1 {
+		t.Fatal("rescheduling started a backup")
+	}
+	var disabled *Worker
+	if disabled.Start() {
+		t.Fatal("disabled worker started")
+	}
+	disabled.Reschedule()
+}
+
+func TestDefaultScheduleKeepsFirstBackupTime(t *testing.T) {
+	now := time.Date(2026, 9, 8, 12, 0, 0, 0, time.UTC)
+	for _, tc := range []struct {
+		name string
+		last success
+		want storage.BackupSettings
+	}{
+		{"first start", success{}, storage.BackupSettings{Time: "12:00", Timezone: "UTC"}},
+		{"upgrade keeps existing cycle", success{SnapshotTime: now.Add(-5*time.Hour - 30*time.Second)}, storage.BackupSettings{Time: "06:59", Timezone: "UTC"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			w := testWorker(t)
+			w.now = func() time.Time { return now }
+			w.schedule(context.Background(), tc.last)
+			settings, err := storage.ReadDashboardSettings(context.Background(), w.db)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if settings.Backup != tc.want {
+				t.Fatalf("saved schedule %+v, want %+v", settings.Backup, tc.want)
+			}
+			w.now = func() time.Time { return now.Add(time.Hour) }
+			d := w.schedule(context.Background(), success{SnapshotTime: now})
+			if got := fmt.Sprintf("%02d:%02d", d.hour, d.minute); got != tc.want.Time {
+				t.Fatalf("saved schedule not reused: %s", got)
+			}
+		})
+	}
+}
+
+func TestRescheduleSurvivesRestart(t *testing.T) {
+	w := testWorker(t)
+	now := time.Date(2026, 9, 8, 12, 0, 0, 0, time.UTC)
+	w.now = func() time.Time { return now }
+	if err := w.saveState(success{SnapshotTime: now.Add(-9 * time.Hour), CompletionTime: now.Add(-9 * time.Hour), ObjectKey: "home/previous.sqlite.gz"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := storage.SaveDashboardSettings(context.Background(), w.db, "backup", []byte(`{"time":"10:00","timezone":"UTC"}`)); err != nil {
+		t.Fatal(err)
+	}
+	w.Reschedule()
+
+	restarted := testWorker(t)
+	restarted.db, restarted.dir = w.db, w.dir
+	restarted.now = func() time.Time { return now.Add(time.Hour) }
+	uploads := 0
+	restarted.client = uploadFunc(func(context.Context, *s3.PutObjectInput) error { uploads++; return nil })
+	var delay time.Duration
+	restarted.wait = func(_ context.Context, d time.Duration) bool { delay = d; return false }
+	restarted.Run(context.Background())
+	if uploads != 0 || delay != 21*time.Hour {
+		t.Fatalf("uploads = %d, delay = %s", uploads, delay)
+	}
+}
+
+func TestEarlyTimerWaitsForScheduledTime(t *testing.T) {
+	w := testWorker(t)
+	current := time.Date(2026, 9, 8, 12, 0, 0, 0, time.UTC)
+	w.now = func() time.Time { return current }
+	if err := w.saveState(success{SnapshotTime: current.Add(-time.Hour), CompletionTime: current.Add(-time.Hour), ObjectKey: "home/previous.sqlite.gz"}); err != nil {
+		t.Fatal(err)
+	}
+	uploads := 0
+	w.client = uploadFunc(func(context.Context, *s3.PutObjectInput) error { uploads++; return nil })
+	var delays []time.Duration
+	w.wait = func(_ context.Context, d time.Duration) bool {
+		delays = append(delays, d)
+		switch len(delays) {
+		case 1:
+			// The wall clock was set back a minute during the wait.
+			current = current.Add(d - time.Minute)
+			return true
+		case 2:
+			current = current.Add(d)
+			return true
+		}
+		return false
+	}
+	w.Run(context.Background())
+	if uploads != 1 || len(delays) != 3 || delays[0] != 23*time.Hour || delays[1] != time.Minute || delays[2] != 24*time.Hour {
+		t.Fatalf("uploads = %d, delays = %v", uploads, delays)
 	}
 }

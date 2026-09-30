@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"slices"
 	"strings"
+	"time"
 )
 
 // Every ID needs a label in internal/web/settings.go. tokens.css must define a
@@ -42,10 +43,16 @@ type SetupSettings struct {
 	Auth     bool   `json:"auth"`
 }
 
+type BackupSettings struct {
+	Time     string `json:"time"`
+	Timezone string `json:"timezone"`
+}
+
 type DashboardSettings struct {
 	Appearance AppearanceSettings `json:"appearance"`
 	Breakdowns BreakdownSettings  `json:"breakdowns"`
 	Setup      SetupSettings      `json:"setup"`
+	Backup     BackupSettings     `json:"backup"`
 }
 
 func DefaultDashboardSettings() DashboardSettings {
@@ -70,6 +77,8 @@ func newSection(name string) settingsSection {
 		return &BreakdownSettings{}
 	case "setup":
 		return &SetupSettings{}
+	case "backup":
+		return &BackupSettings{}
 	}
 	return nil
 }
@@ -77,6 +86,7 @@ func newSection(name string) settingsSection {
 func (a *AppearanceSettings) apply(d *DashboardSettings) { d.Appearance = *a }
 func (b *BreakdownSettings) apply(d *DashboardSettings)  { d.Breakdowns = *b }
 func (s *SetupSettings) apply(d *DashboardSettings)      { d.Setup = *s }
+func (b *BackupSettings) apply(d *DashboardSettings)     { d.Backup = *b }
 
 func (a *AppearanceSettings) normalize() bool {
 	return slices.Contains(Themes, a.Theme) && slices.Contains(AccentColors, a.Color)
@@ -128,6 +138,29 @@ func (s *SetupSettings) normalize() bool {
 	}
 	u, err := url.Parse(s.Endpoint)
 	return err == nil && (u.Scheme == "http" || u.Scheme == "https") && u.Hostname() != "" && u.User == nil
+}
+
+func (b *BackupSettings) normalize() bool {
+	b.Time, b.Timezone = strings.TrimSpace(b.Time), strings.TrimSpace(b.Timezone)
+	t, err := time.Parse("15:04", b.Time)
+	if err != nil {
+		return false
+	}
+	b.Time = t.Format("15:04")
+	if b.Timezone == "" {
+		b.Timezone = "UTC"
+	}
+	_, err = b.Location()
+	return err == nil
+}
+
+// "Local" is rejected because it would depend on the server's environment
+// rather than the zone the user chose.
+func (b BackupSettings) Location() (*time.Location, error) {
+	if b.Timezone == "Local" || len(b.Timezone) > 64 {
+		return nil, ErrInvalidSettings
+	}
+	return time.LoadLocation(b.Timezone)
 }
 
 // Request bodies and stored rows share these rules, so pages only render

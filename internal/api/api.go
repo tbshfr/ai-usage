@@ -18,14 +18,20 @@ import (
 type Option func(*options)
 
 type options struct {
-	backupStatus func() backup.Status
-	tokens       *auth.TokenStore
+	backupStatus     func() backup.Status
+	backupStart      func() bool
+	backupReschedule func()
+	tokens           *auth.TokenStore
 }
 
 // WithBackupStatus supplies the backup worker's status for /api/backup,
 // /health and the dashboard banner.
 func WithBackupStatus(f func() backup.Status) Option {
 	return func(o *options) { o.backupStatus = f }
+}
+
+func WithBackupActions(start func() bool, reschedule func()) Option {
+	return func(o *options) { o.backupStart, o.backupReschedule = start, reschedule }
 }
 
 // WithTokens shares the OTLP listeners' token store with the dashboard and
@@ -57,7 +63,7 @@ func NewWithAuth(db *sql.DB, logger *slog.Logger, stats StatsFunc, reasons Reaso
 		}
 		return backup.Status{}
 	}
-	webOpts := []web.Option{web.WithBackupStatus(o.backupStatus), web.WithTokens(o.tokens)}
+	webOpts := []web.Option{web.WithBackupStatus(o.backupStatus), web.WithBackupActions(o.backupStart, o.backupReschedule), web.WithTokens(o.tokens)}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/backup", func(w http.ResponseWriter, r *http.Request) {
 		s := currentBackupStatus()

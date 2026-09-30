@@ -32,7 +32,11 @@ func (s *server) saveSettings(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid settings", http.StatusBadRequest)
 		return
 	}
-	err = storage.SaveDashboardSettings(r.Context(), s.db, r.PathValue("section"), body)
+	section := r.PathValue("section")
+	err = storage.SaveDashboardSettings(r.Context(), s.db, section, body)
+	if err == nil && section == "backup" && s.backupReschedule != nil {
+		s.backupReschedule()
+	}
 	switch {
 	case errors.Is(err, storage.ErrUnknownSettingsSection):
 		http.NotFound(w, r)
@@ -43,6 +47,15 @@ func (s *server) saveSettings(w http.ResponseWriter, r *http.Request) {
 	default:
 		w.WriteHeader(http.StatusNoContent)
 	}
+}
+
+func (s *server) startBackup(w http.ResponseWriter, r *http.Request) {
+	if s.backupStart == nil || !s.currentBackupStatus().Enabled {
+		http.NotFound(w, r)
+		return
+	}
+	s.backupStart()
+	http.Redirect(w, r, "/settings#backups", http.StatusSeeOther)
 }
 
 // Pages must not fail because preferences are unavailable, so a read error

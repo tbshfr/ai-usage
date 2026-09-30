@@ -15,6 +15,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	// Backup schedules use IANA time zones; embed them for hosts without tzdata.
+	_ "time/tzdata"
 
 	"github.com/tbshfr/ai-usage/internal/api"
 	"github.com/tbshfr/ai-usage/internal/auth"
@@ -154,7 +156,7 @@ func run(cfg *config.Config, logger *slog.Logger) error {
 	if cfg.HTTPAddr != "" {
 		srv := &http.Server{
 			Addr:              cfg.HTTPAddr,
-			Handler:           api.NewWithAuth(db, logger, pipeline.Stats, pipeline.ReasonCounts, hub, version, dash, api.WithBackupStatus(worker.Status), api.WithTokens(tokens)),
+			Handler:           api.NewWithAuth(db, logger, pipeline.Stats, pipeline.ReasonCounts, hub, version, dash, api.WithBackupStatus(worker.Status), api.WithBackupActions(worker.Start, worker.Reschedule), api.WithTokens(tokens)),
 			ReadHeaderTimeout: 10 * time.Second,
 			ReadTimeout:       30 * time.Second,
 			WriteTimeout:      60 * time.Second,

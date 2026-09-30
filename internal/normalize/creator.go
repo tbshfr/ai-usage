@@ -10,7 +10,7 @@ func ModelCreator(model string) string {
 	switch {
 	case strings.HasPrefix(m, "claude"):
 		return "anthropic"
-	case strings.HasPrefix(m, "gpt-"), strings.HasPrefix(m, "o1"), strings.HasPrefix(m, "o3"), strings.HasPrefix(m, "o4"):
+	case strings.HasPrefix(m, "gpt-"), strings.HasPrefix(m, "o1"), strings.HasPrefix(m, "o3"), strings.HasPrefix(m, "o4"), strings.HasPrefix(m, "codex-"):
 		return "openai"
 	case strings.HasPrefix(m, "gemini"):
 		return "google"

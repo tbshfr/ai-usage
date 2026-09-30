@@ -64,10 +64,10 @@
   </header>
   {{if or (eq .Active "settings") (eq .Active "stats") (eq .Active "tokens") (eq .Active "setup")}}
   <nav class="settings-nav" aria-label="Settings navigation">
-    <a href="/settings"{{if eq .Active "settings"}} aria-current="page"{{end}}>General</a>
-    <a href="/settings/tokens"{{if eq .Active "tokens"}} aria-current="page"{{end}}>OTLP tokens</a>
-    <a href="/settings/setup"{{if eq .Active "setup"}} aria-current="page"{{end}}>Client setup</a>
-    <a href="/settings/stats"{{if eq .Active "stats"}} aria-current="page"{{end}}>Ingestion stats</a>
+    <a href="/settings" data-label="General"{{if eq .Active "settings"}} aria-current="page"{{end}}>General</a>
+    <a href="/settings/tokens" data-label="OTLP tokens"{{if eq .Active "tokens"}} aria-current="page"{{end}}>OTLP tokens</a>
+    <a href="/settings/setup" data-label="Client setup"{{if eq .Active "setup"}} aria-current="page"{{end}}>Client setup</a>
+    <a href="/settings/stats" data-label="Ingestion stats"{{if eq .Active "stats"}} aria-current="page"{{end}}>Ingestion stats</a>
   </nav>
   {{end}}
   {{template "content" .}}

@@ -99,6 +99,8 @@ dialog.detail-dialog::backdrop, dialog.token-dialog::backdrop { background: var(
 .settings-nav { display: flex; gap: var(--space-lg); flex-wrap: wrap; margin-bottom: var(--space-xl); padding-bottom: var(--space-md); border-bottom: 1px solid var(--border); }
 .settings-nav a { display: inline-flex; align-items: center; min-height: 44px; color: var(--muted); white-space: nowrap; }
 .settings-nav a[aria-current] { color: var(--accent); font-weight: 600; }
+.settings-nav a { flex-direction: column; justify-content: center; }
+.settings-nav a::after { content: attr(data-label); font-weight: 600; height: 0; overflow: hidden; visibility: hidden; pointer-events: none; user-select: none; }
 .settings-nav a:hover { color: var(--accent); text-decoration: none; }
 .settings-section { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr); gap: var(--space-2xl); padding: 0 0 var(--space-2xl); margin-bottom: var(--space-xl); border-bottom: 1px solid var(--border); }
 .settings-description h2 { margin: 0 0 var(--space-sm); font-size: 1rem; }

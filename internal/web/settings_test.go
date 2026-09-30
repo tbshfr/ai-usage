@@ -37,7 +37,7 @@ func TestSettingsSharedAcrossSessions(t *testing.T) {
 	_, second := login(t, srv, "admin", "s3cret")
 	a, b := sessionCookie(t, first), sessionCookie(t, second)
 	defaults := settingsResponse(t, srv, b)
-	if defaults.Appearance.Theme != "system" || defaults.Appearance.Color != "green" || len(defaults.Breakdowns.Order) != 5 || len(defaults.Breakdowns.Hidden) != 0 || defaults.Setup.Endpoint != "" {
+	if defaults.Appearance.Theme != "system" || defaults.Appearance.Color != "blue" || len(defaults.Breakdowns.Order) != 5 || len(defaults.Breakdowns.Hidden) != 0 || defaults.Setup.Endpoint != "" {
 		t.Fatalf("unexpected defaults: %+v", defaults)
 	}
 	updates := []struct{ section, body, cookie string }{
@@ -78,7 +78,7 @@ func TestSettingsRequireAuthentication(t *testing.T) {
 		}
 	}
 	_, resp := login(t, srv, "admin", "s3cret")
-	if settingsResponse(t, srv, sessionCookie(t, resp)).Appearance.Color != "green" {
+	if settingsResponse(t, srv, sessionCookie(t, resp)).Appearance.Color != "blue" {
 		t.Fatal("unauthenticated write changed preferences")
 	}
 }
@@ -108,7 +108,7 @@ func TestSettingsRejectInvalidAndCrossOriginUpdates(t *testing.T) {
 	if status != http.StatusForbidden {
 		t.Fatalf("cross-origin write: %d", status)
 	}
-	if settingsResponse(t, srv, "").Appearance.Color != "green" {
+	if settingsResponse(t, srv, "").Appearance.Color != "blue" {
 		t.Fatal("rejected write changed preferences")
 	}
 }

@@ -60,7 +60,7 @@ func (s *server) pageSettings(ctx context.Context, w http.ResponseWriter) storag
 // needs an entry here.
 var (
 	themeLabels     = map[string]settingOption{"light": {Label: "Light", Icon: "sun"}, "dark": {Label: "Dark", Icon: "moon"}, "system": {Label: "System", Icon: "monitor"}}
-	colorLabels     = map[string]string{"green": "Green", "blue": "Blue", "violet": "Violet", "rose": "Rose", "orange": "Orange"}
+	colorLabels     = map[string]string{"blue": "Blue", "green": "Green", "violet": "Violet", "rose": "Rose", "orange": "Orange"}
 	breakdownLabels = map[string]string{"provider": "Provider", "model": "Model", "source": "Source", "group": "Token group", "token": "Token"}
 )
 

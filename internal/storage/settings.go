@@ -15,10 +15,10 @@ import (
 
 // Every ID needs a label in internal/web/settings.go. tokens.css must define a
 // swatch for every accent color and an accent rule for every color except the
-// default, green; breakdowns.html must render a section for every breakdown.
+// default, blue; breakdowns.html must render a section for every breakdown.
 var (
 	Themes       = []string{"light", "dark", "system"}
-	AccentColors = []string{"green", "blue", "violet", "rose", "orange"}
+	AccentColors = []string{"blue", "green", "violet", "rose", "orange"}
 	BreakdownIDs = []string{"provider", "model", "source", "group", "token"}
 )
 
@@ -50,7 +50,7 @@ type DashboardSettings struct {
 
 func DefaultDashboardSettings() DashboardSettings {
 	return DashboardSettings{
-		Appearance: AppearanceSettings{Theme: "system", Color: "green"},
+		Appearance: AppearanceSettings{Theme: "system", Color: "blue"},
 		Breakdowns: BreakdownSettings{Order: slices.Clone(BreakdownIDs), Hidden: []string{}},
 	}
 }

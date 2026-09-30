@@ -158,7 +158,7 @@ dialog.detail-dialog::backdrop, dialog.token-dialog::backdrop { background: var(
   .settings-nav a { font-size: var(--text-xs); }
   .stat-card.hero { padding: var(--space-lg); }
   .list-head { align-items: flex-start; flex-direction: column; }
-  .heatmap-head, .chart-head { flex-direction: column; align-items: flex-start; }
+  .heatmap-head { flex-direction: column; align-items: flex-start; }
   .tabs { flex-wrap: wrap; }
   dl.detail { grid-template-columns: minmax(0, 1fr); }
   dl.detail dd { overflow-wrap: anywhere; }
@@ -220,7 +220,7 @@ dialog.detail-dialog::backdrop, dialog.token-dialog::backdrop { background: var(
 /* Shared surfaces and controls. */
 .panel, .heatmap-panel { padding: 1.5rem; }
 .heatmap-head { margin-bottom: 1.5rem; }
-.heatmap-head h2, .chart-head h2 { font-size: 1rem; font-weight: 600; letter-spacing: -0.025em; }
+.heatmap-head h2 { font-size: 1rem; font-weight: 600; letter-spacing: -0.025em; }
 .heatmap-head p { margin-top: 0.3rem; font-size: var(--text-xs); }
 .heatmap-month { padding: 0 6px; }
 .heatmap-cell, .heatmap-legend i { border-radius: 3px; }

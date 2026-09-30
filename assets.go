@@ -1,5 +1,5 @@
 // Package assets embeds the repo-root web/ directory (templates, static, public).
-// go:embed cannot reference parent directories, so the directives live here
+// Embed directives cannot reference parent directories, so they live here
 // at the module root; internal/web consumes the FS from this package.
 package assets
 

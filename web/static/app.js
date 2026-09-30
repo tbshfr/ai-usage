@@ -313,7 +313,8 @@ function renderChart(id, d) {
         stroke: colors.muted,
         grid: { stroke: colors.border },
         ticks: { stroke: colors.border },
-        values: (u, vs) => vs.map(v => v == null ? '' : (isPct ? v + '%' : isCost ? formatCostAxis(v) : abbrev(v))),
+        values: (u, vs) => vs.map(v => v == null ? '' : String(isPct ? v + '%' : isCost ? formatCostAxis(v) : abbrev(v))),
+        size: fitAxisSize,
       },
     ],
     legend: { show: d.series.length > 1, live: false },
@@ -359,6 +360,16 @@ function formatCost(v) {
 function formatCostAxis(v) {
   if (Math.abs(v) >= 1000) return '$' + abbrev(v);
   return '$' + Number(v.toFixed(Math.abs(v) < 10 ? 3 : 2));
+}
+
+// uPlot's default axis width clips labels such as "500.0k"; fit the widest one.
+// Measure every label: in proportional fonts "2.5M" is wider than "1.0M".
+function fitAxisSize(u, values, axisIdx, cycleNum) {
+  const axis = u.axes[axisIdx];
+  if (cycleNum > 1) return axis._size;
+  u.ctx.font = axis.font[0];
+  const widest = (values || []).reduce((acc, v) => Math.max(acc, u.ctx.measureText(v).width), 0);
+  return Math.ceil(axis.ticks.size + axis.gap + widest / devicePixelRatio);
 }
 
 function abbrev(v) {

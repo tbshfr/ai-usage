@@ -335,11 +335,10 @@ type convsView struct {
 type breaksView struct {
 	Source, Provider, Model                []storage.Breakdown
 	SourceTotal, ProviderTotal, ModelTotal storage.Breakdown
-
-	Group      []storage.Breakdown
-	GroupTotal storage.Breakdown
-	Token      []tokenBreakdown
-	TokenTotal storage.Breakdown
+	Group                                  []storage.Breakdown
+	GroupTotal                             storage.Breakdown
+	Token                                  []tokenBreakdown
+	TokenTotal                             storage.Breakdown
 }
 
 // tokenBreakdown is one row of the by-token table with its display label.

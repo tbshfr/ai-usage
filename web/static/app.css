@@ -126,7 +126,6 @@ main { max-width: 1200px; margin: 0 auto; padding: 1.4rem; }
   .nav-overlay.open { opacity: 1; pointer-events: auto; }
   .filterbar select { flex: 1 1 45%; }
   .stat-card.hero { padding: 1.1rem 1.2rem; }
-  .chart-head { flex-wrap: wrap; }
   .list-head { align-items: flex-start; flex-direction: column; gap: 0.4rem; }
   dl.detail { grid-template-columns: 1fr; gap: 0.25rem; }
   dl.detail dt { margin-top: 0.3rem; }
@@ -483,30 +482,12 @@ dialog.detail-dialog .period-detail {
   margin-bottom: 1.2rem;
 }
 .panel h3 { margin: 0.1rem 0 0.4rem; font-size: 1rem; color: var(--text); }
-.chart-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 0.8rem;
-}
-.chart-head h2 { margin: 0.2rem 0; font-size: 1.15rem; }
 .chart-help { margin: 0.05rem 0 0; font-size: 0.82rem; }
-.bucket-control { display: flex; align-items: center; color: var(--muted); }
-.chart-head select {
-  background: var(--panel);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 0.28rem 0.45rem;
-}
 
 @media (max-width: 640px) {
   .heatmap-calendar { --day-size: 22px; }
   .heatmap-grid { min-width: 0; justify-content: start; }
   .heatmap-legend { justify-content: flex-start; }
-  .bucket-control { width: 100%; overflow-x: auto; padding-bottom: 0.15rem; }
-  .bucket-control .filter-choice { flex: 0 0 auto; }
 }
 .chart { background: transparent; }
 

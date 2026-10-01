@@ -12,10 +12,25 @@
 <form method="post" action="/settings/backup"><button type="submit"{{if or .Backup.Running .Backup.Requested}} disabled{{end}}>{{if .Backup.Running}}Backing up…{{else if .Backup.Requested}}Starting…{{else}}Back up now{{end}}</button></form>
 {{end}}
 
+{{define "backup-list"}}{{with .BackupList}}
+{{if .Denied}}<p class="muted">The access key can’t list the bucket. To show stored backups here, also allow it to list objects under the prefix; see <a href="https://github.com/tbshfr/ai-usage/blob/main/docs/backups.md#permissions" rel="noopener noreferrer" target="_blank">permissions</a>.</p>
+{{else if .Failed}}<p class="muted">The bucket couldn’t be listed. Try again later.</p>
+{{else if not .Newest}}<p class="muted">No backups in the bucket yet.</p>
+{{else}}<p class="backup-list-summary">{{.Count}} backup{{if ne .Count 1}}s{{end}}, {{byteSize .Size}} in total</p>
+<div class="table-scroll"><table class="backup-table">
+  <thead><tr><th>Uploaded</th><th>Size</th><th>File</th></tr></thead>
+  <tbody>{{template "backup-row" .Newest}}</tbody>
+  {{if .Older}}<tbody id="backup-list-older" hidden>{{range .Older}}{{template "backup-row" .}}{{end}}</tbody>{{end}}
+</table></div>
+{{with .Older}}<button type="button" class="backup-list-toggle" data-backup-list-toggle aria-expanded="false" aria-controls="backup-list-older">Show {{len .}} older backup{{if ne (len .) 1}}s{{end}}</button>{{end}}
+{{end}}{{end}}{{end}}
+
+{{define "backup-row"}}<tr><td>{{utc .LastModified}}</td><td>{{byteSize .Size}}</td><td><a href="/settings/backups/{{.Name}}" title="{{.Name}}">Download</a></td></tr>{{end}}
+
 {{define "backup-guide"}}
 <p class="backup-off"><strong>Backups are off.</strong> To upload a compressed database snapshot to Amazon S3 or another S3-compatible service once a day:</p>
 <ol class="backup-guide">
-  <li>Create a private bucket and an access key that can write objects to it.</li>
+  <li>Create a private bucket and an access key that can write, list, and read objects in it.</li>
   <li>Set these environment variables for the <code>ai-usage</code> process:
 <div class="snippet"><button type="button" class="snippet-copy" data-copy-snippet>Copy</button><pre><code>AI_USAGE_BACKUP_S3_BUCKET=ai-usage-backups
 AI_USAGE_BACKUP_S3_REGION=&lt;REGION&gt;

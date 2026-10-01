@@ -20,6 +20,10 @@
       <label for="backup-time">Daily backup time<span data-backup-zone>{{with .Settings.Backup.Timezone}} ({{.}}){{end}}</span></label>
       <input type="time" id="backup-time" value="{{.Settings.Backup.Time}}" required data-backup-time>
     </div>
+    <div class="backup-stored">
+      <h3 id="backup-list-heading">Stored backups</h3>
+      <div id="backup-list" hx-get="/fragments/backup-list" hx-trigger="load, data-changed from:body delay:2s" aria-labelledby="backup-list-heading"><p class="muted">Listing the bucket…</p></div>
+    </div>
   {{else}}
     {{template "backup-guide" .}}
   {{end}}

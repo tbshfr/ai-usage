@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -20,7 +21,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/aws/smithy-go"
 	"github.com/tbshfr/ai-usage/internal/config"
 	"github.com/tbshfr/ai-usage/internal/live"
 	"github.com/tbshfr/ai-usage/internal/storage"
@@ -770,5 +774,210 @@ func TestEarlyTimerWaitsForScheduledTime(t *testing.T) {
 	w.Run(context.Background())
 	if uploads != 1 || len(delays) != 3 || delays[0] != 23*time.Hour || delays[1] != time.Minute || delays[2] != 24*time.Hour {
 		t.Fatalf("uploads = %d, delays = %v", uploads, delays)
+	}
+}
+
+func TestBackupsListing(t *testing.T) {
+	w := testWorker(t)
+	var mu sync.Mutex
+	calls, denied := 0, false
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		calls++
+		q := r.URL.Query()
+		if r.Method != http.MethodGet || r.URL.Path != "/bucket" || q.Get("list-type") != "2" || q.Get("prefix") != "home/" || q.Get("delimiter") != "/" {
+			t.Errorf("unexpected request %s %s", r.Method, r.URL)
+		}
+		if denied {
+			rw.WriteHeader(http.StatusForbidden)
+			rw.Write([]byte("<Error><Code>AccessDenied</Code><Message>Access Denied</Message></Error>"))
+			return
+		}
+		object := func(key, modified string, size int) string {
+			return fmt.Sprintf("<Contents><Key>%s</Key><LastModified>%s</LastModified><Size>%d</Size></Contents>", key, modified, size)
+		}
+		body := object("home/20260901T030000.000000000Z-aaaa.sqlite.gz", "2026-09-01T03:00:05.000Z", 1200) +
+			object("home/notes.txt", "2026-09-01T04:00:00.000Z", 5) +
+			"<IsTruncated>true</IsTruncated><NextContinuationToken>page2</NextContinuationToken>"
+		if q.Get("continuation-token") == "page2" {
+			body = object("home/20260902T030000.000000000Z-bbbb.sqlite.gz", "2026-09-02T03:00:07.000Z", 3400) + "<IsTruncated>false</IsTruncated>"
+		}
+		rw.Header().Set("Content-Type", "application/xml")
+		fmt.Fprintf(rw, `<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Name>bucket</Name><Prefix>home/</Prefix>%s</ListBucketResult>`, body)
+	}))
+	defer server.Close()
+	cfg := &config.Config{DatabasePath: filepath.Join(t.TempDir(), "db"), BackupS3Bucket: "bucket", BackupS3Prefix: "home/", BackupS3Region: "auto", BackupS3Endpoint: server.URL, BackupS3AccessKeyID: "test", BackupS3SecretAccessKey: "test"}
+	real, err := New(context.Background(), cfg, w.db, "test", w.logger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w.lister = real.lister
+	now := time.Date(2026, 9, 2, 12, 0, 0, 0, time.UTC)
+	w.now = func() time.Time { return now }
+	list := func() ([]Object, error) {
+		t.Helper()
+		return w.Backups(context.Background())
+	}
+	objects, err := list()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []Object{
+		{Name: "20260902T030000.000000000Z-bbbb.sqlite.gz", Size: 3400, LastModified: time.Date(2026, 9, 2, 3, 0, 7, 0, time.UTC)},
+		{Name: "20260901T030000.000000000Z-aaaa.sqlite.gz", Size: 1200, LastModified: time.Date(2026, 9, 1, 3, 0, 5, 0, time.UTC)},
+	}
+	if fmt.Sprint(objects) != fmt.Sprint(want) {
+		t.Fatalf("objects = %v", objects)
+	}
+	if calls != 2 {
+		t.Fatalf("pages requested = %d", calls)
+	}
+	now = now.Add(listTTL - time.Second)
+	if _, err := list(); err != nil || calls != 2 {
+		t.Fatalf("cached listing: %v, calls=%d", err, calls)
+	}
+	w.setStatus(func(s *Status) { s.LastSuccess = now })
+	if _, err := list(); err != nil || calls != 4 {
+		t.Fatalf("listing after a backup: %v, calls=%d", err, calls)
+	}
+	now = now.Add(listTTL)
+	denied = true
+	var logs bytes.Buffer
+	w.logger = slog.New(slog.NewTextHandler(&logs, nil))
+	if _, err := list(); !errors.Is(err, ErrListDenied) || calls != 5 {
+		t.Fatalf("denied listing: %v, calls=%d", err, calls)
+	}
+	if !strings.Contains(logs.String(), "code=AccessDenied status=403") {
+		t.Fatalf("denied listing log: %s", logs.String())
+	}
+	now = now.Add(listErrorTTL - time.Second)
+	if _, err := list(); !errors.Is(err, ErrListDenied) || calls != 5 {
+		t.Fatalf("cached error: %v, calls=%d", err, calls)
+	}
+	now = now.Add(time.Second)
+	denied = false
+	if objects, err := list(); err != nil || len(objects) != 2 || calls != 7 {
+		t.Fatalf("listing after error: %v %v, calls=%d", objects, err, calls)
+	}
+	var disabled *Worker
+	if objects, err := disabled.Backups(context.Background()); objects != nil || err != nil {
+		t.Fatalf("disabled: %v %v", objects, err)
+	}
+}
+
+func TestBackupDownload(t *testing.T) {
+	w := testWorker(t)
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("unexpected request %s %s", r.Method, r.URL)
+		}
+		switch r.URL.Path {
+		case "/bucket/home/20260901T030000.000000000Z-aaaa.sqlite.gz":
+			rw.Header().Set("Content-Length", "7")
+			rw.Write([]byte("archive"))
+		case "/bucket/home/20260902T030000.000000000Z-bbbb.sqlite.gz":
+			rw.WriteHeader(http.StatusForbidden)
+			rw.Write([]byte("<Error><Code>AccessDenied</Code><Message>Access Denied</Message></Error>"))
+		default:
+			rw.WriteHeader(http.StatusNotFound)
+			rw.Write([]byte("<Error><Code>NoSuchKey</Code><Message>missing</Message></Error>"))
+		}
+	}))
+	defer server.Close()
+	cfg := &config.Config{DatabasePath: filepath.Join(t.TempDir(), "db"), BackupS3Bucket: "bucket", BackupS3Prefix: "home/", BackupS3Region: "auto", BackupS3Endpoint: server.URL, BackupS3AccessKeyID: "test", BackupS3SecretAccessKey: "test"}
+	real, err := New(context.Background(), cfg, w.db, "test", w.logger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w.downloader = real.downloader
+	body, size, err := w.Download(context.Background(), "20260901T030000.000000000Z-aaaa.sqlite.gz")
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := io.ReadAll(body)
+	body.Close()
+	if err != nil || string(data) != "archive" || size != 7 {
+		t.Fatalf("download = %q, %d, %v", data, size, err)
+	}
+	if _, _, err := w.Download(context.Background(), "20260902T030000.000000000Z-bbbb.sqlite.gz"); !errors.Is(err, ErrDownloadDenied) {
+		t.Fatalf("denied: %v", err)
+	}
+	if _, _, err := w.Download(context.Background(), "20260903T030000.000000000Z-cccc.sqlite.gz"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("missing: %v", err)
+	}
+	for _, name := range []string{"../other/x.sqlite.gz", "nested/x.sqlite.gz", "notes.txt", ""} {
+		if _, _, err := w.Download(context.Background(), name); !errors.Is(err, ErrNotFound) {
+			t.Errorf("Download(%q) = %v", name, err)
+		}
+	}
+}
+
+type listerFunc func(context.Context) (*s3.ListObjectsV2Output, error)
+
+func (f listerFunc) ListObjectsV2(ctx context.Context, _ *s3.ListObjectsV2Input, _ ...func(*s3.Options)) (*s3.ListObjectsV2Output, error) {
+	return f(ctx)
+}
+
+func TestBackupsListingOutlivesCanceledRequest(t *testing.T) {
+	w := testWorker(t)
+	started, release := make(chan struct{}, 2), make(chan struct{})
+	w.lister = listerFunc(func(ctx context.Context) (*s3.ListObjectsV2Output, error) {
+		started <- struct{}{}
+		select {
+		case <-release:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+		return &s3.ListObjectsV2Output{Contents: []types.Object{{Key: aws.String("home/20260901T030000.000000000Z-aaaa.sqlite.gz"), Size: aws.Int64(5)}}}, nil
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	result := make(chan error, 1)
+	go func() {
+		_, err := w.Backups(ctx)
+		result <- err
+	}()
+	<-started
+	// A waiter that goes away returns at once instead of waiting for the bucket.
+	cancel()
+	select {
+	case err := <-result:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("canceled waiter: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("canceled waiter still blocked on the listing")
+	}
+	// The listing it started keeps running, and the next caller joins it.
+	go func() {
+		objects, err := w.Backups(context.Background())
+		if err == nil && len(objects) != 1 {
+			err = fmt.Errorf("objects = %v", objects)
+		}
+		result <- err
+	}()
+	close(release)
+	if err := <-result; err != nil {
+		t.Fatal(err)
+	}
+	if len(started) != 0 {
+		t.Fatal("the listing was restarted")
+	}
+}
+
+func TestErrorAttrs(t *testing.T) {
+	for _, tc := range []struct {
+		err  error
+		want string
+	}{
+		{&smithy.GenericAPIError{Code: "AccessDenied"}, "[code AccessDenied]"},
+		{fmt.Errorf("list: %w", context.DeadlineExceeded), "[cause timeout]"},
+		{&net.DNSError{Err: "no such host", Name: "bucket.example"}, "[cause dns]"},
+		{&net.OpError{Op: "dial", Err: errors.New("connection refused")}, "[cause network]"},
+		{errors.New("https://bucket.example/key?X-Amz-Signature=secret"), "[cause other]"},
+	} {
+		if got := fmt.Sprint(errorAttrs(tc.err)); got != tc.want {
+			t.Errorf("errorAttrs(%v) = %s, want %s", tc.err, got, tc.want)
+		}
 	}
 }

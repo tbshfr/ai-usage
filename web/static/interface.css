@@ -266,6 +266,16 @@ dialog.detail-dialog::backdrop, dialog.token-dialog::backdrop { background: var(
 .backup-schedule label { display: block; font-size: var(--text-sm); font-weight: 600; margin-bottom: var(--space-sm); }
 .backup-schedule input { min-height: 44px; padding: 0 var(--space-md); border: 1px solid var(--border); border-radius: var(--radius-input); background: var(--panel); color: var(--text); }
 .backup-schedule input:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+.backup-stored { margin-top: var(--space-lg); padding-top: var(--space-lg); border-top: 1px solid var(--border); }
+.backup-stored h3 { margin: 0 0 var(--space-sm); font-size: var(--text-sm); font-weight: 600; }
+.backup-stored p { margin: 0; font-size: var(--text-sm); }
+.backup-stored .backup-list-summary { margin-bottom: var(--space-sm); }
+.backup-stored .table-scroll { max-height: 24rem; overflow-y: auto; }
+.table-scroll table.backup-table { min-width: 0; font-size: var(--text-sm); }
+.backup-table td { white-space: nowrap; }
+.backup-table a { color: var(--accent); font-weight: 600; }
+.backup-list-toggle { margin-top: var(--space-sm); padding: var(--space-xs) 0; border: 0; background: transparent; color: var(--accent); font: inherit; font-size: var(--text-sm); font-weight: 600; cursor: pointer; }
+.backup-list-toggle:hover { text-decoration: underline; }
 .backup-off { margin: 0 0 var(--space-sm); }
 .backup-guide { margin: 0 0 var(--space-md); padding-left: 1.25rem; }
 .backup-guide li { margin-bottom: var(--space-sm); }

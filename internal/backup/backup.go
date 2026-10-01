@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/tls"
 	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
@@ -14,8 +15,10 @@ import (
 	"io"
 	"log/slog"
 	mathrand "math/rand/v2"
+	"net"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -24,6 +27,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/aws/smithy-go"
 	"github.com/tbshfr/ai-usage/internal/config"
 	"github.com/tbshfr/ai-usage/internal/storage"
 )
@@ -31,9 +35,25 @@ import (
 const interval = 24 * time.Hour
 const attemptTimeout = 30 * time.Minute
 const maxObjectBytes = 5_000_000_000
+const listTimeout = 20 * time.Second
+
+// cache listings so that pages refreshing on every data change do not
+// list the bucket each time; a new backup invalidates the cache at once
+const listTTL = 5 * time.Minute
+const listErrorTTL = time.Minute
+
+var (
+	ErrListDenied     = errors.New("listing backups not permitted")
+	ErrDownloadDenied = errors.New("downloading backups not permitted")
+	ErrNotFound       = errors.New("backup not found")
+)
 
 type uploader interface {
 	PutObject(context.Context, *s3.PutObjectInput, ...func(*s3.Options)) (*s3.PutObjectOutput, error)
+}
+
+type downloader interface {
+	GetObject(context.Context, *s3.GetObjectInput, ...func(*s3.Options)) (*s3.GetObjectOutput, error)
 }
 
 type success struct {
@@ -144,6 +164,11 @@ type Worker struct {
 	db                           *sql.DB
 	client                       uploader
 	bucket, prefix, version, dir string
+	lister                       s3.ListObjectsV2APIClient
+	downloader                   downloader
+	listMu                       sync.Mutex // guards listed and refreshing
+	listed                       listing    // the last finished listing
+	refreshing                   chan struct{}
 	logger                       *slog.Logger
 	now                          func() time.Time
 	wait                         func(context.Context, time.Duration) bool
@@ -183,7 +208,7 @@ func New(ctx context.Context, cfg *config.Config, db *sql.DB, version string, lo
 	}
 	identity, _ := json.Marshal([]string{abs, cfg.BackupS3Bucket, ac.Region, cfg.BackupS3Prefix, cfg.BackupS3Endpoint})
 	hash := sha256.Sum256(identity)
-	w := &Worker{db: db, client: client, bucket: cfg.BackupS3Bucket, prefix: cfg.BackupS3Prefix, version: version,
+	w := &Worker{db: db, client: client, lister: client, downloader: client, bucket: cfg.BackupS3Bucket, prefix: cfg.BackupS3Prefix, version: version,
 		dir: abs + ".backups-" + hex.EncodeToString(hash[:8]), logger: logger, now: time.Now, snapshot: storage.Snapshot,
 		wake: make(chan struct{}, 1)}
 	w.wait = w.sleep
@@ -523,6 +548,179 @@ func (w *Worker) attempt(ctx context.Context) (success, int64, string, error) {
 		return result, size, "state", err
 	}
 	return result, size, "", nil
+}
+
+type Object struct {
+	Name         string // key without prefix
+	Size         int64
+	LastModified time.Time
+}
+
+type listing struct {
+	objects     []Object
+	err         error
+	at          time.Time
+	lastSuccess time.Time
+}
+
+// The delimiter and suffix keep other instances' nested prefixes and
+// unrelated objects out of the list.
+func (w *Worker) Backups(ctx context.Context) ([]Object, error) {
+	if w == nil || w.lister == nil {
+		return nil, nil
+	}
+	w.listMu.Lock()
+	lastSuccess := w.Status().LastSuccess
+	now := w.now()
+	ttl := listTTL
+	if w.listed.err != nil {
+		ttl = listErrorTTL
+	}
+	if !w.listed.at.IsZero() && w.listed.lastSuccess.Equal(lastSuccess) && now.Sub(w.listed.at) < ttl && !now.Before(w.listed.at) {
+		defer w.listMu.Unlock()
+		return w.listed.objects, w.listed.err
+	}
+	if w.refreshing == nil {
+		w.refreshing = make(chan struct{})
+		go w.refresh(w.refreshing, now, lastSuccess)
+	}
+	done := w.refreshing
+	w.listMu.Unlock()
+	select {
+	case <-done:
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+	w.listMu.Lock()
+	defer w.listMu.Unlock()
+	return w.listed.objects, w.listed.err
+}
+
+// The listing is detached from the request that started it, so a request
+// that goes away neither aborts it for the others waiting nor holds them up.
+func (w *Worker) refresh(done chan struct{}, at, lastSuccess time.Time) {
+	defer close(done)
+	ctx, cancel := context.WithTimeout(context.Background(), listTimeout)
+	defer cancel()
+	objects, err := w.list(ctx)
+	level := slog.LevelWarn
+	var attrs []any
+	if err != nil {
+		attrs = errorAttrs(err)
+		if errorCode(err) == "AccessDenied" {
+			err = ErrListDenied
+		}
+		objects = nil
+	}
+	w.listMu.Lock()
+	if errors.Is(err, ErrListDenied) && errors.Is(w.listed.err, ErrListDenied) {
+		level = slog.LevelDebug
+	}
+	w.listed = listing{objects: objects, err: err, at: at, lastSuccess: lastSuccess}
+	w.refreshing = nil
+	w.listMu.Unlock()
+	if err != nil {
+		w.logger.Log(ctx, level, "backup listing failed", attrs...)
+	}
+}
+
+func (w *Worker) list(ctx context.Context) ([]Object, error) {
+	var out []Object
+	pages := s3.NewListObjectsV2Paginator(w.lister, &s3.ListObjectsV2Input{
+		Bucket: aws.String(w.bucket), Prefix: aws.String(w.prefix), Delimiter: aws.String("/"),
+	})
+	for pages.HasMorePages() {
+		page, err := pages.NextPage(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, o := range page.Contents {
+			name := strings.TrimPrefix(aws.ToString(o.Key), w.prefix)
+			if !isBackupName(name) {
+				continue
+			}
+			out = append(out, Object{Name: name, Size: aws.ToInt64(o.Size), LastModified: aws.ToTime(o.LastModified)})
+		}
+	}
+	// Keys start with the snapshot time, so they sort chronologically.
+	slices.SortFunc(out, func(a, b Object) int { return strings.Compare(b.Name, a.Name) })
+	return out, nil
+}
+
+func isBackupName(name string) bool {
+	return strings.HasSuffix(name, ".sqlite.gz") && !strings.Contains(name, "/")
+}
+
+// Download returns the backup's body, which the caller must close, and its
+// size, or -1 if the size is unknown.
+func (w *Worker) Download(ctx context.Context, name string) (io.ReadCloser, int64, error) {
+	if w == nil || w.downloader == nil || !isBackupName(name) {
+		return nil, 0, ErrNotFound
+	}
+	out, err := w.downloader.GetObject(ctx, &s3.GetObjectInput{Bucket: aws.String(w.bucket), Key: aws.String(w.prefix + name)})
+	if err != nil {
+		if ctx.Err() != nil {
+			return nil, 0, ctx.Err()
+		}
+		switch errorCode(err) {
+		case "AccessDenied":
+			w.logger.Warn("backup download failed", errorAttrs(err)...)
+			return nil, 0, ErrDownloadDenied
+		case "NoSuchKey":
+			w.logger.Debug("backup download failed", errorAttrs(err)...)
+			return nil, 0, ErrNotFound
+		}
+		w.logger.Warn("backup download failed", errorAttrs(err)...)
+		return nil, 0, err
+	}
+	size := int64(-1)
+	if out.ContentLength != nil {
+		size = *out.ContentLength
+	}
+	return out.Body, size, nil
+}
+
+// errorCode is the storage provider's error code, or "" for a failure
+// without a response.
+func errorCode(err error) string {
+	var apiErr smithy.APIError
+	if errors.As(err, &apiErr) {
+		return apiErr.ErrorCode()
+	}
+	return ""
+}
+
+// SDK errors can include request URLs, so only the error code, the HTTP
+// status, and for failures without a response the kind of failure are logged.
+func errorAttrs(err error) []any {
+	var attrs []any
+	if code := errorCode(err); code != "" {
+		attrs = append(attrs, "code", code)
+	}
+	var status interface{ HTTPStatusCode() int }
+	if errors.As(err, &status) {
+		attrs = append(attrs, "status", status.HTTPStatusCode())
+	}
+	if len(attrs) > 0 {
+		return attrs
+	}
+	var dnsErr *net.DNSError
+	var certErr *tls.CertificateVerificationError
+	var netErr net.Error
+	cause := "other"
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		cause = "timeout"
+	case errors.As(err, &dnsErr):
+		cause = "dns"
+	case errors.As(err, &certErr):
+		cause = "tls"
+	case errors.As(err, &netErr) && netErr.Timeout():
+		cause = "timeout"
+	case errors.As(err, &netErr):
+		cause = "network"
+	}
+	return []any{"cause", cause}
 }
 
 type contextReader struct {

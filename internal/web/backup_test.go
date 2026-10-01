@@ -1,6 +1,11 @@
 package web
 
 import (
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -8,6 +13,7 @@ import (
 	"time"
 
 	"github.com/tbshfr/ai-usage/internal/backup"
+	"github.com/tbshfr/ai-usage/internal/live"
 	"github.com/tbshfr/ai-usage/internal/storage"
 	"github.com/tbshfr/ai-usage/internal/storage/seedtest"
 )
@@ -115,5 +121,137 @@ func TestBackupSettings(t *testing.T) {
 	}
 	if got := settingsResponse(t, srv, "").Backup; got != (storage.BackupSettings{Time: "22:15", Timezone: "UTC"}) {
 		t.Fatalf("schedule without zone: %+v", got)
+	}
+}
+
+func TestBackupList(t *testing.T) {
+	state := backup.Status{}
+	var objects []backup.Object
+	var listErr error
+	srv := httptest.NewServer(New(seedtest.DB(t), nil, nil, nil, "test",
+		WithBackupStatus(func() backup.Status { return state }),
+		WithBackupFiles(func(context.Context) ([]backup.Object, error) { return objects, listErr }, nil)))
+	defer srv.Close()
+
+	if status, _, _ := do(t, srv, "GET", "/fragments/backup-list", "", nil); status != http.StatusNotFound {
+		t.Fatalf("disabled list: %d", status)
+	}
+	_, body, _ := do(t, srv, "GET", "/settings", "", nil)
+	wantNotContains(t, body, "Stored backups", "/fragments/backup-list")
+
+	state.Enabled = true
+	_, body, _ = do(t, srv, "GET", "/settings", "", nil)
+	wantContains(t, body, "Stored backups", `hx-get="/fragments/backup-list"`, `hx-trigger="load, data-changed from:body delay:2s"`)
+
+	_, body, _ = do(t, srv, "GET", "/fragments/backup-list", "", nil)
+	wantContains(t, body, "No backups in the bucket yet")
+	wantNotContains(t, body, "<table", "<html")
+
+	objects = []backup.Object{
+		{Name: "20260903T030000.000000000Z-cccc.sqlite.gz", Size: 2_500_000, LastModified: time.Date(2026, 9, 3, 3, 0, 7, 0, time.UTC)},
+		{Name: "20260902T030000.000000000Z-bbbb.sqlite.gz", Size: 1_250_000, LastModified: time.Date(2026, 9, 2, 3, 0, 5, 0, time.UTC)},
+		{Name: "20260901T030000.000000000Z-aaaa.sqlite.gz", Size: 1_000_000, LastModified: time.Date(2026, 9, 1, 3, 0, 5, 0, time.UTC)},
+	}
+	_, body, _ = do(t, srv, "GET", "/fragments/backup-list", "", nil)
+	wantContains(t, body, "3 backups, 4.8 MB in total", "2026-09-03 03:00 UTC", "2.5 MB", "1.2 MB",
+		`href="/settings/backups/20260903T030000.000000000Z-cccc.sqlite.gz"`, "Show 2 older backups")
+	newest, older := strings.Index(body, "cccc"), strings.Index(body, `<tbody id="backup-list-older" hidden>`)
+	if newest < 0 || older < newest || strings.Index(body, "bbbb") < older || strings.Index(body, "aaaa") < strings.Index(body, "bbbb") {
+		t.Fatal("only the newest backup should be shown before the collapsed older ones")
+	}
+	objects = objects[:2]
+	_, body, _ = do(t, srv, "GET", "/fragments/backup-list", "", nil)
+	wantContains(t, body, "Show 1 older backup<")
+	objects = objects[:1]
+	_, body, _ = do(t, srv, "GET", "/fragments/backup-list", "", nil)
+	wantContains(t, body, "1 backup, 2.5 MB in total")
+	wantNotContains(t, body, "backup-list-older", "data-backup-list-toggle")
+
+	objects, listErr = nil, backup.ErrListDenied
+	_, body, _ = do(t, srv, "GET", "/fragments/backup-list", "", nil)
+	wantContains(t, body, "can’t list the bucket", "docs/backups.md#permissions")
+	listErr = errors.New("connection refused")
+	_, body, _ = do(t, srv, "GET", "/fragments/backup-list", "", nil)
+	wantContains(t, body, "couldn’t be listed")
+	wantNotContains(t, body, "connection refused")
+}
+
+func TestByteSize(t *testing.T) {
+	for n, want := range map[int64]string{0: "0 B", 999: "999 B", 1000: "1.0 kB", 1_234_567: "1.2 MB", 999_960: "1.0 MB", 5_000_000_000: "5.0 GB", 2_000_000_000_000_000: "2000.0 TB"} {
+		if got := byteSize(n); got != want {
+			t.Errorf("byteSize(%d) = %q, want %q", n, got, want)
+		}
+	}
+}
+
+func TestBackupDownload(t *testing.T) {
+	state := backup.Status{}
+	var gotName string
+	var downloadErr error
+	srv := httptest.NewServer(New(seedtest.DB(t), nil, nil, nil, "test",
+		WithBackupStatus(func() backup.Status { return state }),
+		WithBackupFiles(nil, func(_ context.Context, name string) (io.ReadCloser, int64, error) {
+			gotName = name
+			if downloadErr != nil {
+				return nil, 0, downloadErr
+			}
+			return io.NopCloser(strings.NewReader("archive")), 7, nil
+		})))
+	defer srv.Close()
+	const path = "/settings/backups/20260901T030000.000000000Z-aaaa.sqlite.gz"
+
+	if status, _, _ := do(t, srv, "GET", path, "", nil); status != http.StatusNotFound || gotName != "" {
+		t.Fatalf("disabled download: %d", status)
+	}
+	state.Enabled = true
+	if status, _, resp := do(t, srv, "HEAD", path, "", nil); status != http.StatusMethodNotAllowed || resp.Header.Get("Allow") != "GET" || gotName != "" {
+		t.Fatalf("HEAD: %d, Allow=%q, name=%q", status, resp.Header.Get("Allow"), gotName)
+	}
+	status, body, resp := do(t, srv, "GET", path, "", nil)
+	if status != http.StatusOK || body != "archive" || gotName != "20260901T030000.000000000Z-aaaa.sqlite.gz" {
+		t.Fatalf("download: %d %q name=%q", status, body, gotName)
+	}
+	if got := resp.Header.Get("Content-Disposition"); got != `attachment; filename=20260901T030000.000000000Z-aaaa.sqlite.gz` {
+		t.Fatalf("Content-Disposition = %q", got)
+	}
+	if resp.Header.Get("Content-Type") != "application/gzip" || resp.Header.Get("Content-Length") != "7" {
+		t.Fatalf("headers: %v", resp.Header)
+	}
+	for err, want := range map[error]int{backup.ErrNotFound: http.StatusNotFound, backup.ErrDownloadDenied: http.StatusForbidden, errors.New("connection refused"): http.StatusBadGateway} {
+		downloadErr = err
+		status, body, _ := do(t, srv, "GET", path, "", nil)
+		if status != want || strings.Contains(body, "connection refused") {
+			t.Errorf("%v: %d %q", err, status, body)
+		}
+	}
+}
+
+type endlessBackup struct{ closed chan struct{} }
+
+func (endlessBackup) Read(p []byte) (int, error) { return len(p), nil }
+func (b endlessBackup) Close() error             { close(b.closed); return nil }
+
+// A client that stops reading blocks the response write, which cancelling the
+// context alone does not interrupt.
+func TestBackupDownloadStalledClientShutdown(t *testing.T) {
+	hub := live.New()
+	backupBody := endlessBackup{closed: make(chan struct{})}
+	srv := httptest.NewServer(New(seedtest.DB(t), nil, nil, hub, "test",
+		WithBackupStatus(func() backup.Status { return backup.Status{Enabled: true} }),
+		WithBackupFiles(nil, func(context.Context, string) (io.ReadCloser, int64, error) { return backupBody, -1, nil })))
+	defer srv.Close()
+	conn, err := net.Dial("tcp", srv.Listener.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	fmt.Fprintf(conn, "GET /settings/backups/20260901T030000.000000000Z-aaaa.sqlite.gz HTTP/1.1\r\nHost: %s\r\n\r\n", srv.Listener.Addr())
+	// Let the unread response fill the socket buffers.
+	time.Sleep(300 * time.Millisecond)
+	hub.InterruptStreams()
+	select {
+	case <-backupBody.closed:
+	case <-time.After(5 * time.Second):
+		t.Fatal("download still blocked after shutdown began")
 	}
 }

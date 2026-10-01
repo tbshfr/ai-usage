@@ -789,6 +789,25 @@ function initBackupSchedule() {
 }
 document.addEventListener('DOMContentLoaded', initBackupSchedule);
 
+// prevent list collapse on live refresh
+(() => {
+  let expanded = false;
+  function apply() {
+    const toggle = document.querySelector('[data-backup-list-toggle]');
+    if (!toggle) return;
+    if (!toggle.dataset.more) toggle.dataset.more = toggle.textContent;
+    toggle.setAttribute('aria-expanded', String(expanded));
+    toggle.textContent = expanded ? 'Show fewer' : toggle.dataset.more;
+    document.getElementById(toggle.getAttribute('aria-controls')).hidden = !expanded;
+  }
+  document.addEventListener('click', e => {
+    if (!e.target.closest('[data-backup-list-toggle]')) return;
+    expanded = !expanded;
+    apply();
+  });
+  document.addEventListener('htmx:after:settle', apply);
+})();
+
 // Preserve desktop access to every filter; mobile starts with ranges only.
 document.addEventListener('DOMContentLoaded', () => {
   const mobile = window.matchMedia('(max-width: 768px)');

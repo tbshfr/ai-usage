@@ -2,10 +2,13 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"encoding/json"
+	"io"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/tbshfr/ai-usage/internal/auth"
@@ -21,6 +24,8 @@ type options struct {
 	backupStatus     func() backup.Status
 	backupStart      func() bool
 	backupReschedule func()
+	backupList       func(context.Context) ([]backup.Object, error)
+	backupDownload   func(context.Context, string) (io.ReadCloser, int64, error)
 	tokens           *auth.TokenStore
 }
 
@@ -32,6 +37,10 @@ func WithBackupStatus(f func() backup.Status) Option {
 
 func WithBackupActions(start func() bool, reschedule func()) Option {
 	return func(o *options) { o.backupStart, o.backupReschedule = start, reschedule }
+}
+
+func WithBackupFiles(list func(context.Context) ([]backup.Object, error), download func(context.Context, string) (io.ReadCloser, int64, error)) Option {
+	return func(o *options) { o.backupList, o.backupDownload = list, download }
 }
 
 // WithTokens shares the OTLP listeners' token store with the dashboard and
@@ -63,7 +72,7 @@ func NewWithAuth(db *sql.DB, logger *slog.Logger, stats StatsFunc, reasons Reaso
 		}
 		return backup.Status{}
 	}
-	webOpts := []web.Option{web.WithBackupStatus(o.backupStatus), web.WithBackupActions(o.backupStart, o.backupReschedule), web.WithTokens(o.tokens)}
+	webOpts := []web.Option{web.WithBackupStatus(o.backupStatus), web.WithBackupActions(o.backupStart, o.backupReschedule), web.WithBackupFiles(o.backupList, o.backupDownload), web.WithTokens(o.tokens)}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/backup", func(w http.ResponseWriter, r *http.Request) {
 		s := currentBackupStatus()
@@ -148,7 +157,8 @@ func accessLog(logger *slog.Logger, next http.Handler) http.Handler {
 		// default log level instead of hiding behind debug access logs.
 		// The /events SSE stream is exempt: it stays open for as long
 		// as the tab is foregrounded, so its duration means nothing.
-		if r.URL.Path == "/events" {
+		// Backup downloads last as long as the transfer does.
+		if r.URL.Path == "/events" || strings.HasPrefix(r.URL.Path, "/settings/backups/") {
 			logger.Debug("http request", fields...)
 			return
 		}

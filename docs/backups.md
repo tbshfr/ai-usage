@@ -123,22 +123,42 @@ and [R2 compatibility](https://developers.cloudflare.com/r2/api/s3/api/).
 
 ## Permissions
 
-The application only calls PutObject; it needs no listing, reading, deletion,
-or lifecycle-administration permission. R2's standard persistent token permissions
-are bucket-scoped and broader than this minimum; use a dedicated bucket. Use a
-separate **Object Read only** token for restore and separate administrator
+The application calls PutObject to upload, ListObjectsV2 on its prefix to
+show the stored backups on the Settings page, and GetObject to download them
+from there; it needs no deletion or lifecycle-administration permission. R2's
+**Object Read & Write** permission includes listing and reading. Without them,
+backups still run and the Settings page says the bucket can't be listed or the
+backup can't be downloaded. R2's standard persistent token
+permissions are bucket-scoped and broader than this minimum; use a dedicated bucket. Use a
+separate **Object Read only** token for restoring outside the app and separate administrator
 credentials for lifecycle management. Never give the running app an admin token.
 See [R2 token scopes](https://developers.cloudflare.com/r2/api/tokens/).
 
-For AWS IAM, the minimal upload statement is:
+For AWS IAM, the minimal statements are:
 
 ```json
-{
-  "Effect": "Allow",
-  "Action": "s3:PutObject",
-  "Resource": "arn:aws:s3:::ai-usage-backups/ai-usage/home/*"
-}
+[
+  {
+    "Effect": "Allow",
+    "Action": "s3:PutObject",
+    "Resource": "arn:aws:s3:::ai-usage-backups/ai-usage/home/*"
+  },
+  {
+    "Effect": "Allow",
+    "Action": "s3:GetObject",
+    "Resource": "arn:aws:s3:::ai-usage-backups/ai-usage/home/*"
+  },
+  {
+    "Effect": "Allow",
+    "Action": "s3:ListBucket",
+    "Resource": "arn:aws:s3:::ai-usage-backups",
+    "Condition": { "StringEquals": { "s3:prefix": "ai-usage/home/" } }
+  }
+]
 ```
+
+Leave out the GetObject and ListBucket statements to keep the key upload-only;
+only downloading and the stored backup list are then unavailable.
 
 Grant restore operators s3:GetObject on that prefix; optional s3:ListBucket
 should have an s3:prefix condition. Lifecycle administrators need
@@ -170,6 +190,18 @@ backup next startup. Changing database path or destination starts a new schedule
 **Back up now** on the Settings page starts a backup immediately, including
 during a retry delay after a failure. It is ignored while a backup is already
 running and does not move the daily time.
+
+**Stored backups** on the Settings page shows the newest backup with its upload
+time, size, and a download link, the number and total size of all backups, and
+the older ones behind **Show older backups**. Downloads go through the
+application, so the browser needs no access to the bucket; anyone who can sign
+in to the dashboard can download the whole database, including OTLP token
+hashes. Only `.sqlite.gz` objects directly under the prefix are shown,
+not other files or nested prefixes. The listing is cached for 5 minutes (1
+minute after an error) and refreshed after each successful backup, so open
+pages do not list the bucket on every data change. Backups past a lifecycle
+rule's age can stay listed until the provider deletes them, which R2 does
+asynchronously.
 
 Each attempt has a 30-minute deadline. The SDK retries transient uploads up to
 three times using the same local file and key. Failed attempts retry with
@@ -233,6 +265,11 @@ test "$(sqlite3 -readonly "$RESTORE_DIR/usage.db" 'PRAGMA integrity_check;')" = 
 sqlite3 -readonly "$RESTORE_DIR/usage.db" \
   'SELECT count(*), sum(input_tokens), sum(output_tokens), sum(cost) FROM generations;'
 ```
+
+A backup downloaded from **Stored backups** on the Settings page can replace
+the get-object command: save it as `$RESTORE_DIR/backup.sqlite.gz`. Without
+restore credentials for the checksum comparison, still run the gzip and
+integrity checks.
 
 3. Preserve the original database and any WAL/SHM companions together while
    the app remains stopped. Adjust DB and service ownership for your deployment:

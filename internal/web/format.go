@@ -26,6 +26,7 @@ var funcs = template.FuncMap{
 	"costCell":         costCell,
 	"dur":              dur,
 	"utc":              utc,
+	"byteSize":         byteSize,
 	"utcTime":          utcTime,
 	"utcDate":          utcDate,
 	"friendlySource":   friendlySource,
@@ -58,6 +59,7 @@ var pageTmpls = map[string]*template.Template{
 var fragTmpls = map[string]*template.Template{
 	"backup-banner":   mustParse("backup-status.html"),
 	"backup-settings": mustParse("backup-status.html"),
+	"backup-list":     mustParse("backup-status.html"),
 	"dashboard-stats": mustParse("cards.html"),
 	"period-detail":   mustParse("cards.html"),
 	"trends":          mustParse("chart.html", "leaderboard.html"),
@@ -188,6 +190,21 @@ func dur(d time.Duration) string {
 
 func utc(t time.Time) string {
 	return t.UTC().Format("2006-01-02 15:04 UTC")
+}
+
+// Decimal units match how storage providers bill.
+func byteSize(n int64) string {
+	if n < 1000 {
+		return strconv.FormatInt(n, 10) + " B"
+	}
+	v := float64(n)
+	for _, unit := range []string{"kB", "MB", "GB", "TB"} {
+		v /= 1000
+		if v < 999.95 || unit == "TB" {
+			return strconv.FormatFloat(v, 'f', 1, 64) + " " + unit
+		}
+	}
+	return ""
 }
 
 // utcTime is the clock part of a timestamp: "12:15".

@@ -11,6 +11,24 @@
     {{end}}
   </div>
 </section>
+<section class="settings-section" id="backups" aria-labelledby="backups-heading">
+  <div class="settings-description"><h2 id="backups-heading">Backups</h2><p class="muted">Daily snapshots of the database, uploaded to S3-compatible storage. There is no automatic restore.</p>{{if .Backup.Enabled}}<p class="muted">Storage and credentials are set with environment variables; see the <a href="https://github.com/tbshfr/ai-usage/blob/main/docs/backups.md" rel="noopener noreferrer" target="_blank">backup guide</a>.</p>{{end}}</div>
+  <div class="settings-surface">
+  {{if .Backup.Enabled}}
+    <div id="backup-settings" class="backup-settings" hx-get="/fragments/backup-settings" hx-trigger="data-changed from:body delay:2s" aria-live="polite">{{template "backup-settings" .}}</div>
+    <div class="backup-schedule">
+      <label for="backup-time">Daily backup time<span data-backup-zone>{{with .Settings.Backup.Timezone}} ({{.}}){{end}}</span></label>
+      <input type="time" id="backup-time" value="{{.Settings.Backup.Time}}" required data-backup-time>
+    </div>
+    <div class="backup-stored">
+      <h3 id="backup-list-heading">Stored backups</h3>
+      <div id="backup-list" hx-get="/fragments/backup-list" hx-trigger="load, data-changed from:body delay:2s" aria-labelledby="backup-list-heading"><p class="muted">Listing the bucket…</p></div>
+    </div>
+  {{else}}
+    {{template "backup-guide" .}}
+  {{end}}
+  </div>
+</section>
 <section class="settings-section" aria-labelledby="connections-heading">
   <div class="settings-description"><h2 id="connections-heading">Connections &amp; diagnostics</h2><p class="muted">Connect your coding tools, manage receiver access, and check that telemetry is arriving.</p></div>
   <div class="settings-links">

@@ -1,11 +1,46 @@
-{{define "backup-status"}}
-{{if .Backup.Enabled}}
-<section><h2>Backup status</h2>
-{{template "backup-banner" .}}
-<div class="backup-status"><strong>{{if .Backup.Running}}In progress{{else if .Backup.FailureStage}}Waiting to retry{{else if .Backup.LastSuccess.IsZero}}Waiting for first backup{{else}}Healthy{{end}}.</strong>
-{{if .Backup.LastSuccess.IsZero}}No successful backup yet.{{else}}Last successful backup: {{.Backup.LastSuccess.UTC.Format "2006-01-02 15:04:05 UTC"}}.{{end}}
-</div></section>
-{{end}}
+{{define "backup-summary"}}<strong>{{if .Backup.Running}}In progress{{else if .Backup.Requested}}Starting{{else if .Backup.FailureStage}}Waiting to retry{{else if .Backup.LastSuccess.IsZero}}Waiting for first backup{{else}}Healthy{{end}}.</strong>
+{{if .Backup.LastSuccess.IsZero}}No successful backup yet.{{else}}Last successful backup: {{.Backup.LastSuccess.UTC.Format "2006-01-02 15:04:05 UTC"}}.{{end}}{{end}}
+
+{{define "backup-failure"}}<strong>Backup failed</strong> during {{.Backup.FailureStage}} at {{.Backup.FailedAt.UTC.Format "2006-01-02 15:04:05 UTC"}}. Automatic retries are enabled.{{end}}
+
+{{define "backup-banner"}}{{if .Backup.Enabled}}{{if .Backup.FailureStage}}<div class="backup-failure" role="alert">{{template "backup-failure" .}} <a href="/settings#backups">Backup settings</a></div>{{end}}{{end}}{{end}}
+
+{{define "backup-settings"}}
+{{if .Backup.FailureStage}}<div class="backup-failure" role="alert">{{template "backup-failure" .}}</div>{{end}}
+<p class="backup-status">{{template "backup-summary" .}}</p>
+{{if and (not .Backup.Running) (not .Backup.Requested) (not .Backup.NextRun.IsZero)}}<p class="muted backup-next">Next backup: {{.Backup.NextRun.UTC.Format "2006-01-02 15:04 UTC"}}{{if .Backup.FailureStage}} (retry){{end}}.</p>{{end}}
+<form method="post" action="/settings/backup"><button type="submit"{{if or .Backup.Running .Backup.Requested}} disabled{{end}}>{{if .Backup.Running}}Backing up…{{else if .Backup.Requested}}Starting…{{else}}Back up now{{end}}</button></form>
 {{end}}
 
-{{define "backup-banner"}}{{if .Backup.Enabled}}{{if .Backup.FailureStage}}<div class="backup-failure" role="alert"><strong>Backup failed</strong> during {{.Backup.FailureStage}} at {{.Backup.FailedAt.UTC.Format "2006-01-02 15:04:05 UTC"}}. Automatic retries are enabled.</div>{{end}}{{end}}{{end}}
+{{define "backup-list"}}{{with .BackupList}}
+{{if .Denied}}<p class="muted">The access key can’t list the bucket. To show stored backups here, also allow it to list objects under the prefix; see <a href="https://github.com/tbshfr/ai-usage/blob/main/docs/backups.md#permissions" rel="noopener noreferrer" target="_blank">permissions</a>.</p>
+{{else if .Failed}}<p class="muted">The bucket couldn’t be listed. Try again later.</p>
+{{else if not .Newest}}<p class="muted">No backups in the bucket yet.</p>
+{{else}}<p class="backup-list-summary">{{.Count}} backup{{if ne .Count 1}}s{{end}}, {{byteSize .Size}} in total</p>
+<div class="table-scroll"><table class="backup-table">
+  <thead><tr><th>Uploaded</th><th>Size</th><th>File</th></tr></thead>
+  <tbody>{{template "backup-row" .Newest}}</tbody>
+  {{if .Older}}<tbody id="backup-list-older" hidden>{{range .Older}}{{template "backup-row" .}}{{end}}</tbody>{{end}}
+</table></div>
+{{with .Older}}<button type="button" class="backup-list-toggle" data-backup-list-toggle aria-expanded="false" aria-controls="backup-list-older">Show {{len .}} older backup{{if ne (len .) 1}}s{{end}}</button>{{end}}
+{{end}}{{end}}{{end}}
+
+{{define "backup-row"}}<tr><td>{{utc .LastModified}}</td><td>{{byteSize .Size}}</td><td><a href="/settings/backups/{{.Name}}" title="{{.Name}}">Download</a></td></tr>{{end}}
+
+{{define "backup-guide"}}
+<p class="backup-off"><strong>Backups are off.</strong> To upload a compressed database snapshot to Amazon S3 or another S3-compatible service once a day:</p>
+<ol class="backup-guide">
+  <li>Create a private bucket and an access key that can write, list, and read objects in it.</li>
+  <li>Set these environment variables for the <code>ai-usage</code> process:
+<div class="snippet"><button type="button" class="snippet-copy" data-copy-snippet>Copy</button><pre><code>AI_USAGE_BACKUP_S3_BUCKET=ai-usage-backups
+AI_USAGE_BACKUP_S3_REGION=&lt;REGION&gt;
+AI_USAGE_BACKUP_S3_PREFIX=prod/
+AI_USAGE_BACKUP_S3_ACCESS_KEY_ID=&lt;ACCESS_KEY_ID&gt;
+AI_USAGE_BACKUP_S3_SECRET_ACCESS_KEY=&lt;SECRET_ACCESS_KEY&gt;
+# Only for services other than Amazon S3:
+AI_USAGE_BACKUP_S3_ENDPOINT=&lt;S3_API_URL&gt;</code></pre></div>
+  </li>
+  <li>Restart <code>ai-usage</code>. The first backup runs right away and repeats daily at that time; this section then shows its status and lets you change the time.</li>
+</ol>
+<p class="muted">For Amazon S3, use the bucket’s region and leave out the endpoint. Other services need the authenticated S3 API URL, not a public bucket URL, and the region they document (<code>auto</code> for Cloudflare R2). Use a unique prefix ending in <code>/</code> for each instance, and add a bucket lifecycle rule to delete old backups. With Docker Compose, also pass the variables through the service’s <code>environment</code> block. See the <a href="https://github.com/tbshfr/ai-usage/blob/main/docs/backups.md" rel="noopener noreferrer" target="_blank">backup guide</a> for retention, permissions, and restore.</p>
+{{end}}

@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -49,6 +50,14 @@ func WithBackupStatus(f func() backup.Status) Option {
 	return func(s *server) { s.backupStatus = f }
 }
 
+func WithBackupActions(start func() bool, reschedule func()) Option {
+	return func(s *server) { s.backupStart, s.backupReschedule = start, reschedule }
+}
+
+func WithBackupFiles(list func(context.Context) ([]backup.Object, error), download func(context.Context, string) (io.ReadCloser, int64, error)) Option {
+	return func(s *server) { s.backupList, s.backupDownload = list, download }
+}
+
 // WithTokens shares the OTLP listeners' token store with the OTLP tokens page,
 // so tokens created or revoked there take effect immediately. Without it,
 // token management is disabled; the dashboard never creates a private cache.
@@ -76,6 +85,10 @@ func newMux(db *sql.DB, stats func() ingest.Stats, reasons func() ingest.ReasonC
 	mux.HandleFunc("GET /fragments/backup-banner", func(w http.ResponseWriter, r *http.Request) {
 		s.renderFrag(w, r, "backup-banner", &pageData{Backup: s.currentBackupStatus()})
 	})
+	mux.HandleFunc("GET /fragments/backup-settings", func(w http.ResponseWriter, r *http.Request) {
+		s.renderFrag(w, r, "backup-settings", &pageData{Backup: s.currentBackupStatus()})
+	})
+	mux.HandleFunc("GET /fragments/backup-list", s.fragBackupList)
 	mux.HandleFunc("GET /trends", s.trends)
 	mux.HandleFunc("GET /breakdowns", s.breakdowns)
 	mux.HandleFunc("GET /sessions", s.sessions)
@@ -84,6 +97,8 @@ func newMux(db *sql.DB, stats func() ingest.Stats, reasons func() ingest.ReasonC
 	mux.HandleFunc("GET /settings", s.settingsPage)
 	mux.HandleFunc("GET /settings/preferences", s.readSettings)
 	mux.HandleFunc("PUT /settings/preferences/{section}", s.saveSettings)
+	mux.HandleFunc("POST /settings/backup", s.startBackup)
+	mux.HandleFunc("GET /settings/backups/{name}", s.downloadBackup)
 	mux.HandleFunc("GET /settings/tokens", s.tokensPage)
 	mux.HandleFunc("POST /settings/tokens", s.tokenCreate)
 	mux.HandleFunc("POST /settings/tokens/{id}", s.tokenUpdate)
@@ -123,15 +138,19 @@ func (s *server) currentBackupStatus() backup.Status {
 }
 
 type server struct {
-	backupStatus func() backup.Status
-	db           *sql.DB
-	stats        func() ingest.Stats
-	reasons      func() ingest.ReasonCounts
-	dash         *auth.Dashboard
-	hub          *live.Hub
-	limiter      *loginLimiter
-	tokens       *auth.TokenStore
-	version      string
+	backupStatus     func() backup.Status
+	backupStart      func() bool
+	backupReschedule func()
+	backupList       func(context.Context) ([]backup.Object, error)
+	backupDownload   func(context.Context, string) (io.ReadCloser, int64, error)
+	db               *sql.DB
+	stats            func() ingest.Stats
+	reasons          func() ingest.ReasonCounts
+	dash             *auth.Dashboard
+	hub              *live.Hub
+	limiter          *loginLimiter
+	tokens           *auth.TokenStore
+	version          string
 }
 
 // pageData is the single view model passed to every template set; each
@@ -139,6 +158,7 @@ type server struct {
 type pageData struct {
 	Settings    storage.DashboardSettings
 	Backup      backup.Status
+	BackupList  backupListView
 	Title       string
 	Active      string
 	ShowLogout  bool
@@ -807,7 +827,6 @@ func (s *server) statsPage(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, err)
 		return
 	}
-	d.Backup = s.currentBackupStatus()
 	s.render(w, r, "stats", d)
 }
 
@@ -823,7 +842,6 @@ func (s *server) fragStats(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, err)
 		return
 	}
-	d.Backup = s.currentBackupStatus()
 	s.renderFrag(w, r, "stats", d)
 }
 
@@ -1175,7 +1193,7 @@ func buildStatsChart(rows []statsRow) (chartJSON, bool) {
 }
 
 func (s *server) settingsPage(w http.ResponseWriter, r *http.Request) {
-	s.render(w, r, "settings", &pageData{Title: "Settings", Active: "settings"})
+	s.render(w, r, "settings", &pageData{Title: "Settings", Active: "settings", Backup: s.currentBackupStatus()})
 }
 
 // setupPage renders per-client configuration instructions. The saved receiver

@@ -244,5 +244,6 @@ startup instead of being ignored.
 ## Backups
 
 Backups are disabled unless `AI_USAGE_BACKUP_S3_BUCKET` or its flag is set.
-See [backups and restore](backups.md) for Cloudflare R2 setup, retention,
-monitoring, and recovery.
+Backups run daily at the time of the first backup; the **Settings** page
+changes that time and starts a backup on demand. See [backups and restore](backups.md) for Cloudflare R2
+setup, retention, monitoring, and recovery.

@@ -71,6 +71,8 @@ func TestSettingsRequireAuthentication(t *testing.T) {
 		{"PUT", "/settings/preferences/appearance"},
 		{"PUT", "/settings/preferences/breakdowns"},
 		{"PUT", "/settings/preferences/setup"},
+		{"PUT", "/settings/preferences/backup"},
+		{"POST", "/settings/backup"},
 	} {
 		status, _, resp := do(t, srv, req.method, req.path, `{"theme":"dark","color":"rose"}`, nil)
 		if status != http.StatusSeeOther || resp.Header.Get("Location") != "/login" {

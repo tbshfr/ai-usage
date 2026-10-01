@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/tls"
 	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
@@ -14,8 +15,10 @@ import (
 	"io"
 	"log/slog"
 	mathrand "math/rand/v2"
+	"net"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -24,6 +27,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/aws/smithy-go"
 	"github.com/tbshfr/ai-usage/internal/config"
 	"github.com/tbshfr/ai-usage/internal/storage"
 )
@@ -31,9 +35,25 @@ import (
 const interval = 24 * time.Hour
 const attemptTimeout = 30 * time.Minute
 const maxObjectBytes = 5_000_000_000
+const listTimeout = 20 * time.Second
+
+// cache listings so that pages refreshing on every data change do not
+// list the bucket each time; a new backup invalidates the cache at once
+const listTTL = 5 * time.Minute
+const listErrorTTL = time.Minute
+
+var (
+	ErrListDenied     = errors.New("listing backups not permitted")
+	ErrDownloadDenied = errors.New("downloading backups not permitted")
+	ErrNotFound       = errors.New("backup not found")
+)
 
 type uploader interface {
 	PutObject(context.Context, *s3.PutObjectInput, ...func(*s3.Options)) (*s3.PutObjectOutput, error)
+}
+
+type downloader interface {
+	GetObject(context.Context, *s3.GetObjectInput, ...func(*s3.Options)) (*s3.GetObjectOutput, error)
 }
 
 type success struct {
@@ -42,11 +62,17 @@ type success struct {
 	ObjectKey      string    `json:"object_key"`
 }
 
+type scheduleState struct {
+	ChangedAt time.Time `json:"changed_at"`
+}
+
 // Status is a credential-free snapshot of backup health.
 type Status struct {
 	Enabled      bool
 	Running      bool
+	Requested    bool
 	LastSuccess  time.Time
+	NextRun      time.Time
 	FailedAt     time.Time
 	FailureStage string
 }
@@ -64,21 +90,85 @@ func (w *Worker) Status() Status {
 }
 
 func (w *Worker) updateStatus(fn func(*Status)) {
+	w.setStatus(fn)
+	if w.notify != nil {
+		w.notify()
+	}
+}
+
+// The transition these details accompany has already notified, so another
+// notification would only refresh open pages twice.
+func (w *Worker) setStatus(fn func(*Status)) {
 	w.mu.Lock()
 	fn(&w.status)
+	w.mu.Unlock()
+}
+
+func (w *Worker) Start() bool {
+	if w == nil {
+		return false
+	}
+	w.mu.Lock()
+	if w.status.Running || w.status.Requested {
+		w.mu.Unlock()
+		return false
+	}
+	w.status.Requested = true
 	w.mu.Unlock()
 	if w.notify != nil {
 		w.notify()
 	}
+	w.wakeUp()
+	return true
+}
+
+// The change is saved beside success.json so that after a restart an earlier
+// time of day is not mistaken for a missed backup.
+func (w *Worker) Reschedule() {
+	if w == nil {
+		return
+	}
+	w.rescheduleMu.Lock()
+	defer w.rescheduleMu.Unlock()
+	now := w.now().UTC()
+	w.mu.Lock()
+	w.rescheduled = now
+	w.mu.Unlock()
+	if err := w.writeState("schedule.json", scheduleState{ChangedAt: now}); err != nil {
+		w.logger.Warn("backup schedule change not saved")
+	}
+	w.wakeUp()
+}
+
+func (w *Worker) wakeUp() {
+	select {
+	case w.wake <- struct{}{}:
+	default:
+	}
+}
+
+func (w *Worker) requested() bool {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return w.status.Requested
 }
 
 type Worker struct {
 	notify                       func()
 	mu                           sync.RWMutex
 	status                       Status
+	rescheduled                  time.Time
+	rescheduleMu                 sync.Mutex // orders schedule.json writes
+	wake                         chan struct{}
+	woken                        bool // not guarded by mu: only Run's goroutine uses it
 	db                           *sql.DB
 	client                       uploader
 	bucket, prefix, version, dir string
+	lister                       s3.ListObjectsV2APIClient
+	downloader                   downloader
+	listMu                       sync.Mutex // guards listed and refreshing
+	listed                       listing    // the last finished listing
+	refreshing                   chan struct{}
 	logger                       *slog.Logger
 	now                          func() time.Time
 	wait                         func(context.Context, time.Duration) bool
@@ -118,8 +208,10 @@ func New(ctx context.Context, cfg *config.Config, db *sql.DB, version string, lo
 	}
 	identity, _ := json.Marshal([]string{abs, cfg.BackupS3Bucket, ac.Region, cfg.BackupS3Prefix, cfg.BackupS3Endpoint})
 	hash := sha256.Sum256(identity)
-	w := &Worker{db: db, client: client, bucket: cfg.BackupS3Bucket, prefix: cfg.BackupS3Prefix, version: version,
-		dir: abs + ".backups-" + hex.EncodeToString(hash[:8]), logger: logger, now: time.Now, wait: wait, snapshot: storage.Snapshot}
+	w := &Worker{db: db, client: client, lister: client, downloader: client, bucket: cfg.BackupS3Bucket, prefix: cfg.BackupS3Prefix, version: version,
+		dir: abs + ".backups-" + hex.EncodeToString(hash[:8]), logger: logger, now: time.Now, snapshot: storage.Snapshot,
+		wake: make(chan struct{}, 1)}
+	w.wait = w.sleep
 	if len(notify) > 0 {
 		w.notify = notify[0]
 	}
@@ -127,15 +219,108 @@ func New(ctx context.Context, cfg *config.Config, db *sql.DB, version string, lo
 	return w, nil
 }
 
-func wait(ctx context.Context, delay time.Duration) bool {
+func (w *Worker) sleep(ctx context.Context, delay time.Duration) bool {
 	timer := time.NewTimer(delay)
 	defer timer.Stop()
 	select {
 	case <-ctx.Done():
 		return false
+	case <-w.wake:
+		w.woken = true
+		return ctx.Err() == nil
 	case <-timer.C:
 		return ctx.Err() == nil
 	}
+}
+
+// The schedule is resolved before a manual request is honored, so the default
+// time is saved from the existing cycle rather than from the manual backup.
+func (w *Worker) waitDue(ctx context.Context, last success) bool {
+	for rescheduled := false; ; {
+		next := nextRun(last, w.schedule(ctx, last), w.rescheduledAt(), w.now())
+		if w.requested() {
+			return ctx.Err() == nil
+		}
+		if rescheduled {
+			w.updateStatus(func(s *Status) { s.NextRun = next })
+		} else {
+			w.setStatus(func(s *Status) { s.NextRun = next })
+		}
+		w.woken = false
+		if !w.wait(ctx, max(0, next.Sub(w.now()))) {
+			return false
+		}
+		// The timer runs on the monotonic clock, so a wall clock set back
+		// during the wait fires it early. Backing up then would count the
+		// next run from before the scheduled time and back up again at it.
+		if !w.woken && !w.now().Before(next) {
+			return true
+		}
+		rescheduled = w.woken
+	}
+}
+
+// Start and Reschedule share the wake channel, but only a manual request may
+// end a retry delay early.
+func (w *Worker) backoff(ctx context.Context, delay time.Duration) bool {
+	deadline := w.now().Add(delay)
+	w.setStatus(func(s *Status) { s.NextRun = deadline })
+	for {
+		w.woken = false
+		if !w.wait(ctx, delay) {
+			return false
+		}
+		if delay = deadline.Sub(w.now()); !w.woken || delay <= 0 || w.requested() {
+			return true
+		}
+	}
+}
+
+func (w *Worker) rescheduledAt() time.Time {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return w.rescheduled
+}
+
+type daily struct {
+	hour, minute int
+	loc          *time.Location
+}
+
+func parseDaily(s storage.BackupSettings) (daily, bool) {
+	clock, err := time.Parse("15:04", s.Time)
+	if err != nil {
+		return daily{}, false
+	}
+	loc, err := s.Location()
+	if err != nil {
+		return daily{}, false
+	}
+	return daily{clock.Hour(), clock.Minute(), loc}, true
+}
+
+// Until a time is chosen, backups keep the time of day of the first one.
+// Using the last snapshot rather than now means upgrading from the old
+// 24-hour interval does not move an existing cycle.
+func (w *Worker) schedule(ctx context.Context, last success) daily {
+	settings, err := storage.ReadDashboardSettings(ctx, w.db)
+	if err == nil {
+		if d, ok := parseDaily(settings.Backup); ok {
+			return d
+		}
+	}
+	first := w.now()
+	if !last.SnapshotTime.IsZero() {
+		first = last.SnapshotTime
+	}
+	chosen := storage.BackupSettings{Time: first.UTC().Format("15:04"), Timezone: "UTC"}
+	if err != nil {
+		w.logger.Warn("backup schedule unavailable, using time of first backup")
+	} else if body, _ := json.Marshal(chosen); storage.SaveDashboardSettings(ctx, w.db, "backup", body) != nil {
+		w.logger.Warn("backup schedule not saved")
+	}
+	d, _ := parseDaily(chosen)
+	return d
 }
 
 func (w *Worker) prepare() error {
@@ -179,13 +364,32 @@ func (w *Worker) loadState() success {
 	return s
 }
 
+// A schedule change time in the future is ignored: it could only come from a
+// clock set back since, and would postpone backups until that time passed.
+func (w *Worker) loadRescheduled() {
+	var s scheduleState
+	body, err := os.ReadFile(filepath.Join(w.dir, "schedule.json"))
+	if err != nil || json.Unmarshal(body, &s) != nil || s.ChangedAt.After(w.now()) {
+		return
+	}
+	w.mu.Lock()
+	if s.ChangedAt.After(w.rescheduled) {
+		w.rescheduled = s.ChangedAt
+	}
+	w.mu.Unlock()
+}
+
 func (w *Worker) saveState(s success) error {
+	return w.writeState("success.json", s)
+}
+
+func (w *Worker) writeState(name string, v any) error {
 	f, err := os.CreateTemp(w.dir, "state-")
 	if err != nil {
 		return err
 	}
 	defer os.Remove(f.Name())
-	if err = json.NewEncoder(f).Encode(s); err == nil {
+	if err = json.NewEncoder(f).Encode(v); err == nil {
 		err = f.Sync()
 	}
 	closeErr := f.Close()
@@ -195,18 +399,33 @@ func (w *Worker) saveState(s success) error {
 	if closeErr != nil {
 		return closeErr
 	}
-	return os.Rename(f.Name(), filepath.Join(w.dir, "success.json"))
+	return os.Rename(f.Name(), filepath.Join(w.dir, name))
 }
 
-func dueDelay(s success, now time.Time) time.Duration {
+// Counting from the previous snapshot runs a time missed during downtime at
+// startup. Counting from the last schedule change as well keeps a change to an
+// earlier time of day from backing up at once.
+func nextRun(s success, d daily, rescheduled, now time.Time) time.Time {
 	if s.SnapshotTime.IsZero() {
-		return 0
+		return now
 	}
-	return max(0, s.SnapshotTime.Add(interval).Sub(now))
+	from := s.SnapshotTime
+	if rescheduled.After(from) {
+		from = rescheduled
+	}
+	local := from.In(d.loc)
+	for day := 0; ; day++ {
+		// A time skipped by a DST change resolves to one of the day's offsets,
+		// so the backup still runs once that day.
+		at := time.Date(local.Year(), local.Month(), local.Day()+day, d.hour, d.minute, 0, 0, d.loc)
+		if at.After(from) {
+			return at
+		}
+	}
 }
 
 func (w *Worker) Run(ctx context.Context) {
-	w.logger.Info("backups enabled", "interval", interval.String())
+	w.logger.Info("backups enabled")
 	var last success
 	retry := time.Minute
 	var warned time.Time
@@ -214,10 +433,10 @@ func (w *Worker) Run(ctx context.Context) {
 	for ctx.Err() == nil {
 		if !prepared {
 			if err := w.prepare(); err != nil {
-				w.updateStatus(func(s *Status) { s.FailedAt = w.now(); s.FailureStage = "prepare" })
+				w.updateStatus(func(s *Status) { s.Requested = false; s.FailedAt = w.now(); s.FailureStage = "prepare" })
 				w.logger.Error("backup failed", "stage", "prepare")
 				w.warnStale(last, &warned)
-				if !w.wait(ctx, retryDelay(retry)) {
+				if !w.backoff(ctx, retryDelay(retry)) {
 					return
 				}
 				retry = min(retry*2, time.Hour)
@@ -225,6 +444,7 @@ func (w *Worker) Run(ctx context.Context) {
 			}
 			prepared = true
 			last = w.loadState()
+			w.loadRescheduled()
 			w.updateStatus(func(s *Status) {
 				s.LastSuccess = last.CompletionTime
 				s.FailureStage = ""
@@ -234,10 +454,10 @@ func (w *Worker) Run(ctx context.Context) {
 				w.logger.Info("backup last success", "snapshot_time", last.SnapshotTime, "completion_time", last.CompletionTime, "object_key", last.ObjectKey)
 			}
 		}
-		if !w.wait(ctx, dueDelay(last, w.now())) {
+		if !w.waitDue(ctx, last) {
 			return
 		}
-		w.updateStatus(func(s *Status) { s.Running = true })
+		w.updateStatus(func(s *Status) { s.Running = true; s.Requested = false; s.NextRun = time.Time{} })
 		started := w.now()
 		attemptCtx, cancel := context.WithTimeout(ctx, attemptTimeout)
 		result, size, stage, err := w.attempt(attemptCtx)
@@ -251,7 +471,7 @@ func (w *Worker) Run(ctx context.Context) {
 			// SDK errors can include signed URLs and credential-provider output.
 			w.logger.Error("backup failed", "stage", stage, "elapsed", w.now().Sub(started), "compressed_bytes", size, "last_successful_snapshot_time", last.SnapshotTime)
 			w.warnStale(last, &warned)
-			if !w.wait(ctx, retryDelay(retry)) {
+			if !w.backoff(ctx, retryDelay(retry)) {
 				return
 			}
 			retry = min(retry*2, time.Hour)
@@ -328,6 +548,179 @@ func (w *Worker) attempt(ctx context.Context) (success, int64, string, error) {
 		return result, size, "state", err
 	}
 	return result, size, "", nil
+}
+
+type Object struct {
+	Name         string // key without prefix
+	Size         int64
+	LastModified time.Time
+}
+
+type listing struct {
+	objects     []Object
+	err         error
+	at          time.Time
+	lastSuccess time.Time
+}
+
+// The delimiter and suffix keep other instances' nested prefixes and
+// unrelated objects out of the list.
+func (w *Worker) Backups(ctx context.Context) ([]Object, error) {
+	if w == nil || w.lister == nil {
+		return nil, nil
+	}
+	w.listMu.Lock()
+	lastSuccess := w.Status().LastSuccess
+	now := w.now()
+	ttl := listTTL
+	if w.listed.err != nil {
+		ttl = listErrorTTL
+	}
+	if !w.listed.at.IsZero() && w.listed.lastSuccess.Equal(lastSuccess) && now.Sub(w.listed.at) < ttl && !now.Before(w.listed.at) {
+		defer w.listMu.Unlock()
+		return w.listed.objects, w.listed.err
+	}
+	if w.refreshing == nil {
+		w.refreshing = make(chan struct{})
+		go w.refresh(w.refreshing, now, lastSuccess)
+	}
+	done := w.refreshing
+	w.listMu.Unlock()
+	select {
+	case <-done:
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+	w.listMu.Lock()
+	defer w.listMu.Unlock()
+	return w.listed.objects, w.listed.err
+}
+
+// The listing is detached from the request that started it, so a request
+// that goes away neither aborts it for the others waiting nor holds them up.
+func (w *Worker) refresh(done chan struct{}, at, lastSuccess time.Time) {
+	defer close(done)
+	ctx, cancel := context.WithTimeout(context.Background(), listTimeout)
+	defer cancel()
+	objects, err := w.list(ctx)
+	level := slog.LevelWarn
+	var attrs []any
+	if err != nil {
+		attrs = errorAttrs(err)
+		if errorCode(err) == "AccessDenied" {
+			err = ErrListDenied
+		}
+		objects = nil
+	}
+	w.listMu.Lock()
+	if errors.Is(err, ErrListDenied) && errors.Is(w.listed.err, ErrListDenied) {
+		level = slog.LevelDebug
+	}
+	w.listed = listing{objects: objects, err: err, at: at, lastSuccess: lastSuccess}
+	w.refreshing = nil
+	w.listMu.Unlock()
+	if err != nil {
+		w.logger.Log(ctx, level, "backup listing failed", attrs...)
+	}
+}
+
+func (w *Worker) list(ctx context.Context) ([]Object, error) {
+	var out []Object
+	pages := s3.NewListObjectsV2Paginator(w.lister, &s3.ListObjectsV2Input{
+		Bucket: aws.String(w.bucket), Prefix: aws.String(w.prefix), Delimiter: aws.String("/"),
+	})
+	for pages.HasMorePages() {
+		page, err := pages.NextPage(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, o := range page.Contents {
+			name := strings.TrimPrefix(aws.ToString(o.Key), w.prefix)
+			if !isBackupName(name) {
+				continue
+			}
+			out = append(out, Object{Name: name, Size: aws.ToInt64(o.Size), LastModified: aws.ToTime(o.LastModified)})
+		}
+	}
+	// Keys start with the snapshot time, so they sort chronologically.
+	slices.SortFunc(out, func(a, b Object) int { return strings.Compare(b.Name, a.Name) })
+	return out, nil
+}
+
+func isBackupName(name string) bool {
+	return strings.HasSuffix(name, ".sqlite.gz") && !strings.Contains(name, "/")
+}
+
+// Download returns the backup's body, which the caller must close, and its
+// size, or -1 if the size is unknown.
+func (w *Worker) Download(ctx context.Context, name string) (io.ReadCloser, int64, error) {
+	if w == nil || w.downloader == nil || !isBackupName(name) {
+		return nil, 0, ErrNotFound
+	}
+	out, err := w.downloader.GetObject(ctx, &s3.GetObjectInput{Bucket: aws.String(w.bucket), Key: aws.String(w.prefix + name)})
+	if err != nil {
+		if ctx.Err() != nil {
+			return nil, 0, ctx.Err()
+		}
+		switch errorCode(err) {
+		case "AccessDenied":
+			w.logger.Warn("backup download failed", errorAttrs(err)...)
+			return nil, 0, ErrDownloadDenied
+		case "NoSuchKey":
+			w.logger.Debug("backup download failed", errorAttrs(err)...)
+			return nil, 0, ErrNotFound
+		}
+		w.logger.Warn("backup download failed", errorAttrs(err)...)
+		return nil, 0, err
+	}
+	size := int64(-1)
+	if out.ContentLength != nil {
+		size = *out.ContentLength
+	}
+	return out.Body, size, nil
+}
+
+// errorCode is the storage provider's error code, or "" for a failure
+// without a response.
+func errorCode(err error) string {
+	var apiErr smithy.APIError
+	if errors.As(err, &apiErr) {
+		return apiErr.ErrorCode()
+	}
+	return ""
+}
+
+// SDK errors can include request URLs, so only the error code, the HTTP
+// status, and for failures without a response the kind of failure are logged.
+func errorAttrs(err error) []any {
+	var attrs []any
+	if code := errorCode(err); code != "" {
+		attrs = append(attrs, "code", code)
+	}
+	var status interface{ HTTPStatusCode() int }
+	if errors.As(err, &status) {
+		attrs = append(attrs, "status", status.HTTPStatusCode())
+	}
+	if len(attrs) > 0 {
+		return attrs
+	}
+	var dnsErr *net.DNSError
+	var certErr *tls.CertificateVerificationError
+	var netErr net.Error
+	cause := "other"
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		cause = "timeout"
+	case errors.As(err, &dnsErr):
+		cause = "dns"
+	case errors.As(err, &certErr):
+		cause = "tls"
+	case errors.As(err, &netErr) && netErr.Timeout():
+		cause = "timeout"
+	case errors.As(err, &netErr):
+		cause = "network"
+	}
+	return []any{"cause", cause}
 }
 
 type contextReader struct {

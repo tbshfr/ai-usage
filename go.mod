@@ -6,6 +6,7 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.47.0
 	github.com/aws/aws-sdk-go-v2/credentials v1.20.5
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.113.1
+	github.com/aws/smithy-go v1.28.1
 	go.opentelemetry.io/collector/pdata v1.67.0
 	go.opentelemetry.io/proto/otlp v1.11.0
 	google.golang.org/grpc v1.84.0
@@ -22,7 +23,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.11.3 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.14.3 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.20.3 // indirect
-	github.com/aws/smithy-go v1.28.1 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.29.0 // indirect

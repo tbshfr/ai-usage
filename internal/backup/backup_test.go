@@ -8,8 +8,10 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -19,7 +21,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/aws/smithy-go"
 	"github.com/tbshfr/ai-usage/internal/config"
 	"github.com/tbshfr/ai-usage/internal/live"
 	"github.com/tbshfr/ai-usage/internal/storage"
@@ -45,9 +50,10 @@ func testWorker(t *testing.T) *Worker {
 		t.Fatal(err)
 	}
 	w := &Worker{db: db, dir: filepath.Join(t.TempDir(), "backups"), bucket: "bucket", prefix: "home/", version: "test",
-		logger: slog.New(slog.NewTextHandler(io.Discard, nil)), now: time.Now, wait: wait, snapshot: storage.Snapshot,
+		logger: slog.New(slog.NewTextHandler(io.Discard, nil)), now: time.Now, snapshot: storage.Snapshot, wake: make(chan struct{}, 1),
 		client: uploadFunc(func(context.Context, *s3.PutObjectInput) error { return nil })}
 	w.save = w.saveState
+	w.wait = w.sleep
 	if err := w.prepare(); err != nil {
 		t.Fatal(err)
 	}
@@ -322,7 +328,7 @@ func TestScheduleFailureAndCancellation(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	entered := make(chan struct{})
-	w.wait = wait
+	w.wait = w.sleep
 	w.client = uploadFunc(func(ctx context.Context, _ *s3.PutObjectInput) error { close(entered); <-ctx.Done(); return ctx.Err() })
 	done := make(chan struct{})
 	go func() { defer close(done); w.Run(ctx) }()
@@ -543,7 +549,7 @@ func TestStatusChangesNotifySSEHub(t *testing.T) {
 
 func TestPrepareRecoveryClearsFailureBeforeScheduledBackup(t *testing.T) {
 	w := testWorker(t)
-	now := time.Now().UTC()
+	now := time.Now().UTC().Truncate(time.Minute)
 	w.now = func() time.Time { return now }
 	last := success{SnapshotTime: now.Add(-time.Hour), CompletionTime: now.Add(-time.Hour), ObjectKey: w.prefix + "saved.sqlite.gz"}
 	if err := w.saveState(last); err != nil {
@@ -582,5 +588,396 @@ func TestPrepareRecoveryClearsFailureBeforeScheduledBackup(t *testing.T) {
 	w.Run(context.Background())
 	if waits != 2 {
 		t.Fatalf("waits = %d", waits)
+	}
+}
+
+func TestNextRun(t *testing.T) {
+	now := time.Date(2026, 9, 8, 12, 0, 0, 0, time.UTC)
+	at := func(s string) time.Time {
+		v, err := time.Parse(time.RFC3339, s)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return v
+	}
+	sched := func(clock, zone string) daily {
+		d, ok := parseDaily(storage.BackupSettings{Time: clock, Timezone: zone})
+		if !ok {
+			t.Fatalf("invalid schedule %s %s", clock, zone)
+		}
+		return d
+	}
+	for _, tc := range []struct {
+		name        string
+		last        time.Time
+		sched       daily
+		rescheduled time.Time
+		want        time.Time
+	}{
+		{"first backup runs now", time.Time{}, sched("03:00", "UTC"), time.Time{}, now},
+		{"later today", at("2026-09-08T10:00:00Z"), sched("20:00", "UTC"), time.Time{}, at("2026-09-08T20:00:00Z")},
+		{"tomorrow", at("2026-09-08T10:00:00Z"), sched("03:00", "UTC"), time.Time{}, at("2026-09-09T03:00:00Z")},
+		{"scheduled run does not repeat", at("2026-09-08T03:00:00Z"), sched("03:00", "UTC"), time.Time{}, at("2026-09-09T03:00:00Z")},
+		{"missed during downtime", at("2026-09-06T03:00:00Z"), sched("03:00", "UTC"), time.Time{}, at("2026-09-07T03:00:00Z")},
+		{"earlier time after change waits", at("2026-09-08T03:00:00Z"), sched("10:00", "UTC"), now, at("2026-09-09T10:00:00Z")},
+		{"time zone", at("2026-09-08T10:00:00Z"), sched("03:00", "Europe/Berlin"), time.Time{}, at("2026-09-09T01:00:00Z")},
+		{"skipped by DST", at("2026-03-07T12:00:00Z"), sched("02:30", "America/New_York"), time.Time{}, at("2026-03-08T06:30:00Z")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := nextRun(success{SnapshotTime: tc.last}, tc.sched, tc.rescheduled, now); !got.Equal(tc.want) {
+				t.Fatalf("next = %s, want %s", got.UTC(), tc.want)
+			}
+		})
+	}
+}
+
+func TestStartAndReschedule(t *testing.T) {
+	w := testWorker(t)
+	now := time.Date(2026, 9, 8, 12, 0, 0, 0, time.UTC)
+	w.now = func() time.Time { return now }
+	if err := w.saveState(success{SnapshotTime: now.Add(-time.Hour), CompletionTime: now.Add(-time.Hour), ObjectKey: "home/previous.sqlite.gz"}); err != nil {
+		t.Fatal(err)
+	}
+	uploads := make(chan struct{}, 2)
+	w.client = uploadFunc(func(context.Context, *s3.PutObjectInput) error { uploads <- struct{}{}; return nil })
+	statuses := make(chan Status, 32)
+	w.notify = func() { statuses <- w.Status() }
+	await := func(what string, ok func(Status) bool) {
+		t.Helper()
+		for {
+			select {
+			case s := <-statuses:
+				if ok(s) {
+					return
+				}
+			case <-time.After(5 * time.Second):
+				t.Fatalf("timed out waiting for %s", what)
+			}
+		}
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { defer close(done); w.Run(ctx) }()
+	defer func() { cancel(); <-done }()
+
+	await("startup", func(s Status) bool { return !s.LastSuccess.IsZero() })
+	if !w.Start() {
+		t.Fatal("start refused")
+	}
+	if w.Start() {
+		t.Fatal("second start accepted while one is requested")
+	}
+	await("manual backup", func(s Status) bool { return !s.Running && s.LastSuccess.Equal(now) })
+	if len(uploads) != 1 {
+		t.Fatalf("uploads = %d", len(uploads))
+	}
+	// The next run is recorded without a notification of its own.
+	for deadline := time.Now().Add(5 * time.Second); !w.Status().NextRun.Equal(now.Add(23 * time.Hour)); time.Sleep(time.Millisecond) {
+		if time.Now().After(deadline) {
+			t.Fatalf("after manual backup: %+v", w.Status())
+		}
+	}
+
+	if err := storage.SaveDashboardSettings(ctx, w.db, "backup", []byte(`{"time":"12:30","timezone":"UTC"}`)); err != nil {
+		t.Fatal(err)
+	}
+	w.Reschedule()
+	await("new schedule", func(s Status) bool { return s.NextRun.Equal(now.Add(30 * time.Minute)) })
+	if len(uploads) != 1 {
+		t.Fatal("rescheduling started a backup")
+	}
+	var disabled *Worker
+	if disabled.Start() {
+		t.Fatal("disabled worker started")
+	}
+	disabled.Reschedule()
+}
+
+func TestDefaultScheduleKeepsFirstBackupTime(t *testing.T) {
+	now := time.Date(2026, 9, 8, 12, 0, 0, 0, time.UTC)
+	for _, tc := range []struct {
+		name string
+		last success
+		want storage.BackupSettings
+	}{
+		{"first start", success{}, storage.BackupSettings{Time: "12:00", Timezone: "UTC"}},
+		{"upgrade keeps existing cycle", success{SnapshotTime: now.Add(-5*time.Hour - 30*time.Second)}, storage.BackupSettings{Time: "06:59", Timezone: "UTC"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			w := testWorker(t)
+			w.now = func() time.Time { return now }
+			w.schedule(context.Background(), tc.last)
+			settings, err := storage.ReadDashboardSettings(context.Background(), w.db)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if settings.Backup != tc.want {
+				t.Fatalf("saved schedule %+v, want %+v", settings.Backup, tc.want)
+			}
+			w.now = func() time.Time { return now.Add(time.Hour) }
+			d := w.schedule(context.Background(), success{SnapshotTime: now})
+			if got := fmt.Sprintf("%02d:%02d", d.hour, d.minute); got != tc.want.Time {
+				t.Fatalf("saved schedule not reused: %s", got)
+			}
+		})
+	}
+}
+
+func TestRescheduleSurvivesRestart(t *testing.T) {
+	w := testWorker(t)
+	now := time.Date(2026, 9, 8, 12, 0, 0, 0, time.UTC)
+	w.now = func() time.Time { return now }
+	if err := w.saveState(success{SnapshotTime: now.Add(-9 * time.Hour), CompletionTime: now.Add(-9 * time.Hour), ObjectKey: "home/previous.sqlite.gz"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := storage.SaveDashboardSettings(context.Background(), w.db, "backup", []byte(`{"time":"10:00","timezone":"UTC"}`)); err != nil {
+		t.Fatal(err)
+	}
+	w.Reschedule()
+
+	restarted := testWorker(t)
+	restarted.db, restarted.dir = w.db, w.dir
+	restarted.now = func() time.Time { return now.Add(time.Hour) }
+	uploads := 0
+	restarted.client = uploadFunc(func(context.Context, *s3.PutObjectInput) error { uploads++; return nil })
+	var delay time.Duration
+	restarted.wait = func(_ context.Context, d time.Duration) bool { delay = d; return false }
+	restarted.Run(context.Background())
+	if uploads != 0 || delay != 21*time.Hour {
+		t.Fatalf("uploads = %d, delay = %s", uploads, delay)
+	}
+}
+
+func TestEarlyTimerWaitsForScheduledTime(t *testing.T) {
+	w := testWorker(t)
+	current := time.Date(2026, 9, 8, 12, 0, 0, 0, time.UTC)
+	w.now = func() time.Time { return current }
+	if err := w.saveState(success{SnapshotTime: current.Add(-time.Hour), CompletionTime: current.Add(-time.Hour), ObjectKey: "home/previous.sqlite.gz"}); err != nil {
+		t.Fatal(err)
+	}
+	uploads := 0
+	w.client = uploadFunc(func(context.Context, *s3.PutObjectInput) error { uploads++; return nil })
+	var delays []time.Duration
+	w.wait = func(_ context.Context, d time.Duration) bool {
+		delays = append(delays, d)
+		switch len(delays) {
+		case 1:
+			// The wall clock was set back a minute during the wait.
+			current = current.Add(d - time.Minute)
+			return true
+		case 2:
+			current = current.Add(d)
+			return true
+		}
+		return false
+	}
+	w.Run(context.Background())
+	if uploads != 1 || len(delays) != 3 || delays[0] != 23*time.Hour || delays[1] != time.Minute || delays[2] != 24*time.Hour {
+		t.Fatalf("uploads = %d, delays = %v", uploads, delays)
+	}
+}
+
+func TestBackupsListing(t *testing.T) {
+	w := testWorker(t)
+	var mu sync.Mutex
+	calls, denied := 0, false
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		calls++
+		q := r.URL.Query()
+		if r.Method != http.MethodGet || r.URL.Path != "/bucket" || q.Get("list-type") != "2" || q.Get("prefix") != "home/" || q.Get("delimiter") != "/" {
+			t.Errorf("unexpected request %s %s", r.Method, r.URL)
+		}
+		if denied {
+			rw.WriteHeader(http.StatusForbidden)
+			rw.Write([]byte("<Error><Code>AccessDenied</Code><Message>Access Denied</Message></Error>"))
+			return
+		}
+		object := func(key, modified string, size int) string {
+			return fmt.Sprintf("<Contents><Key>%s</Key><LastModified>%s</LastModified><Size>%d</Size></Contents>", key, modified, size)
+		}
+		body := object("home/20260901T030000.000000000Z-aaaa.sqlite.gz", "2026-09-01T03:00:05.000Z", 1200) +
+			object("home/notes.txt", "2026-09-01T04:00:00.000Z", 5) +
+			"<IsTruncated>true</IsTruncated><NextContinuationToken>page2</NextContinuationToken>"
+		if q.Get("continuation-token") == "page2" {
+			body = object("home/20260902T030000.000000000Z-bbbb.sqlite.gz", "2026-09-02T03:00:07.000Z", 3400) + "<IsTruncated>false</IsTruncated>"
+		}
+		rw.Header().Set("Content-Type", "application/xml")
+		fmt.Fprintf(rw, `<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Name>bucket</Name><Prefix>home/</Prefix>%s</ListBucketResult>`, body)
+	}))
+	defer server.Close()
+	cfg := &config.Config{DatabasePath: filepath.Join(t.TempDir(), "db"), BackupS3Bucket: "bucket", BackupS3Prefix: "home/", BackupS3Region: "auto", BackupS3Endpoint: server.URL, BackupS3AccessKeyID: "test", BackupS3SecretAccessKey: "test"}
+	real, err := New(context.Background(), cfg, w.db, "test", w.logger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w.lister = real.lister
+	now := time.Date(2026, 9, 2, 12, 0, 0, 0, time.UTC)
+	w.now = func() time.Time { return now }
+	list := func() ([]Object, error) {
+		t.Helper()
+		return w.Backups(context.Background())
+	}
+	objects, err := list()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []Object{
+		{Name: "20260902T030000.000000000Z-bbbb.sqlite.gz", Size: 3400, LastModified: time.Date(2026, 9, 2, 3, 0, 7, 0, time.UTC)},
+		{Name: "20260901T030000.000000000Z-aaaa.sqlite.gz", Size: 1200, LastModified: time.Date(2026, 9, 1, 3, 0, 5, 0, time.UTC)},
+	}
+	if fmt.Sprint(objects) != fmt.Sprint(want) {
+		t.Fatalf("objects = %v", objects)
+	}
+	if calls != 2 {
+		t.Fatalf("pages requested = %d", calls)
+	}
+	now = now.Add(listTTL - time.Second)
+	if _, err := list(); err != nil || calls != 2 {
+		t.Fatalf("cached listing: %v, calls=%d", err, calls)
+	}
+	w.setStatus(func(s *Status) { s.LastSuccess = now })
+	if _, err := list(); err != nil || calls != 4 {
+		t.Fatalf("listing after a backup: %v, calls=%d", err, calls)
+	}
+	now = now.Add(listTTL)
+	denied = true
+	var logs bytes.Buffer
+	w.logger = slog.New(slog.NewTextHandler(&logs, nil))
+	if _, err := list(); !errors.Is(err, ErrListDenied) || calls != 5 {
+		t.Fatalf("denied listing: %v, calls=%d", err, calls)
+	}
+	if !strings.Contains(logs.String(), "code=AccessDenied status=403") {
+		t.Fatalf("denied listing log: %s", logs.String())
+	}
+	now = now.Add(listErrorTTL - time.Second)
+	if _, err := list(); !errors.Is(err, ErrListDenied) || calls != 5 {
+		t.Fatalf("cached error: %v, calls=%d", err, calls)
+	}
+	now = now.Add(time.Second)
+	denied = false
+	if objects, err := list(); err != nil || len(objects) != 2 || calls != 7 {
+		t.Fatalf("listing after error: %v %v, calls=%d", objects, err, calls)
+	}
+	var disabled *Worker
+	if objects, err := disabled.Backups(context.Background()); objects != nil || err != nil {
+		t.Fatalf("disabled: %v %v", objects, err)
+	}
+}
+
+func TestBackupDownload(t *testing.T) {
+	w := testWorker(t)
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("unexpected request %s %s", r.Method, r.URL)
+		}
+		switch r.URL.Path {
+		case "/bucket/home/20260901T030000.000000000Z-aaaa.sqlite.gz":
+			rw.Header().Set("Content-Length", "7")
+			rw.Write([]byte("archive"))
+		case "/bucket/home/20260902T030000.000000000Z-bbbb.sqlite.gz":
+			rw.WriteHeader(http.StatusForbidden)
+			rw.Write([]byte("<Error><Code>AccessDenied</Code><Message>Access Denied</Message></Error>"))
+		default:
+			rw.WriteHeader(http.StatusNotFound)
+			rw.Write([]byte("<Error><Code>NoSuchKey</Code><Message>missing</Message></Error>"))
+		}
+	}))
+	defer server.Close()
+	cfg := &config.Config{DatabasePath: filepath.Join(t.TempDir(), "db"), BackupS3Bucket: "bucket", BackupS3Prefix: "home/", BackupS3Region: "auto", BackupS3Endpoint: server.URL, BackupS3AccessKeyID: "test", BackupS3SecretAccessKey: "test"}
+	real, err := New(context.Background(), cfg, w.db, "test", w.logger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w.downloader = real.downloader
+	body, size, err := w.Download(context.Background(), "20260901T030000.000000000Z-aaaa.sqlite.gz")
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := io.ReadAll(body)
+	body.Close()
+	if err != nil || string(data) != "archive" || size != 7 {
+		t.Fatalf("download = %q, %d, %v", data, size, err)
+	}
+	if _, _, err := w.Download(context.Background(), "20260902T030000.000000000Z-bbbb.sqlite.gz"); !errors.Is(err, ErrDownloadDenied) {
+		t.Fatalf("denied: %v", err)
+	}
+	if _, _, err := w.Download(context.Background(), "20260903T030000.000000000Z-cccc.sqlite.gz"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("missing: %v", err)
+	}
+	for _, name := range []string{"../other/x.sqlite.gz", "nested/x.sqlite.gz", "notes.txt", ""} {
+		if _, _, err := w.Download(context.Background(), name); !errors.Is(err, ErrNotFound) {
+			t.Errorf("Download(%q) = %v", name, err)
+		}
+	}
+}
+
+type listerFunc func(context.Context) (*s3.ListObjectsV2Output, error)
+
+func (f listerFunc) ListObjectsV2(ctx context.Context, _ *s3.ListObjectsV2Input, _ ...func(*s3.Options)) (*s3.ListObjectsV2Output, error) {
+	return f(ctx)
+}
+
+func TestBackupsListingOutlivesCanceledRequest(t *testing.T) {
+	w := testWorker(t)
+	started, release := make(chan struct{}, 2), make(chan struct{})
+	w.lister = listerFunc(func(ctx context.Context) (*s3.ListObjectsV2Output, error) {
+		started <- struct{}{}
+		select {
+		case <-release:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+		return &s3.ListObjectsV2Output{Contents: []types.Object{{Key: aws.String("home/20260901T030000.000000000Z-aaaa.sqlite.gz"), Size: aws.Int64(5)}}}, nil
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	result := make(chan error, 1)
+	go func() {
+		_, err := w.Backups(ctx)
+		result <- err
+	}()
+	<-started
+	// A waiter that goes away returns at once instead of waiting for the bucket.
+	cancel()
+	select {
+	case err := <-result:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("canceled waiter: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("canceled waiter still blocked on the listing")
+	}
+	// The listing it started keeps running, and the next caller joins it.
+	go func() {
+		objects, err := w.Backups(context.Background())
+		if err == nil && len(objects) != 1 {
+			err = fmt.Errorf("objects = %v", objects)
+		}
+		result <- err
+	}()
+	close(release)
+	if err := <-result; err != nil {
+		t.Fatal(err)
+	}
+	if len(started) != 0 {
+		t.Fatal("the listing was restarted")
+	}
+}
+
+func TestErrorAttrs(t *testing.T) {
+	for _, tc := range []struct {
+		err  error
+		want string
+	}{
+		{&smithy.GenericAPIError{Code: "AccessDenied"}, "[code AccessDenied]"},
+		{fmt.Errorf("list: %w", context.DeadlineExceeded), "[cause timeout]"},
+		{&net.DNSError{Err: "no such host", Name: "bucket.example"}, "[cause dns]"},
+		{&net.OpError{Op: "dial", Err: errors.New("connection refused")}, "[cause network]"},
+		{errors.New("https://bucket.example/key?X-Amz-Signature=secret"), "[cause other]"},
+	} {
+		if got := fmt.Sprint(errorAttrs(tc.err)); got != tc.want {
+			t.Errorf("errorAttrs(%v) = %s, want %s", tc.err, got, tc.want)
+		}
 	}
 }

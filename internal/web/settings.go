@@ -6,9 +6,13 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"mime"
 	"net/http"
 	"slices"
+	"strconv"
+	"time"
 
+	"github.com/tbshfr/ai-usage/internal/backup"
 	"github.com/tbshfr/ai-usage/internal/storage"
 )
 
@@ -32,7 +36,11 @@ func (s *server) saveSettings(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid settings", http.StatusBadRequest)
 		return
 	}
-	err = storage.SaveDashboardSettings(r.Context(), s.db, r.PathValue("section"), body)
+	section := r.PathValue("section")
+	err = storage.SaveDashboardSettings(r.Context(), s.db, section, body)
+	if err == nil && section == "backup" && s.backupReschedule != nil {
+		s.backupReschedule()
+	}
 	switch {
 	case errors.Is(err, storage.ErrUnknownSettingsSection):
 		http.NotFound(w, r)
@@ -43,6 +51,15 @@ func (s *server) saveSettings(w http.ResponseWriter, r *http.Request) {
 	default:
 		w.WriteHeader(http.StatusNoContent)
 	}
+}
+
+func (s *server) startBackup(w http.ResponseWriter, r *http.Request) {
+	if s.backupStart == nil || !s.currentBackupStatus().Enabled {
+		http.NotFound(w, r)
+		return
+	}
+	s.backupStart()
+	http.Redirect(w, r, "/settings#backups", http.StatusSeeOther)
 }
 
 // Pages must not fail because preferences are unavailable, so a read error
@@ -101,4 +118,105 @@ func (d *pageData) BreakdownPreferences() []breakdownPreferenceView {
 type breakdownPreferenceView struct {
 	ID, Label           string
 	Hidden, First, Last bool
+}
+
+type backupListView struct {
+	Newest *backup.Object
+	Older  []backup.Object
+	Count  int
+	Size   int64
+	Denied bool
+	Failed bool
+}
+
+// The list is a separate fragment so the Settings page never waits on the
+// bucket, and a listing error leaves the rest of the section working.
+func (s *server) fragBackupList(w http.ResponseWriter, r *http.Request) {
+	if s.backupList == nil || !s.currentBackupStatus().Enabled {
+		http.NotFound(w, r)
+		return
+	}
+	var view backupListView
+	objects, err := s.backupList(r.Context())
+	switch {
+	case r.Context().Err() != nil:
+		return
+	case errors.Is(err, backup.ErrListDenied):
+		view.Denied = true
+	case err != nil:
+		view.Failed = true
+	}
+	if len(objects) > 0 {
+		view.Newest, view.Older = &objects[0], objects[1:]
+	}
+	view.Count = len(objects)
+	for _, o := range objects {
+		view.Size += o.Size
+	}
+	s.renderFrag(w, r, "backup-list", &pageData{BackupList: view})
+}
+
+// Backups can take longer to download than the server's write timeout allows.
+const backupDownloadTimeout = time.Hour
+
+// The bucket is private, so downloads go through the server rather than to the
+// storage endpoint, which the browser may not be able to reach.
+func (s *server) downloadBackup(w http.ResponseWriter, r *http.Request) {
+	if s.backupDownload == nil || !s.currentBackupStatus().Enabled {
+		http.NotFound(w, r)
+		return
+	}
+	// The GET route also matches HEAD, whose discarded body would still be
+	// fetched from the bucket in full.
+	if r.Method == http.MethodHead {
+		w.Header().Set("Allow", http.MethodGet)
+		http.Error(w, "Method not allowed.", http.StatusMethodNotAllowed)
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), backupDownloadTimeout)
+	defer cancel()
+	// Shutdown would otherwise wait out its grace period on a long download.
+	if s.hub != nil {
+		defer s.hub.TrackStream(cancel)()
+	}
+	name := r.PathValue("name")
+	body, size, err := s.backupDownload(ctx, name)
+	switch {
+	case ctx.Err() != nil:
+		return
+	case errors.Is(err, backup.ErrNotFound):
+		http.Error(w, "Backup not found.", http.StatusNotFound)
+		return
+	case errors.Is(err, backup.ErrDownloadDenied):
+		http.Error(w, "The access key can't download backups. Allow it to read objects under the prefix; see the backup guide.", http.StatusForbidden)
+		return
+	case err != nil:
+		http.Error(w, "The backup couldn't be downloaded. Try again later.", http.StatusBadGateway)
+		return
+	}
+	defer body.Close()
+	rc := http.NewResponseController(w)
+	_ = rc.SetWriteDeadline(time.Now().Add(backupDownloadTimeout))
+	// Cancellation alone does not interrupt a write blocked on a client that
+	// stopped reading, which would hold up shutdown. The controller must not be
+	// used after the handler returns, so a callback already running is waited for.
+	interrupted := make(chan struct{})
+	stop := context.AfterFunc(ctx, func() {
+		defer close(interrupted)
+		_ = rc.SetWriteDeadline(time.Now())
+	})
+	defer func() {
+		if !stop() {
+			<-interrupted
+		}
+	}()
+	w.Header().Set("Content-Type", "application/gzip")
+	w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": name}))
+	w.Header().Set("Cache-Control", "no-store")
+	if size >= 0 {
+		w.Header().Set("Content-Length", strconv.FormatInt(size, 10))
+	}
+	if _, err := io.Copy(w, body); err != nil && ctx.Err() == nil {
+		slog.Warn("backup download interrupted")
+	}
 }

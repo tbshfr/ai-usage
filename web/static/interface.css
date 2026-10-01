@@ -31,7 +31,7 @@ button:active:not(:disabled), .button-link:active { transform: translateY(1px); 
 .logout-link { width: 100%; border: 0; background: none; font: inherit; text-align: left; cursor: pointer; }
 .sidebar-foot { display: flex; flex-direction: column; gap: var(--space-xs); margin-top: auto; padding: var(--space-md) 0 0; border-top: 1px solid var(--border); color: var(--muted); }
 .nav-close, .menu-toggle { display: none; }
-main { width: calc(100% - 232px); max-width: 1920px; margin: 0 0 0 max(232px, calc((100% - 1920px + 232px) / 2)); padding: 2.5rem clamp(1.5rem, 3vw, 3.5rem); min-height: calc(100dvh - 130px); }
+main { --main-pad-y: 2.5rem; --main-pad-x: clamp(1.5rem, 3vw, 3.5rem); width: calc(100% - 232px); max-width: 1920px; margin: 0 0 0 max(232px, calc((100% - 1920px + 232px) / 2)); padding: var(--main-pad-y) var(--main-pad-x); min-height: calc(100dvh - 130px); }
 .page-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); margin-bottom: var(--space-xl); }
 .page-heading h1 { margin: 0; font-size: var(--text-title); line-height: 1.25; letter-spacing: -0.035em; font-weight: 650; }
 .page-heading p { margin: var(--space-sm) 0 0; max-width: 75ch; }
@@ -139,8 +139,22 @@ dialog.detail-dialog::backdrop, dialog.token-dialog::backdrop { background: var(
 .login-card button { margin-top: var(--space-xl); border: 0; border-radius: var(--radius-input); background: var(--accent); color: var(--color-accent-ink); min-height: 48px; font-weight: 600; cursor: pointer; }
 .login-card button:hover { filter: brightness(0.95); }
 .login-error { padding: var(--space-sm) var(--space-md); border: 1px solid var(--color-danger); border-radius: var(--radius-input); }
-@media (max-width: 1100px) { main { padding: var(--space-xl) var(--space-lg); } .settings-section { gap: var(--space-lg); } }
-@media (min-width: 769px) { .topbar nav { transform: none; visibility: visible; } .nav-overlay { display: none; } }
+@media (max-width: 1100px) { main { --main-pad-y: var(--space-xl); --main-pad-x: var(--space-lg); } .settings-section { gap: var(--space-lg); } }
+@media (min-width: 769px) {
+  .topbar nav { transform: none; visibility: visible; border-right-color: transparent; }
+  .nav-overlay { display: none; }
+  body::before { content: ""; position: fixed; z-index: 14; top: 64px; left: 232px; right: 0; bottom: 0; border-top-left-radius: 10px; box-shadow: 0 0 0 24px var(--color-sidebar), inset 0 1px 8px -4px var(--color-frame-glow), inset 1px 0 8px -4px var(--color-frame-glow); pointer-events: none; }
+  html { scroll-padding-top: calc(64px + var(--page-heading-stuck)); }
+  main { --page-heading-stuck: calc(44px + 2 * var(--space-md)); padding-top: 0; }
+  .page-heading { position: sticky; top: calc(64px + var(--space-md) - var(--main-pad-y)); z-index: 11; height: calc(var(--main-pad-y) + 44px + var(--space-md)); margin: 0 calc(-1 * var(--main-pad-x)); padding: var(--main-pad-y) var(--main-pad-x) var(--space-md); background: var(--bg); }
+  .page-heading + :not(.filterbar) { margin-top: var(--space-md); }
+  .filterbar { position: sticky; top: calc(64px + var(--page-heading-stuck) - var(--space-md)); z-index: 12; margin-inline: calc(-1 * var(--main-pad-x)); padding: var(--space-md) var(--main-pad-x) var(--space-lg); background: var(--bg); }
+  .page-heading::after, .filterbar::after { content: ""; position: absolute; top: 100%; left: 0; right: 0; height: var(--space-md); background: linear-gradient(var(--bg), transparent); opacity: 0; pointer-events: none; }
+  @supports (animation-timeline: scroll()) {
+    .page-heading::after, .filterbar::after { animation: sticky-fade linear both; animation-timeline: scroll(root); animation-range: 0 var(--space-xl); }
+  }
+}
+@keyframes sticky-fade { to { opacity: 1; } }
 @media (max-width: 768px) {
   .topbar { height: 60px; padding: 0 var(--space-md); gap: var(--space-sm); }
   .topbar .brand { width: auto; }

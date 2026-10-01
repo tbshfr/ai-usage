@@ -26,7 +26,7 @@ import (
 
 const (
 	recentLimit        = 50
-	conversationsLimit = 24
+	conversationsLimit = 60 // divisible by every column count the session grid can show (1–5)
 	statsDaysLimit     = 3660
 )
 

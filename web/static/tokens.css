@@ -23,6 +23,8 @@
   --color-chart-4: oklch(50% 0.17 25); --color-chart-5: oklch(50% 0.18 300); --color-chart-6: oklch(50% 0.02 286);
   --shadow-panel: 0 2px 3px oklch(20% 0.02 255 / 2%), 0 8px 24px oklch(20% 0.02 255 / 3%);
   --color-sidebar: oklch(96% 0.006 255);
+  --color-frame: color-mix(in oklab, var(--color-accent) 22%, var(--color-rule));
+  --color-frame-glow: color-mix(in oklab, var(--color-accent) 14%, transparent);
   --color-hero: oklch(26% 0.035 var(--accent-hue));
   --color-hero-text: oklch(98% 0.005 var(--accent-hue));
   --color-hero-muted: oklch(82% 0.025 var(--accent-hue));

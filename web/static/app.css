@@ -6,9 +6,11 @@ body {
   background: var(--bg);
   color: var(--text);
 }
-html.dialog-open, body.dialog-open { overflow: hidden; overscroll-behavior: none; }
-body.dialog-open { position: fixed; inset: var(--dialog-scroll-top, 0px) 0 auto; width: 100%; touch-action: none; }
-body.dialog-open .topbar { position: relative; top: calc(-1 * var(--dialog-scroll-top, 0px)); }
+html.dialog-open { overflow: hidden; overscroll-behavior: none; }
+@media (hover: none), (pointer: coarse) {
+  body.dialog-open { overflow: hidden; overscroll-behavior: none; position: fixed; inset: var(--dialog-scroll-top, 0px) 0 auto; width: 100%; touch-action: none; }
+  body.dialog-open .topbar { position: relative; top: calc(-1 * var(--dialog-scroll-top, 0px)); }
+}
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
 code {

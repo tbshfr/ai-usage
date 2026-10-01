@@ -526,9 +526,18 @@ func distinct(ctx context.Context, db *sql.DB, f Filter, column string) ([]strin
 		return nil, err
 	}
 	where, args := f.whereSQL()
+	// Loose index scan: each step seeks the (column, timestamp) index to
+	// the next value above the previous one, so the cost grows with the
+	// number of distinct values rather than with the number of rows.
+	next := `(SELECT MIN(` + column + `) FROM generations WHERE ` + column + ` %s AND ` + where + `)`
 	rows, err := db.QueryContext(ctx,
-		`SELECT DISTINCT `+column+` FROM generations WHERE `+column+` IS NOT NULL AND `+where+` ORDER BY `+column+fmt.Sprintf(` LIMIT %d`, maxDistinctValues),
-		args...)
+		`WITH RECURSIVE d(v) AS (
+	SELECT `+fmt.Sprintf(next, "IS NOT NULL")+`
+	UNION ALL
+	SELECT `+fmt.Sprintf(next, "> d.v")+` FROM d WHERE d.v IS NOT NULL
+)
+SELECT v FROM d WHERE v IS NOT NULL`+fmt.Sprintf(` LIMIT %d`, maxDistinctValues),
+		append(args, args...)...)
 	if err != nil {
 		return nil, fmt.Errorf("distinct query: %w", err)
 	}

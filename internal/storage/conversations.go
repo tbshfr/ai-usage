@@ -157,39 +157,44 @@ func Conversations(ctx context.Context, db *sql.DB, f Filter, order Order, limit
 		` WHEN source = '` + normalize.SourceCopilot + `' AND agent_name IN ('` + normalize.AgentTitle + `', '` + normalize.AgentProgressMessages + `') THEN '` + convKeyTitleProgressPrefix + `' || (timestamp / 86400000 * 86400000)` +
 		` WHEN conversation_id IS NULL THEN '` + convKeyOtherPrefix + `' || (timestamp / 86400000 * 86400000)` +
 		` ELSE conversation_id END`
-	q := `WITH w AS (
+	// Aggregate first and look up the latest row only for the groups on the
+	// requested page: ranking every row per group (a window function) sorts
+	// the whole range and dominates the query on large databases.
+	q := `WITH g AS (
 	SELECT ` + convExpr + ` AS k,
-		ROW_NUMBER() OVER (PARTITION BY ` + convExpr + ` ORDER BY timestamp DESC) AS rn,
-		timestamp, source, model, agent_name, git_repo,
-		` + uncachedInputSQL + ` AS uncached_input,
-		` + outputTokensSQL + ` AS canonical_output,
-		cache_read_tokens, cache_creation_tokens, reasoning_tokens, cost, cost_source
+		COUNT(*) AS requests,
+		COALESCE(SUM(` + uncachedInputSQL + `), 0) AS input_tokens,
+		COALESCE(SUM(` + outputTokensSQL + `), 0) AS output_tokens,
+		COALESCE(SUM(cache_read_tokens), 0) AS cache_read_tokens,
+		COALESCE(SUM(cache_creation_tokens), 0) AS cache_creation_tokens,
+		COALESCE(SUM(reasoning_tokens), 0) AS reasoning_tokens,
+		COALESCE(SUM(cost_source = 'harness' AND cost IS NOT NULL), 0) AS cost_reported,
+		COALESCE(SUM(cost_source IN ('openrouter', 'manual') AND cost IS NOT NULL), 0) AS cost_estimated,
+		COALESCE(SUM(cost_source = 'free' AND cost IS NOT NULL), 0) AS cost_free,
+		COUNT(cost) AS cost_known,
+		COUNT(*) - COUNT(cost) AS cost_unknown,
+		SUM(cost) AS cost_total,
+		MIN(timestamp) AS first_ts,
+		MAX(timestamp) AS last_ts
 	FROM generations WHERE ` + where + `
+	GROUP BY k
+), page AS (
+	SELECT *, COUNT(*) OVER () AS total FROM g
+	ORDER BY last_ts ` + string(dir) + ` LIMIT ? OFFSET ?
 )
 SELECT
-	k,
-	COUNT(*),
-	COALESCE(SUM(uncached_input), 0),
-	COALESCE(SUM(canonical_output), 0),
-	COALESCE(SUM(cache_read_tokens), 0),
-	COALESCE(SUM(cache_creation_tokens), 0),
-	COALESCE(SUM(reasoning_tokens), 0),
-	COALESCE(SUM(cost_source = 'harness' AND cost IS NOT NULL), 0),
-	COALESCE(SUM(cost_source IN ('openrouter', 'manual') AND cost IS NOT NULL), 0),
-	COALESCE(SUM(cost_source = 'free' AND cost IS NOT NULL), 0),
-	COUNT(cost),
-	COUNT(*) - COUNT(cost),
-	SUM(cost),
-	MIN(timestamp),
-	MAX(timestamp),
-	MAX(CASE WHEN rn = 1 THEN source END),
-	MAX(CASE WHEN rn = 1 THEN model END),
-	MAX(CASE WHEN rn = 1 THEN agent_name END),
-	MAX(CASE WHEN rn = 1 THEN git_repo END),
-	COUNT(*) OVER ()
-FROM w
-GROUP BY k ORDER BY MAX(timestamp) ` + string(dir) + ` LIMIT ? OFFSET ?`
-	args = append(args, limit, offset)
+	page.k, page.requests, page.input_tokens, page.output_tokens,
+	page.cache_read_tokens, page.cache_creation_tokens, page.reasoning_tokens,
+	page.cost_reported, page.cost_estimated, page.cost_free, page.cost_known,
+	page.cost_unknown, page.cost_total, page.first_ts, page.last_ts,
+	latest.source, latest.model, latest.agent_name, latest.git_repo, page.total
+FROM page LEFT JOIN generations latest ON latest.rowid = (
+	SELECT rowid FROM generations
+	WHERE timestamp = page.last_ts AND ` + convExpr + ` = page.k AND ` + where + `
+	LIMIT 1
+)
+ORDER BY page.last_ts ` + string(dir)
+	args = append(append(args, limit, offset), args...)
 	rows, err := db.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("conversations query: %w", err)

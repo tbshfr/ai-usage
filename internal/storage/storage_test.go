@@ -26,7 +26,8 @@ func TestMigrateCreatesSchema(t *testing.T) {
 		{"index", "idx_generations_source"},
 		{"index", "idx_generations_provider"},
 		{"index", "idx_generations_model"},
-		{"index", "idx_generations_trace_id"},
+		{"index", "idx_generations_token_id"},
+		{"index", "idx_generations_conversation_id"},
 	} {
 		var name string
 		err := db.QueryRow(
@@ -58,8 +59,8 @@ func TestMigrateTwiceIsNoop(t *testing.T) {
 	if err := db.QueryRow(`SELECT COUNT(*) FROM schema_migrations`).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
-	if count != 9 {
-		t.Errorf("schema_migrations rows = %d, want 9", count)
+	if count != 10 {
+		t.Errorf("schema_migrations rows = %d, want 10", count)
 	}
 }
 

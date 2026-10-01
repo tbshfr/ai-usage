@@ -34,6 +34,9 @@ type Filter struct {
 	// Token limits results to one api_tokens ID, or TokenNone for
 	// unauthenticated rows.
 	Token string
+
+	// unbounded is set by normalize when neither From nor To was given.
+	unbounded bool
 }
 
 // TokenNone selects rows stored without an authenticating token.
@@ -54,6 +57,7 @@ func (f Filter) normalize(now time.Time) (Filter, error) {
 	}
 	if out.To.IsZero() {
 		out.To = now
+		out.unbounded = out.From.IsZero()
 	}
 	if !out.From.IsZero() && out.To.Before(out.From) {
 		return out, fmt.Errorf("invalid filter: to (%s) before from (%s)", out.To, out.From)
@@ -70,7 +74,14 @@ func (f Filter) whereSQL() (string, []any) {
 		conds = append(conds, "timestamp >= ?")
 		args = append(args, f.From.UnixMilli())
 	}
-	conds = append(conds, "timestamp < ?")
+	// An unbounded range matches (nearly) every row, which a table scan
+	// reads faster than the timestamp index plus a lookup per row; the
+	// unary + keeps the planner off that index.
+	if f.unbounded {
+		conds = append(conds, "+timestamp < ?")
+	} else {
+		conds = append(conds, "timestamp < ?")
+	}
 	args = append(args, f.To.UnixMilli())
 	for _, col := range []struct{ name, val string }{
 		{"source", f.Source},

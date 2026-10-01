@@ -60,14 +60,20 @@ func CleanTokenField(field, v string, required bool) (string, error) {
 	return v, nil
 }
 
-// CreateToken stores a new token and returns its row ID.
+// CreateToken stores a new token and returns its row ID. The row is
+// durable on return, so a key handed out cannot vanish in a crash.
 func CreateToken(ctx context.Context, db *sql.DB, name, group string, hash [32]byte, hint string) (int64, error) {
-	res, err := db.ExecContext(ctx, `INSERT INTO api_tokens (name, group_name, token_hash, hint, created_at) VALUES (?, ?, ?, ?, ?)`,
-		name, group, hash[:], hint, time.Now().UnixMilli())
-	if err != nil {
-		return 0, fmt.Errorf("create token: %w", err)
-	}
-	return res.LastInsertId()
+	var id int64
+	err := durableTx(ctx, db, func(tx *sql.Tx) error {
+		res, err := tx.ExecContext(ctx, `INSERT INTO api_tokens (name, group_name, token_hash, hint, created_at) VALUES (?, ?, ?, ?, ?)`,
+			name, group, hash[:], hint, time.Now().UnixMilli())
+		if err != nil {
+			return fmt.Errorf("create token: %w", err)
+		}
+		id, err = res.LastInsertId()
+		return err
+	})
+	return id, err
 }
 
 // ListTokens returns all tokens, including revoked ones, ordered by group
@@ -114,36 +120,34 @@ func UpdateToken(ctx context.Context, db *sql.DB, id int64, name, group string) 
 
 // RevokeToken stops a token from authenticating. The row stays so stored
 // usage keeps its attribution. Revoking twice keeps the first timestamp.
+// The revocation is durable on return.
 func RevokeToken(ctx context.Context, db *sql.DB, id int64) error {
-	res, err := db.ExecContext(ctx, `UPDATE api_tokens SET revoked_at = COALESCE(revoked_at, ?) WHERE id = ?`, time.Now().UnixMilli(), id)
-	if err != nil {
-		return fmt.Errorf("revoke token: %w", err)
-	}
-	return requireRow(res)
+	return durableTx(ctx, db, func(tx *sql.Tx) error {
+		res, err := tx.ExecContext(ctx, `UPDATE api_tokens SET revoked_at = COALESCE(revoked_at, ?) WHERE id = ?`, time.Now().UnixMilli(), id)
+		if err != nil {
+			return fmt.Errorf("revoke token: %w", err)
+		}
+		return requireRow(res)
+	})
 }
 
 // RegenerateToken replaces a token's secret, keeping its ID, name, group
 // and attributed usage. The old hash stops authenticating and is retired
-// (see SeedToken). A revoked token becomes active again.
+// (see SeedToken). A revoked token becomes active again. The change is
+// durable on return.
 func RegenerateToken(ctx context.Context, db *sql.DB, id int64, hash [32]byte, hint string) error {
-	tx, err := db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-	now := time.Now().UnixMilli()
-	if _, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO api_token_retired_hashes (token_hash, token_id, retired_at)
+	return durableTx(ctx, db, func(tx *sql.Tx) error {
+		now := time.Now().UnixMilli()
+		if _, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO api_token_retired_hashes (token_hash, token_id, retired_at)
 SELECT token_hash, id, ? FROM api_tokens WHERE id = ?`, now, id); err != nil {
-		return fmt.Errorf("retire token hash: %w", err)
-	}
-	res, err := tx.ExecContext(ctx, `UPDATE api_tokens SET token_hash = ?, hint = ?, revoked_at = NULL, last_used_at = NULL WHERE id = ?`, hash[:], hint, id)
-	if err != nil {
-		return fmt.Errorf("regenerate token: %w", err)
-	}
-	if err := requireRow(res); err != nil {
-		return err
-	}
-	return tx.Commit()
+			return fmt.Errorf("retire token hash: %w", err)
+		}
+		res, err := tx.ExecContext(ctx, `UPDATE api_tokens SET token_hash = ?, hint = ?, revoked_at = NULL, last_used_at = NULL WHERE id = ?`, hash[:], hint, id)
+		if err != nil {
+			return fmt.Errorf("regenerate token: %w", err)
+		}
+		return requireRow(res)
+	})
 }
 
 func requireRow(res sql.Result) error {

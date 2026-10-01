@@ -57,6 +57,14 @@ OTLP receiver -> source normalizer -> SQLite -> dashboard and JSON API
   are never persisted or logged.
 - The project uses a pure-Go SQLite driver so release binaries do not depend on
   a system C library.
+- Aggregates read whole UTC days from rollups that SQLite triggers keep in
+  sync with `generations`: `usage_daily` for summaries, charts, breakdowns,
+  and the leaderboard, `conversation_daily` for the sessions list. Partial
+  days, conversation filters, and hourly charts read raw rows. The triggers
+  and backfills are generated from the query expressions in
+  `internal/storage/rollup.go`, and startup rebuilds the rollups whenever
+  they change (or a trigger is missing, e.g. after a migration rebuilt
+  `generations`), so no migration is needed for that.
 
 The observed fields and signal choices are documented in
 [telemetry.md](telemetry.md).

@@ -83,30 +83,6 @@ func (f Filter) whereSQL() (string, []any) {
 		conds = append(conds, "timestamp < ?")
 	}
 	args = append(args, f.To.UnixMilli())
-	for _, col := range []struct{ name, val string }{
-		{"source", f.Source},
-		{"provider", f.Provider},
-		{"model", f.Model},
-	} {
-		if col.val != "" {
-			conds = append(conds, col.name+" = ?")
-			args = append(args, col.val)
-		}
-	}
-	switch {
-	case f.Token == TokenNone:
-		conds = append(conds, "token_id IS NULL")
-	case f.Token != "":
-		conds = append(conds, "token_id = ?")
-		args = append(args, f.Token)
-	}
-	if f.Group != "" {
-		conds = append(conds, "token_id IN (SELECT id FROM api_tokens WHERE group_name = ?)")
-		args = append(args, f.Group)
-	}
-	if f.Ungrouped {
-		conds = append(conds, "token_id IN (SELECT id FROM api_tokens WHERE group_name = '')")
-	}
 	switch {
 	case f.Conversation == ConversationNone:
 		conds = append(conds, "(conversation_id IS NULL OR (source = ? AND agent_name IN (?, ?, ?)))")
@@ -121,7 +97,48 @@ func (f Filter) whereSQL() (string, []any) {
 		conds = append(conds, "conversation_id = ? AND (source != ? OR COALESCE(agent_name, '') NOT IN (?, ?, ?))")
 		args = append(args, f.Conversation, normalize.SourceCopilot, normalize.AgentXtabProvider, normalize.AgentTitle, normalize.AgentProgressMessages)
 	}
-	return strings.Join(conds, " AND "), args
+	dims, dimArgs := f.dimSQL(false)
+	return strings.Join(conds, " AND ") + dims, append(args, dimArgs...)
+}
+
+// dimSQL returns the source/provider/model/token/group conditions, each
+// prefixed with " AND ", for generations or (rollup) usage_daily, which
+// stores a missing token as 0.
+func (f Filter) dimSQL(rollup bool) (string, []any) {
+	var conds []string
+	var args []any
+	for _, col := range []struct{ name, val string }{
+		{"source", f.Source},
+		{"provider", f.Provider},
+		{"model", f.Model},
+	} {
+		if col.val != "" {
+			conds = append(conds, col.name+" = ?")
+			args = append(args, col.val)
+		}
+	}
+	switch {
+	case f.Token == TokenNone:
+		if rollup {
+			conds = append(conds, "token_id = 0")
+		} else {
+			conds = append(conds, "token_id IS NULL")
+		}
+	case f.Token != "":
+		conds = append(conds, "token_id = ?")
+		args = append(args, f.Token)
+	}
+	if f.Group != "" {
+		conds = append(conds, "token_id IN (SELECT id FROM api_tokens WHERE group_name = ?)")
+		args = append(args, f.Group)
+	}
+	if f.Ungrouped {
+		conds = append(conds, "token_id IN (SELECT id FROM api_tokens WHERE group_name = '')")
+	}
+	if len(conds) == 0 {
+		return "", nil
+	}
+	return " AND " + strings.Join(conds, " AND "), args
 }
 
 // Conversation filter sentinels: none selects every session-less row (no
@@ -146,7 +163,8 @@ const (
 // re-enqueues an already-enriched row; every merge still bumps pricing_revision so
 // enrichment racing a re-delivered record cannot land stale results.
 func InsertGeneration(ctx context.Context, db *sql.DB, gen normalize.Generation) (bool, error) {
-	return insertGeneration(ctx, db, gen)
+	stored, err := InsertGenerations(ctx, db, []normalize.Generation{gen})
+	return stored[gen.Source] > 0, err
 }
 
 // InsertGenerations stores a batch of records in one transaction, returning
@@ -163,9 +181,21 @@ func InsertGenerations(ctx context.Context, db *sql.DB, gens []normalize.Generat
 		return nil, fmt.Errorf("begin batch insert: %w", err)
 	}
 	defer tx.Rollback() // no-op after a successful commit
+	// Prepared once per batch: compiling the statements (and with them the
+	// rollup triggers) costs more than executing them.
+	insert, err := tx.PrepareContext(ctx, insertSQL)
+	if err != nil {
+		return nil, fmt.Errorf("prepare insert generation: %w", err)
+	}
+	defer insert.Close()
+	merge, err := tx.PrepareContext(ctx, mergeSQL)
+	if err != nil {
+		return nil, fmt.Errorf("prepare merge generation: %w", err)
+	}
+	defer merge.Close()
 	stored := make(map[string]int)
 	for _, gen := range gens {
-		inserted, err := insertGeneration(ctx, tx, gen)
+		inserted, err := insertGeneration(ctx, insert, merge, gen)
 		if err != nil {
 			return nil, err
 		}
@@ -179,22 +209,15 @@ func InsertGenerations(ctx context.Context, db *sql.DB, gens []normalize.Generat
 	return stored, nil
 }
 
-// execQuerier covers *sql.DB and *sql.Tx, letting the insert helpers serve
-// both the single-record and the batched path.
-type execQuerier interface {
-	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
-	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
-}
-
-func insertGeneration(ctx context.Context, q execQuerier, gen normalize.Generation) (bool, error) {
-	row := q.QueryRowContext(ctx, insertSQL, insertArgs(gen)...)
+func insertGeneration(ctx context.Context, insert, merge *sql.Stmt, gen normalize.Generation) (bool, error) {
+	row := insert.QueryRowContext(ctx, insertArgs(gen)...)
 	var id string
 	switch err := row.Scan(&id); {
 	case err == nil:
 		return true, nil
 	case errors.Is(err, sql.ErrNoRows):
 		// conflict → merge only the missing pieces
-		if _, err := q.ExecContext(ctx, mergeSQL, mergeArgs(gen)...); err != nil {
+		if _, err := merge.ExecContext(ctx, mergeArgs(gen)...); err != nil {
 			return false, fmt.Errorf("merge generation: %w", err)
 		}
 		return false, nil

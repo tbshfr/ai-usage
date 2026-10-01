@@ -98,6 +98,8 @@ const (
 	convKeyTitleProgressPrefix = "titleprogress:"
 )
 
+var convKeyPrefixes = []string{convKeyOtherPrefix, convKeyAutocompletePrefix, convKeyTitleProgressPrefix}
+
 // ConversationFilterForKey maps a Conversations group Key to the
 // Filter.Conversation value selecting its rows: synthetic per-day keys map
 // to their sentinels, "" maps to none, anything else is a real
@@ -125,6 +127,20 @@ func (c ConversationSummary) TotalTokens() int64 {
 	return c.InputTokens + c.OutputTokens + c.CacheReadTokens + c.CacheCreationTokens + c.ReasoningTokens
 }
 
+// conversationKeySQL is the Conversations group key of a row. Session-less
+// VS Code agents have no meaningful session, so they group per UTC day under
+// their own agent headers (even when a conversation ID was stored, e.g. rows
+// ingested before normalization started clearing it). The agent match is
+// scoped to source='copilot' because other sources (e.g. opencode) use
+// free-form agent names that may collide with these VS Code values.
+// Everything else without a conversation ID lumps into the generic per-day
+// "other" groups.
+const conversationKeySQL = `CASE` +
+	` WHEN source = '` + normalize.SourceCopilot + `' AND agent_name = '` + normalize.AgentXtabProvider + `' THEN '` + convKeyAutocompletePrefix + `' || (timestamp / 86400000 * 86400000)` +
+	` WHEN source = '` + normalize.SourceCopilot + `' AND agent_name IN ('` + normalize.AgentTitle + `', '` + normalize.AgentProgressMessages + `') THEN '` + convKeyTitleProgressPrefix + `' || (timestamp / 86400000 * 86400000)` +
+	` WHEN conversation_id IS NULL THEN '` + convKeyOtherPrefix + `' || (timestamp / 86400000 * 86400000)` +
+	` ELSE conversation_id END`
+
 // Conversations returns per-conversation aggregates ordered by the group's
 // last activity (OrderDesc = newest first), with offset pagination. Total is
 // the number of groups matching the filter (for the pager).
@@ -143,41 +159,30 @@ func Conversations(ctx context.Context, db *sql.DB, f Filter, order Order, limit
 	if err != nil {
 		return nil, 0, err
 	}
-	where, args := f.whereSQL()
+	facts, args := f.factsSQL(conversationRollup, false)
+	where, whereArgs := f.whereSQL()
 
-	// Session-less VS Code agents have no meaningful session, so they group
-	// per UTC day under their own agent headers (even when a conversation
-	// ID was stored, e.g. rows ingested before normalization started
-	// clearing it). The agent match is scoped to source='copilot' because
-	// other sources (e.g. opencode) use free-form agent names that may
-	// collide with these VS Code values. Everything else without a
-	// conversation ID lumps into the generic per-day "other" groups.
-	convExpr := `CASE` +
-		` WHEN source = '` + normalize.SourceCopilot + `' AND agent_name = '` + normalize.AgentXtabProvider + `' THEN '` + convKeyAutocompletePrefix + `' || (timestamp / 86400000 * 86400000)` +
-		` WHEN source = '` + normalize.SourceCopilot + `' AND agent_name IN ('` + normalize.AgentTitle + `', '` + normalize.AgentProgressMessages + `') THEN '` + convKeyTitleProgressPrefix + `' || (timestamp / 86400000 * 86400000)` +
-		` WHEN conversation_id IS NULL THEN '` + convKeyOtherPrefix + `' || (timestamp / 86400000 * 86400000)` +
-		` ELSE conversation_id END`
 	// Aggregate first and look up the latest row only for the groups on the
 	// requested page: ranking every row per group (a window function) sorts
 	// the whole range and dominates the query on large databases.
 	q := `WITH g AS (
-	SELECT ` + convExpr + ` AS k,
-		COUNT(*) AS requests,
-		COALESCE(SUM(` + uncachedInputSQL + `), 0) AS input_tokens,
-		COALESCE(SUM(` + outputTokensSQL + `), 0) AS output_tokens,
+	SELECT conversation AS k,
+		COALESCE(SUM(requests), 0) AS requests,
+		COALESCE(SUM(input_tokens), 0) AS input_tokens,
+		COALESCE(SUM(output_tokens), 0) AS output_tokens,
 		COALESCE(SUM(cache_read_tokens), 0) AS cache_read_tokens,
 		COALESCE(SUM(cache_creation_tokens), 0) AS cache_creation_tokens,
 		COALESCE(SUM(reasoning_tokens), 0) AS reasoning_tokens,
-		COALESCE(SUM(cost_source = 'harness' AND cost IS NOT NULL), 0) AS cost_reported,
-		COALESCE(SUM(cost_source IN ('openrouter', 'manual') AND cost IS NOT NULL), 0) AS cost_estimated,
-		COALESCE(SUM(cost_source = 'free' AND cost IS NOT NULL), 0) AS cost_free,
-		COUNT(cost) AS cost_known,
-		COUNT(*) - COUNT(cost) AS cost_unknown,
-		SUM(cost) AS cost_total,
-		MIN(timestamp) AS first_ts,
-		MAX(timestamp) AS last_ts
-	FROM generations WHERE ` + where + `
-	GROUP BY k
+		COALESCE(SUM(cost_reported), 0) AS cost_reported,
+		COALESCE(SUM(cost_estimated), 0) AS cost_estimated,
+		COALESCE(SUM(cost_free), 0) AS cost_free,
+		COALESCE(SUM(cost_known), 0) AS cost_known,
+		` + factUnknownSQL + ` AS cost_unknown,
+		` + factCostSQL + ` AS cost_total,
+		MIN(first_ts) AS first_ts,
+		MAX(last_ts) AS last_ts
+	FROM ` + facts + `
+	GROUP BY conversation
 ), page AS (
 	SELECT *, COUNT(*) OVER () AS total FROM g
 	ORDER BY last_ts ` + string(dir) + ` LIMIT ? OFFSET ?
@@ -190,11 +195,11 @@ SELECT
 	latest.source, latest.model, latest.agent_name, latest.git_repo, page.total
 FROM page LEFT JOIN generations latest ON latest.rowid = (
 	SELECT rowid FROM generations
-	WHERE timestamp = page.last_ts AND ` + convExpr + ` = page.k AND ` + where + `
+	WHERE timestamp = page.last_ts AND ` + conversationKeySQL + ` = page.k AND ` + where + `
 	LIMIT 1
 )
 ORDER BY page.last_ts ` + string(dir)
-	args = append(append(args, limit, offset), args...)
+	args = append(append(args, limit, offset), whereArgs...)
 	rows, err := db.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("conversations query: %w", err)
@@ -292,18 +297,15 @@ func TimeseriesBySource(ctx context.Context, db *sql.DB, f Filter, bucket Bucket
 	if err != nil {
 		return nil, err
 	}
-	where, args := f.whereSQL()
-	expr := bucket.expr()
-	q := `SELECT
-	` + expr + `,
-	source,
-	COUNT(*),
-	COALESCE(SUM(` + uncachedInputSQL + `), 0),
-	COALESCE(SUM(` + outputTokensSQL + `), 0),
+	facts, args := f.factsSQL(usageRollup, bucket == BucketHour)
+	q := `SELECT bucket, source,
+	COALESCE(SUM(requests), 0),
+	COALESCE(SUM(input_tokens), 0),
+	COALESCE(SUM(output_tokens), 0),
 	COALESCE(SUM(cache_read_tokens), 0),
 	COALESCE(SUM(cache_creation_tokens), 0),
 	COALESCE(SUM(reasoning_tokens), 0)
-FROM generations WHERE ` + where + ` GROUP BY 1, source ORDER BY 1`
+FROM ` + facts + ` GROUP BY bucket, source ORDER BY bucket`
 	rows, err := db.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, fmt.Errorf("source timeseries query: %w", err)

@@ -43,14 +43,6 @@ func (b Bucket) valid() bool {
 	return false
 }
 
-// expr is the SQL grouping expression: UTC hour or UTC day starts.
-func (b Bucket) expr() string {
-	if b == BucketHour {
-		return "timestamp / 3600000 * 3600000"
-	}
-	return "timestamp / 86400000 * 86400000"
-}
-
 // directSQL is true when SQL rows are already the wanted buckets (hour,
 // day); week and month merge day rows in Go.
 func (b Bucket) directSQL() bool { return b == BucketHour || b == BucketDay }
@@ -167,14 +159,6 @@ const outputTokensSQL = `CASE WHEN source IN ('` + normalize.SourceCopilot + `',
 const modelGroupKeySQL = `CASE WHEN provider = 'openrouter' AND instr(model, '/') > 1
 	THEN substr(model, instr(model, '/') + 1) ELSE model END`
 
-// totalTokensSumSQL is the canonical total across the five disjoint token
-// buckets. Use it for model breakdown ordering and leaderboard rankings.
-const totalTokensSumSQL = `COALESCE(SUM(` + uncachedInputSQL + `), 0)
-	+ COALESCE(SUM(` + outputTokensSQL + `), 0)
-	+ COALESCE(SUM(cache_read_tokens), 0)
-	+ COALESCE(SUM(cache_creation_tokens), 0)
-	+ COALESCE(SUM(reasoning_tokens), 0)`
-
 // CacheHitRate applies CacheHitRate to the aggregate sums; nil when no
 // cache/prompt activity was reported.
 func (s SummaryResult) CacheHitRate() *float64 {
@@ -202,21 +186,8 @@ func Summary(ctx context.Context, db *sql.DB, f Filter) (SummaryResult, error) {
 	if err != nil {
 		return SummaryResult{}, err
 	}
-	where, args := f.whereSQL()
-	q := `SELECT
-	COUNT(*),
-	COALESCE(SUM(` + uncachedInputSQL + `), 0),
-	COALESCE(SUM(` + outputTokensSQL + `), 0),
-	COALESCE(SUM(cache_read_tokens), 0),
-	COALESCE(SUM(cache_creation_tokens), 0),
-	COALESCE(SUM(reasoning_tokens), 0),
-	COALESCE(SUM(cost_source = 'harness' AND cost IS NOT NULL), 0),
-	COALESCE(SUM(cost_source IN ('openrouter', 'manual') AND cost IS NOT NULL), 0),
-	COALESCE(SUM(cost_source = 'free' AND cost IS NOT NULL), 0),
-	COUNT(cost),
-	SUM(cost),
-	COUNT(*) - COUNT(cost)
-FROM generations WHERE ` + where
+	facts, args := f.factsSQL(usageRollup, false)
+	q := `SELECT ` + factSumsSQL + `, ` + factCostSQL + `, ` + factUnknownSQL + ` FROM ` + facts
 	var s SummaryResult
 	var costTotal sql.NullFloat64
 	if err := db.QueryRowContext(ctx, q, args...).Scan(
@@ -278,22 +249,9 @@ func Timeseries(ctx context.Context, db *sql.DB, f Filter, bucket Bucket) ([]Tim
 	if err != nil {
 		return nil, err
 	}
-	where, args := f.whereSQL()
-	expr := bucket.expr()
-	q := `SELECT
-	` + expr + `,
-	COUNT(*),
-	COALESCE(SUM(` + uncachedInputSQL + `), 0),
-	COALESCE(SUM(` + outputTokensSQL + `), 0),
-	COALESCE(SUM(cache_read_tokens), 0),
-	COALESCE(SUM(cache_creation_tokens), 0),
-	COALESCE(SUM(reasoning_tokens), 0),
-	COALESCE(SUM(cost_source = 'harness' AND cost IS NOT NULL), 0),
-	COALESCE(SUM(cost_source IN ('openrouter', 'manual') AND cost IS NOT NULL), 0),
-	COALESCE(SUM(cost_source = 'free' AND cost IS NOT NULL), 0),
-	COUNT(cost),
-	SUM(cost)
-FROM generations WHERE ` + where + ` GROUP BY ` + expr + ` ORDER BY 1`
+	facts, args := f.factsSQL(usageRollup, bucket == BucketHour)
+	q := `SELECT bucket, ` + factSumsSQL + `, ` + factCostSQL + `
+FROM ` + facts + ` GROUP BY bucket ORDER BY bucket`
 	rows, err := db.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, fmt.Errorf("timeseries query: %w", err)
@@ -435,7 +393,7 @@ func breakdown(ctx context.Context, db *sql.DB, f Filter, column string) ([]Brea
 	if err != nil {
 		return nil, err
 	}
-	where, args := f.whereSQL()
+	facts, args := f.factsSQL(usageRollup, false)
 	groupKey := column
 	switch column {
 	case "model":
@@ -443,25 +401,12 @@ func breakdown(ctx context.Context, db *sql.DB, f Filter, column string) ([]Brea
 	case "group":
 		groupKey = tokenGroupKeySQL
 	case "token":
-		groupKey = "CAST(token_id AS TEXT)"
+		groupKey = "CAST(NULLIF(token_id, 0) AS TEXT)"
 	}
-	q := `SELECT
-	COALESCE(` + groupKey + `, ''),
-	COUNT(*),
-	COALESCE(SUM(` + uncachedInputSQL + `), 0),
-	COALESCE(SUM(` + outputTokensSQL + `), 0),
-	COALESCE(SUM(cache_read_tokens), 0),
-	COALESCE(SUM(cache_creation_tokens), 0),
-	COALESCE(SUM(reasoning_tokens), 0),
-	COALESCE(SUM(cost_source = 'harness' AND cost IS NOT NULL), 0),
-	COALESCE(SUM(cost_source IN ('openrouter', 'manual') AND cost IS NOT NULL), 0),
-	COALESCE(SUM(cost_source = 'free' AND cost IS NOT NULL), 0),
-	COUNT(cost),
-	COUNT(*) - COUNT(cost),
-	SUM(cost)
-FROM generations WHERE ` + where + ` GROUP BY ` + groupKey
+	q := `SELECT COALESCE(` + groupKey + `, ''), ` + factSumsSQL + `, ` + factUnknownSQL + `, ` + factCostSQL + `
+FROM ` + facts + ` GROUP BY ` + groupKey
 	if column == "model" || column == "group" || column == "token" {
-		q += ` ORDER BY ` + totalTokensSumSQL + ` DESC`
+		q += ` ORDER BY ` + factTotalTokensSQL + ` DESC`
 	} else {
 		q += ` ORDER BY COALESCE(` + column + `, '')`
 	}

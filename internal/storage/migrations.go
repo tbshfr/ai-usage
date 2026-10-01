@@ -47,7 +47,7 @@ func Migrate(db *sql.DB, logger *slog.Logger) error {
 			logger.Info("migration applied", "version", version)
 		}
 	}
-	return nil
+	return syncRollup(db, logger)
 }
 
 func migrationFiles() ([]string, error) {

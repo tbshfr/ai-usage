@@ -5,8 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 	"time"
-
-	"github.com/tbshfr/ai-usage/internal/normalize"
 )
 
 // ModelRankMetric selects how the Trends leaderboard ranks models.
@@ -50,21 +48,19 @@ func TopModels(ctx context.Context, db *sql.DB, f Filter, metric ModelRankMetric
 	if err != nil {
 		return nil, err
 	}
-	where, args := f.whereSQL()
+	facts, args := f.factsSQL(usageRollup, false)
+	where := `model <> ''`
 	if metric == RankDays {
-		where += ` AND (source != ? OR COALESCE(agent_name, '') NOT IN (?, ?, ?))`
-		args = append(args, normalize.SourceCopilot, normalize.AgentXtabProvider,
-			normalize.AgentTitle, normalize.AgentProgressMessages)
+		where += ` AND helper = 0`
 	}
-	dayCountSQL := fmt.Sprintf("COUNT(DISTINCT timestamp / %d)", dayMs)
 	q := `WITH ranked AS (
 		SELECT COALESCE(` + modelGroupKeySQL + `, '') AS model,
-			` + totalTokensSumSQL + ` AS total_tokens,
-			` + dayCountSQL + ` AS active_days,
-			SUM(cost) AS cost_total,
-			COUNT(cost) AS cost_known_count,
-			COALESCE(SUM(cost_source IN ('openrouter', 'manual') AND cost IS NOT NULL), 0) AS cost_estimated_count
-		FROM generations WHERE ` + where + ` AND COALESCE(model, '') <> ''
+			` + factTotalTokensSQL + ` AS total_tokens,
+			COUNT(DISTINCT bucket) AS active_days,
+			` + factCostSQL + ` AS cost_total,
+			COALESCE(SUM(cost_known), 0) AS cost_known_count,
+			COALESCE(SUM(cost_estimated), 0) AS cost_estimated_count
+		FROM ` + facts + ` WHERE ` + where + `
 		GROUP BY ` + modelGroupKeySQL + `
 	)
 	SELECT model, total_tokens, active_days, cost_total, cost_known_count, cost_estimated_count

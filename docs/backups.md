@@ -1,311 +1,232 @@
-# Daily backups to Cloudflare R2
+# Backups and restore
 
-Backups are optional. When enabled, the application snapshots the entire stored
-SQLite database with VACUUM INTO, validates it, gzip-compresses it, and uploads
-one .sqlite.gz object. Successful daily backups give an approximately 24-hour
-recovery window; failures or downtime extend it. There is no automatic restore.
+AI Usage can back up your database once a day to Amazon S3 or an S3-compatible
+service such as Cloudflare R2. Each backup is a complete copy of the database,
+compressed into a `.sqlite.gz` file. Backups are off until you configure a bucket.
 
-## R2 setup
+- [Set up backups](#set-up-backups)
+- [Manage backups](#manage-backups)
+- [Delete old backups automatically](#delete-old-backups-automatically)
+- [Download a backup](#download-a-backup)
+- [Restore](#restore)
+- [Permissions](#permissions)
+- [Troubleshooting](#troubleshooting)
 
-1. Create a private R2 bucket, preferably dedicated to these backups.
-2. In **R2 > Account Details > API Tokens > Manage**, create an **Object Read &
-   Write** token scoped to that bucket. Save its Access Key ID and Secret Access
-   Key in your deployment's secret store.
-3. Copy the bucket's S3 API endpoint. Use the jurisdiction-specific endpoint for
-   a jurisdictional bucket (for example, ACCOUNT_ID.eu.r2.cloudflarestorage.com
-   for EU). See [R2 authentication](https://developers.cloudflare.com/r2/api/tokens/).
+## Set up backups
 
-Set these environment variables for the application process (replace placeholders):
+### 1. Create a bucket and access key
+
+Create a private bucket and an access key that can upload, list, and download
+files in it. A dedicated bucket makes permissions and retention easier to manage.
+
+For Cloudflare R2:
+
+1. Create a bucket in the Cloudflare dashboard.
+2. Under R2's Account Details, select Manage next to API Tokens. Create a token
+   with Object Read & Write permission for your backup bucket.
+3. Save the Access Key ID and Secret Access Key. Note your S3 API endpoint,
+   `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`. If your bucket has a
+   jurisdiction, include it, such as `<ACCOUNT_ID>.eu.r2.cloudflarestorage.com`.
+   The bucket's settings page shows this URL followed by the bucket name; leave
+   the bucket name out, or AI Usage won't start.
+
+See [R2 authentication](https://developers.cloudflare.com/r2/api/tokens/) for
+Cloudflare's setup instructions.
+
+### 2. Configure AI Usage
+
+Set these environment variables for the application. This example uses R2;
+replace the placeholders with your values:
 
 ```dotenv
 AI_USAGE_BACKUP_S3_BUCKET=ai-usage-backups
 AI_USAGE_BACKUP_S3_REGION=auto
-AI_USAGE_BACKUP_S3_PREFIX=ai-usage/home/
+AI_USAGE_BACKUP_S3_PREFIX=prod/
 AI_USAGE_BACKUP_S3_ENDPOINT=https://<ACCOUNT_ID>.r2.cloudflarestorage.com
 AI_USAGE_BACKUP_S3_ACCESS_KEY_ID=<R2_ACCESS_KEY_ID>
 AI_USAGE_BACKUP_S3_SECRET_ACCESS_KEY=<R2_SECRET_ACCESS_KEY>
 ```
 
-The region is `auto` for R2. Custom endpoints use path-style addressing
-(/bucket/key); use the authenticated S3 endpoint, not a public bucket URL.
-The SDK sends a precomputed SHA-256 checksum with each single PutObject.
-See [R2's Go SDK example](https://developers.cloudflare.com/r2/examples/aws/aws-sdk-go/)
-and [S3 compatibility](https://developers.cloudflare.com/r2/api/s3/api/).
+The prefix is the folder-like path where backups are stored. Give each AI Usage
+instance its own prefix ending in `/`.
 
-Use a unique prefix ending in / for each database/instance. Flags override
-environment variables. Without a bucket, backups are disabled and the AWS SDK is
-not initialized; leave the other backup options unset too. Set the region
-explicitly with --backup-s3-region or
-AI_USAGE_BACKUP_S3_REGION when enabled. Credentials use
---backup-s3-access-key-id, --backup-s3-secret-access-key, and optional
---backup-s3-session-token, or their AI_USAGE_BACKUP_S3_* environment variables.
-Flags override environment variables, including explicitly empty flags.
-Prefer environment variables for deployed secrets to avoid exposing them in
-command-line arguments. There is no shared-profile, SSO, workload-role, or
-instance-role discovery. Restart the app after changing credentials. Missing credentials fail backup attempts without
-stopping ingestion or the dashboard.
+For Amazon S3, set the bucket's region and leave out `AI_USAGE_BACKUP_S3_ENDPOINT`.
+For other providers, use their region and authenticated S3 API endpoint. If your
+credentials include a session token, also set `AI_USAGE_BACKUP_S3_SESSION_TOKEN`.
+The application needs these credentials explicitly; it does not use AWS CLI
+profiles or automatically discover AWS roles.
 
-For Docker Compose, uncomment the backup environment block in
-[compose-example.yaml](../compose-example.yaml) and fill in the commented entries
-in [.env.example](../.env.example). A .env file alone does not pass variables
-into the container. Temporary backups and scheduling state live beside the
-database on /data; the example's small /tmp mount is not used for them.
+With Docker Compose, copy the backup entries from [.env.example](../.env.example)
+into your `.env`, fill them in, and uncomment the backup environment block in
+[compose-example.yaml](../compose-example.yaml). Adding values to `.env` alone
+does not pass them into the container.
 
-The AWS CLI still requires its own AWS-prefixed variables. For the operator
-commands below, define this shell function to map your S3 credentials for each
-CLI invocation. Use the appropriate separate administrator or restore credentials
-in the application-prefixed variables before running those commands:
+### 3. Apply the settings
+
+Restart the application. For Docker Compose, run this from the directory
+containing your Compose file so the updated environment is applied:
 
 ```sh
-s3() {
-  AWS_ACCESS_KEY_ID="$AI_USAGE_BACKUP_S3_ACCESS_KEY_ID" \
-  AWS_SECRET_ACCESS_KEY="$AI_USAGE_BACKUP_S3_SECRET_ACCESS_KEY" \
-  AWS_SESSION_TOKEN="${AI_USAGE_BACKUP_S3_SESSION_TOKEN:-}" \
-    aws "$@"
-}
+docker compose up -d
 ```
 
-## R2 retention lifecycle
+Invalid backup configuration can prevent startup. Missing or incorrect
+credentials cause backups to fail while the application keeps running. The
+first backup starts right away. Open Settings, then Backups, to check that it
+succeeds.
 
-Choose a positive retention period `X`; seven days is a starting recommendation.
-In the bucket's **Settings > Object Lifecycle Rules > Add rule**, add an enabled
-rule named `ai-usage-home-expiration` for prefix `ai-usage/home/`, deleting objects
-after seven days (replace with `X`). Save it alongside existing rules. The equivalent
-S3 lifecycle rule is:
+Leave enough free space next to the database file, which is in the data
+directory unless you set a different path, for a full database copy and its
+compressed file, plus space for incoming data during the backup.
 
-```json
-{
-  "ID": "ai-usage-home-expiration",
-  "Status": "Enabled",
-  "Filter": { "Prefix": "ai-usage/home/" },
-  "Expiration": { "Days": 7 }
-}
-```
+## Manage backups
 
-Match the application prefix exactly. This is one rule, not a replacement bucket
-configuration: merge it into the existing Rules array if using the S3 API.
-Inspect the resulting policy in the dashboard or with administrator credentials:
+In Settings, under Backups, you can check the last successful backup and the next
+scheduled run, change the daily backup time, or select Back up now.
+
+Until you choose a time, backups run daily at the time of the first backup.
+Your chosen time uses your browser's time zone and follows daylight saving
+changes. It takes effect without a restart. Running a backup manually does not
+change the daily time. If the app is stopped when a backup is due, it runs when
+the app starts again. The backup status and stored backups list show times in
+UTC.
+
+Stored backups shows the latest file, its size and upload time, and the total
+number and size of your backups. Expand the older backups to see more files.
+
+Backups contain everything stored in the database, including usage records and
+stored settings. Anyone with dashboard access can download them, so keep your
+bucket and downloaded files private.
+
+## Delete old backups automatically
+
+The application does not delete backups. Set a lifecycle rule in your storage
+provider's dashboard to remove old files after a period you choose, such as
+seven days.
+
+In R2, open your bucket's Settings, then Object Lifecycle Rules. Add a rule for
+your backup prefix, such as `prod/`, and set it to delete objects after
+seven days. Keep any existing rules. See
+[R2 object lifecycles](https://developers.cloudflare.com/r2/buckets/object-lifecycles/).
+
+Deletion can take time, so expired files may remain visible for a while. Rules
+continue deleting old backups even if new uploads stop; check regularly that
+backups are succeeding. If you use S3 versioning, configure expiration for older
+versions too.
+
+## Download a backup
+
+Choose whichever method is available:
+
+- Use your storage provider's web UI, if it has one. For example, open your R2
+  bucket in the Cloudflare dashboard, browse to the backup prefix, and download
+  the `.sqlite.gz` file you want.
+- If AI Usage is still running, open Settings, then Backups. Under Stored
+  backups, select Download next to the backup you want.
+- Use an S3 CLI, such as the AWS CLI, to download directly from the bucket.
+
+### Using the AWS CLI
+
+Configure the CLI with `aws configure`, using an access key that can list and
+read your backups. The CLI has its own credentials; it does not read the
+application's `AI_USAGE_BACKUP_S3_*` variables.
+
+For R2, list the available backups:
 
 ```sh
-s3 --endpoint-url "$AI_USAGE_BACKUP_S3_ENDPOINT" --region auto \
-  s3api get-bucket-lifecycle-configuration --bucket "$AI_USAGE_BACKUP_S3_BUCKET"
+aws s3 ls s3://ai-usage-backups/prod/ \
+  --endpoint-url 'https://<ACCOUNT_ID>.r2.cloudflarestorage.com' --region auto
 ```
 
-Expiration is asynchronous, so it is not an exact storage cap.
-Preserve R2's existing multipart-abort rule; this application uses no multipart
-uploads. The app creates neither buckets nor lifecycle policies.
-See [R2 object lifecycles](https://developers.cloudflare.com/r2/buckets/object-lifecycles/).
+Then download the file you want, saving it as `backup.sqlite.gz`:
 
-Approximate remote usage is X times the compressed snapshot size, plus expiration
-delay and occasional duplicate uploads after a crash. Retention limits backup
-history, not growth of the live database. Age-based retention eventually deletes
-every backup if uploads fail for longer than `X` days. Monitor stale backups and
-missing success logs; retention does not preserve a last known good object.
-
-R2 does not support S3 bucket versioning. If using AWS S3 with versioning enabled
-or suspended instead, current-object expiration alone leaves noncurrent data.
-Add the following to the expiration rule:
-
-```json
-"NoncurrentVersionExpiration": { "NoncurrentDays": 7 }
+```sh
+aws s3 cp 's3://ai-usage-backups/prod/<backup-filename>.sqlite.gz' backup.sqlite.gz \
+  --endpoint-url 'https://<ACCOUNT_ID>.r2.cloudflarestorage.com' --region auto
 ```
 
-Also add a separate rule for the same prefix with:
-
-```json
-"Expiration": { "ExpiredObjectDeleteMarker": true }
-```
-
-Choose the noncurrent period separately: its clock starts when a version becomes
-noncurrent, so total storage can exceed X days. See
-[AWS expiration semantics](https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html)
-and [R2 compatibility](https://developers.cloudflare.com/r2/api/s3/api/).
-
-## Permissions
-
-The application calls PutObject to upload, ListObjectsV2 on its prefix to
-show the stored backups on the Settings page, and GetObject to download them
-from there; it needs no deletion or lifecycle-administration permission. R2's
-**Object Read & Write** permission includes listing and reading. Without them,
-backups still run and the Settings page says the bucket can't be listed or the
-backup can't be downloaded. R2's standard persistent token
-permissions are bucket-scoped and broader than this minimum; use a dedicated bucket. Use a
-separate **Object Read only** token for restoring outside the app and separate administrator
-credentials for lifecycle management. Never give the running app an admin token.
-See [R2 token scopes](https://developers.cloudflare.com/r2/api/tokens/).
-
-For AWS IAM, the minimal statements are:
-
-```json
-[
-  {
-    "Effect": "Allow",
-    "Action": "s3:PutObject",
-    "Resource": "arn:aws:s3:::ai-usage-backups/ai-usage/home/*"
-  },
-  {
-    "Effect": "Allow",
-    "Action": "s3:GetObject",
-    "Resource": "arn:aws:s3:::ai-usage-backups/ai-usage/home/*"
-  },
-  {
-    "Effect": "Allow",
-    "Action": "s3:ListBucket",
-    "Resource": "arn:aws:s3:::ai-usage-backups",
-    "Condition": { "StringEquals": { "s3:prefix": "ai-usage/home/" } }
-  }
-]
-```
-
-Leave out the GetObject and ListBucket statements to keep the key upload-only;
-only downloading and the stored backup list are then unavailable.
-
-Grant restore operators s3:GetObject on that prefix; optional s3:ListBucket
-should have an s3:prefix condition. Lifecycle administrators need
-s3:GetLifecycleConfiguration and s3:PutLifecycleConfiguration on the bucket.
-AWS IAM policy JSON is not an R2 bucket policy.
-
-## Scheduling, monitoring, and resources
-
-Backups run once a day at a fixed time. Until you choose one, that is the UTC
-time of day of the first backup, which runs at the first startup with backups
-enabled (after an upgrade, the time of the last successful backup, so an
-existing cycle does not move). The **Backups** section of the Settings page
-changes the time; it is saved with the browser's time zone so it follows
-daylight saving changes, and stored in the database, so it survives restarts
-and applies without one. Changing the time never starts a backup at once:
-choosing an earlier time of day than the last backup waits until that time
-tomorrow.
-
-The next backup is the first occurrence of the daily time after the previous
-snapshot, so one missed while the app was down runs at startup. Only one
-worker runs per process; run one application process per database. A private
-directory named `<database>.backups-<destination-hash>` contains success.json,
-recording snapshot time, completion time, and key via atomic replacement.
-It also holds schedule.json, recording when the backup time was last changed,
-so a restart after the change does not back up early.
-Keep this directory with the deployment; deleting its state causes an immediate
-backup next startup. Changing database path or destination starts a new schedule.
-
-**Back up now** on the Settings page starts a backup immediately, including
-during a retry delay after a failure. It is ignored while a backup is already
-running and does not move the daily time.
-
-**Stored backups** on the Settings page shows the newest backup with its upload
-time, size, and a download link, the number and total size of all backups, and
-the older ones behind **Show older backups**. Downloads go through the
-application, so the browser needs no access to the bucket; anyone who can sign
-in to the dashboard can download the whole database, including OTLP token
-hashes. Only `.sqlite.gz` objects directly under the prefix are shown,
-not other files or nested prefixes. The listing is cached for 5 minutes (1
-minute after an error) and refreshed after each successful backup, so open
-pages do not list the bucket on every data change. Backups past a lifecycle
-rule's age can stay listed until the provider deletes them, which R2 does
-asynchronously.
-
-Each attempt has a 30-minute deadline. The SDK retries transient uploads up to
-three times using the same local file and key. Failed attempts retry with
-exponential backoff and jitter (initially 30 to 60 seconds, capped at 30 to 60 minutes).
-Failures never advance the saved schedule. A crash between upload and state
-persistence may leave an extra object. Temporary artifacts are removed after
-attempts and stale attempt artifacts are cleaned on startup.
-
-At the default info log level, collect JSON messages `backups enabled`,
-`backup last success`, `backup succeeded`, and `backup failed`. Outcomes
-include elapsed time, compressed bytes, and snapshot timestamps; the failure `stage`
-identifies snapshot, compression, upload, or state problems without exposing SDK
-errors or signed URLs. `backup stale` is emitted after a failed attempt without
-a recent success, at most hourly. Alert on this warning and on absence of a
-successful snapshot for more than 24 hours (allow a small completion margin).
-Monitor process availability too: a stopped process cannot warn. An upload-stage
-failure calls for checking credentials, endpoint, network access, and provider
-status. /health and /ready remain independent of remote backup availability.
-The authenticated [`GET /api/backup`](api.md#get-apibackup) endpoint exposes
-backup status, running state, last success, and failure time and stage for
-separate monitoring.
-
-Allow free disk space beside the database for one standalone snapshot plus
-its gzip file and WAL growth during the read. Compression and upload stream data
-with bounded memory. This version rejects compressed files over 5,000,000,000
-bytes, below [R2's single-upload limit](https://developers.cloudflare.com/r2/platform/limits/).
-Snapshotting consumes CPU and I/O and can increase ingestion latency.
-The schema uses explicit application keys and never relies on implicit ROWIDs
-remaining stable under VACUUM. Backup files contain all stored metadata, including
-conversation IDs and repository metadata; gzip is not encryption. Enabling
-backups sends that database off the machine.
+Replace the bucket, prefix, endpoint, and filename with your values. For Amazon
+S3, omit `--endpoint-url` and use your bucket's region. See the
+[AWS CLI download examples](https://docs.aws.amazon.com/cli/latest/reference/s3/cp.html#examples).
 
 ## Restore
 
-Use the same application version recorded in object metadata, or a compatible
-newer version. The following Linux example needs AWS CLI, gzip, OpenSSL, and the
-SQLite CLI on the operator's machine; they are not runtime app dependencies.
+Restoring replaces the current database with the backup. Data recorded after
+that backup will be lost. This includes OTLP tokens: tokens created since the
+backup stop working, and tokens deleted since then work again. Use the same
+application version that created the backup, or a compatible newer version.
 
-1. Stop the application completely (for example, docker compose stop ai-usage).
-   Use separate restore credentials and select an exact .sqlite.gz object key
-   from R2 or the success log.
-2. Download and validate in a new private staging directory. In a shell with the
-   R2 bucket/endpoint variables above and restore credentials:
+The example below uses the supplied Docker Compose setup, where
+`./data/usage.db` on the host is `/data/usage.db` inside the container. Run the
+commands on the host, from the directory containing your Compose file. If any
+command fails, resolve the error before continuing.
 
-```sh
-set -eu
-umask 077
-BACKUP_KEY='ai-usage/home/<timestamp>-<suffix>.sqlite.gz'
-RESTORE_DIR=$(mktemp -d)
-s3 --endpoint-url "$AI_USAGE_BACKUP_S3_ENDPOINT" --region auto \
-  s3api get-object --bucket "$AI_USAGE_BACKUP_S3_BUCKET" --key "$BACKUP_KEY" \
-  "$RESTORE_DIR/backup.sqlite.gz" > "$RESTORE_DIR/object-metadata.json"
-EXPECTED_SHA256=$(s3 --endpoint-url "$AI_USAGE_BACKUP_S3_ENDPOINT" --region auto \
-  s3api head-object --bucket "$AI_USAGE_BACKUP_S3_BUCKET" --key "$BACKUP_KEY" \
-  --query 'Metadata.sha256' --output text)
-ACTUAL_SHA256=$(openssl dgst -sha256 -binary "$RESTORE_DIR/backup.sqlite.gz" | openssl base64 -A)
-test "$EXPECTED_SHA256" = "$ACTUAL_SHA256"
-gzip -t "$RESTORE_DIR/backup.sqlite.gz"
-gzip -dc "$RESTORE_DIR/backup.sqlite.gz" > "$RESTORE_DIR/usage.db"
-test "$(sqlite3 -readonly "$RESTORE_DIR/usage.db" 'PRAGMA integrity_check;')" = ok
-sqlite3 -readonly "$RESTORE_DIR/usage.db" \
-  'SELECT count(*), sum(input_tokens), sum(output_tokens), sum(cost) FROM generations;'
-```
+1. Download a backup using one of the methods above. Copy it to the host running
+   AI Usage and save it as `backup.sqlite.gz` in your Compose directory.
 
-A backup downloaded from **Stored backups** on the Settings page can replace
-the get-object command: save it as `$RESTORE_DIR/backup.sqlite.gz`. Without
-restore credentials for the checksum comparison, still run the gzip and
-integrity checks.
+2. Stop the application before replacing any database files:
 
-3. Preserve the original database and any WAL/SHM companions together while
-   the app remains stopped. Adjust DB and service ownership for your deployment:
+   ```sh
+   docker compose stop ai-usage
+   ```
 
-```sh
-DB="$PWD/data/usage.db"
-PRESERVED_DIR=$(mktemp -d "$(dirname "$DB")/before-restore.XXXXXX")
-for FILE in "$DB" "$DB-wal" "$DB-shm"; do
-  if [ -e "$FILE" ]; then mv -- "$FILE" "$PRESERVED_DIR/"; fi
-done
-install -m 600 "$RESTORE_DIR/usage.db" "$DB"
-# Run with suitable privileges; 65532:65532 is the example container's user.
-chown 65532:65532 "$DB"
-```
+3. Decompress the backup. This creates `backup.sqlite` and keeps the compressed
+   file:
 
-Do not proceed after any failed command. If installation fails, keep the app
-stopped and recover the original set from PRESERVED_DIR. The restored file must
-have no stale usage.db-wal or usage.db-shm beside it.
+   ```sh
+   gzip -dk backup.sqlite.gz
+   ```
 
-4. Restart the application. Verify logs, representative records, and dashboard
-   token/cost totals against the staged snapshot. Daily ingestion counters can
-   lag generation records by the one-minute counter-save interval. Keep the
-   preserved originals until validation succeeds. Restoring never merges newer
-   live records automatically.
+4. Copy the database into place and remove any old WAL and SHM files left beside
+   it. These files belong to the previous database. Set ownership so the
+   container can read and write the restored file:
 
-## Local measurements
+   ```sh
+   sudo cp backup.sqlite ./data/usage.db
+   sudo rm -f ./data/usage.db-wal ./data/usage.db-shm
+   sudo chown 65532:65532 ./data/usage.db
+   ```
 
-Run the reproducible synthetic workload with:
+5. Start the application and open the dashboard to check your restored data:
 
-```sh
-go test ./internal/backup -run '^$' -bench BenchmarkBackup -benchtime=1x -count=1
-```
+   ```sh
+   docker compose start ai-usage
+   ```
 
-This reports snapshot/validation time, compressed bytes, and storage ingestion
-batch latency with and without backup activity. Synthetic results are not a
-capacity guarantee; measure your real database and deployment resource limits
-before relying on the daily recovery window.
+If you run AI Usage without Docker, follow the same steps using your usual stop
+and start commands. Put the file at the path set by `--database` or
+`AI_USAGE_DATABASE`; by default it is `usage.db` in the application's data
+directory. Adjust the WAL and SHM filenames to match, and make the restored file
+writable by the user running AI Usage. See [configuration](configuration.md#options)
+for the database and data directory settings.
 
-When backups are configured, the Settings page shows backup status, the last successful completion time, and the next scheduled backup. When they are not configured, the Settings page shows a short setup guide. Backup changes notify the existing SSE feed, which triggers HTMX fragment refreshes. The dashboard only shows a backup banner when an attempt has failed. A failed attempt displays a banner with the failure stage and time; it remains visible during retries until a backup succeeds. The last success is restored from local state after restart; failure status is tracked for the current process.
+## Permissions
+
+The application needs permission to upload backups, list files under its
+prefix, and download them. In AWS S3, these are `s3:PutObject`, `s3:ListBucket`,
+and `s3:GetObject`. In R2, use Object Read & Write scoped to the backup bucket.
+It does not need an administrator token or permission to manage lifecycle rules.
+
+An upload-only key can still create backups, but the app cannot list or download
+them. A separate key used only for downloading needs read and list permissions;
+R2 calls this Object Read only.
+
+## Troubleshooting
+
+If a backup fails, the dashboard shows an error and the application retries
+automatically. You can also select Back up now to retry immediately. Check the
+last successful backup time: a working daily schedule usually means losing at
+most about a day's data, but failures or downtime can leave a larger gap.
+
+For upload errors, check the access key, bucket, region, endpoint, and network
+connection. Restart the app after changing credentials. Changing the bucket,
+region, prefix, endpoint, or database path counts as a new destination, so a
+backup runs right after the restart. For failures while creating the local
+backup, check free space and write permissions next to the database file. A
+failure during `size_limit` means the compressed backup is larger than 5 GB,
+which AI Usage can't upload. Backup failures do not stop the dashboard or
+incoming usage data.
+
+If the stored backup list or a download fails, check the key's read and list
+permissions. The list can take a few minutes to reflect changes made directly
+in the bucket.

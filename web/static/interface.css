@@ -77,6 +77,9 @@ tbody tr:last-child td { border-bottom: 0; }
 .cost-details summary:hover { color: var(--accent); }
 .cost-details p { margin: var(--space-sm) 0 0; color: var(--muted); font-size: var(--text-xs); font-weight: 400; }
 tbody tr:nth-child(even):not(.totals) { background: var(--panel); }
+.chart .u-legend { width: auto; background: none; border: 0; border-radius: 0; box-shadow: none; overflow: visible; }
+.chart .u-legend tr.u-series, .chart .u-legend tr.u-series:hover { background: none; }
+.chart .u-legend th, .chart .u-legend td { background: none; border: 0; padding: var(--space-xs) var(--space-sm); color: var(--text); font-size: var(--text-sm); font-weight: 500; text-transform: none; letter-spacing: 0; text-align: left; }
 .detail-dialog, .token-dialog { box-shadow: var(--shadow-overlay); }
 dialog.detail-dialog::backdrop, dialog.token-dialog::backdrop { background: var(--color-backdrop); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
 .close { color: var(--muted); border: 0; border-radius: var(--radius-input); min-width: 36px; min-height: 36px; }

@@ -2,13 +2,13 @@
 <div class="list-head">
   {{if .SessionsTab}}
   <div class="tabs">
-    <a class="tab" href="{{.SessionsTab}}">Sessions</a>
-    <span class="tab active">All requests</span>
+    <a class="tab" href="{{.SessionsTab}}" data-label="Sessions">Sessions</a>
+    <span class="tab active" data-label="All requests">All requests</span>
   </div>
   {{end}}
   <span class="sort-toggle muted">Sort by date:
-    <a href="{{.SortDesc.Page}}" hx-get="{{.SortDesc.Frag}}" hx-target="#session-list" hx-push-url="{{.SortDesc.Page}}"{{if eq (printf "%v" .SortOrder) "desc"}} class="active"{{end}}>Newest first</a>
-    <a href="{{.SortAsc.Page}}" hx-get="{{.SortAsc.Frag}}" hx-target="#session-list" hx-push-url="{{.SortAsc.Page}}"{{if eq (printf "%v" .SortOrder) "asc"}} class="active"{{end}}>Oldest first</a>
+    <a href="{{.SortDesc.Page}}" data-label="Newest first" hx-get="{{.SortDesc.Frag}}" hx-target="#session-list" hx-push-url="{{.SortDesc.Page}}"{{if eq (printf "%v" .SortOrder) "desc"}} class="active"{{end}}>Newest first</a>
+    <a href="{{.SortAsc.Page}}" data-label="Oldest first" hx-get="{{.SortAsc.Frag}}" hx-target="#session-list" hx-push-url="{{.SortAsc.Page}}"{{if eq (printf "%v" .SortOrder) "asc"}} class="active"{{end}}>Oldest first</a>
   </span>
 </div>
 <div class="table-scroll">

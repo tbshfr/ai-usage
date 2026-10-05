@@ -224,6 +224,9 @@ dialog.detail-dialog::backdrop, dialog.token-dialog::backdrop { background: var(
 .filter-choice span { display: flex; align-items: center; justify-content: center; min-height: 36px; padding: var(--space-xs) var(--space-sm); border-radius: 4px; font-size: var(--text-sm); }
 .filter-choice input:checked + span { background: var(--panel); color: var(--accent); border-color: var(--border); box-shadow: var(--shadow-panel); font-weight: 600; }
 .filter-choice label.disabled span { text-decoration: none; }
+.filterbar .presets a, .filter-choice span { flex-direction: column; }
+.tab { text-align: center; }
+.filterbar .presets a::after, .filter-choice span::after, .tab::after, .sort-toggle a::after { display: block; content: attr(data-label); font-weight: 600; height: 0; overflow: hidden; visibility: hidden; pointer-events: none; user-select: none; }
 @media (max-width: 768px) {
   .filterbar .presets { justify-content: flex-start; }
   .filterbar .presets a { padding: var(--space-xs) var(--space-sm); flex: 1 0 auto; }

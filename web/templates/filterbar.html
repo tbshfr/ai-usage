@@ -1,12 +1,12 @@
 {{define "filterbar"}}
 <form id="filter-bar" method="get" action="{{.F.Action}}" class="filterbar">
   {{if .F.Presets}}<span class="presets">
-    {{range .F.Presets}}<a href="{{.URL}}"{{if .Active}} class="active"{{end}}>{{.Label}}</a>{{end}}
+    {{range .F.Presets}}<a href="{{.URL}}" data-label="{{.Label}}"{{if .Active}} class="active"{{end}}>{{.Label}}</a>{{end}}
   </span>{{end}}
   {{if .F.ShowPeriodMode}}<fieldset class="filter-choice filter-period" aria-label="Week and month period type">
     <legend>Week &amp; month</legend>
-    <label><input type="radio" name="period_mode" value="calendar"{{if not .F.PeriodRolling}} checked{{end}}><span>Calendar</span></label>
-    <label><input type="radio" name="period_mode" value="rolling"{{if .F.PeriodRolling}} checked{{end}}><span>Rolling · 7d / 30d</span></label>
+    <label><input type="radio" name="period_mode" value="calendar"{{if not .F.PeriodRolling}} checked{{end}}><span data-label="Calendar">Calendar</span></label>
+    <label><input type="radio" name="period_mode" value="rolling"{{if .F.PeriodRolling}} checked{{end}}><span data-label="Rolling · 7d / 30d">Rolling · 7d / 30d</span></label>
   </fieldset>{{end}}
   {{if .F.ShowDimensions}}<details class="filter-disclosure" open>
     <summary>{{template "icon" "filter"}}<span>Filters</span></summary>
@@ -36,7 +36,7 @@
   </select>{{end}}
   {{end}}
   {{if eq .Active "trends"}}<fieldset id="bucket-form" class="filter-choice"><legend>Group by</legend>
-    {{range .Charts.Buckets}}<label{{if .Disabled}} class="disabled" title="Choose a shorter date range to use {{.Label}} grouping"{{end}}><input type="radio" name="bucket" value="{{.Value}}"{{if eq .Value $.Charts.Bucket}} checked{{end}}{{if .Disabled}} disabled{{end}}><span>{{.Label}}</span></label>{{end}}
+    {{range .Charts.Buckets}}<label{{if .Disabled}} class="disabled" title="Choose a shorter date range to use {{.Label}} grouping"{{end}}><input type="radio" name="bucket" value="{{.Value}}"{{if eq .Value $.Charts.Bucket}} checked{{end}}{{if .Disabled}} disabled{{end}}><span data-label="{{.Label}}">{{.Label}}</span></label>{{end}}
   </fieldset>{{end}}
   {{if .F.ShowDimensions}}</div></details>{{end}}
   {{if .F.Selected.Range}}<input type="hidden" name="range" value="{{.F.Selected.Range}}">{{end}}

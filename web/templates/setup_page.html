@@ -16,7 +16,7 @@
 </form>
 
 <nav class="tabs setup-tabs" aria-label="Clients">
-  {{range .Setup.Agents}}<a class="tab{{if .Active}} active{{end}}" href="/settings/setup?agent={{.Key}}"{{if .Active}} aria-current="page"{{end}}>{{.Name}}</a>
+  {{range .Setup.Agents}}<a class="tab{{if .Active}} active{{end}}" data-label="{{.Name}}" href="/settings/setup?agent={{.Key}}"{{if .Active}} aria-current="page"{{end}}>{{.Name}}</a>
   {{end}}
 </nav>
 

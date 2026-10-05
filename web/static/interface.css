@@ -143,7 +143,7 @@ dialog.detail-dialog::backdrop, dialog.token-dialog::backdrop { background: var(
 @media (min-width: 769px) {
   .topbar nav { transform: none; visibility: visible; border-right-color: transparent; }
   .nav-overlay { display: none; }
-  body::before { content: ""; position: fixed; z-index: 14; top: 64px; left: 232px; right: 0; bottom: 0; border-top-left-radius: 10px; box-shadow: 0 0 0 24px var(--color-sidebar), inset 0 1px 8px -4px var(--color-frame-glow), inset 1px 0 8px -4px var(--color-frame-glow); pointer-events: none; }
+  body:not(.login-page)::before { content: ""; position: fixed; z-index: 14; top: 64px; left: 232px; right: 0; bottom: 0; border-top-left-radius: 10px; box-shadow: 0 0 0 24px var(--color-sidebar), inset 0 1px 8px -4px var(--color-frame-glow), inset 1px 0 8px -4px var(--color-frame-glow); pointer-events: none; }
   html { scroll-padding-top: calc(64px + var(--page-heading-stuck)); }
   main { --page-heading-stuck: calc(44px + 2 * var(--space-md)); padding-top: 0; }
   .page-heading { position: sticky; top: calc(64px + var(--space-md) - var(--main-pad-y)); z-index: 11; height: calc(var(--main-pad-y) + 44px + var(--space-md)); margin: 0 calc(-1 * var(--main-pad-x)); padding: var(--main-pad-y) var(--main-pad-x) var(--space-md); background: var(--bg); }

@@ -16,6 +16,8 @@ override defaults.
 | `--log-level` | `AI_USAGE_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, or `error` |
 | `--dashboard-user` | `AI_USAGE_DASHBOARD_USER` | unset | Dashboard username |
 | `--dashboard-password` | `AI_USAGE_DASHBOARD_PASSWORD` | unset | Dashboard password |
+| `--session-secret` | `AI_USAGE_SESSION_SECRET` | random per process | Dashboard session signing secret; keeps logins valid across restarts (see [Sessions](#sessions)) |
+| `--session-ttl` | `AI_USAGE_SESSION_TTL` | `7d` | Dashboard login lifetime, such as `12h` or `30d` |
 | `--otlp-token` | `AI_USAGE_OTLP_TOKEN` | unset | Bearer token imported once as the `default` OTLP token (see [OTLP tokens](#otlp-tokens)) |
 | `--backup-s3-bucket` | `AI_USAGE_BACKUP_S3_BUCKET` | disabled | Backup bucket |
 | `--backup-s3-region` | `AI_USAGE_BACKUP_S3_REGION` | required with backups | S3 region; use `auto` for R2 |
@@ -65,12 +67,38 @@ export AI_USAGE_DASHBOARD_USER=admin
 export AI_USAGE_DASHBOARD_PASSWORD='a-long-random-password'
 ```
 
-The dashboard uses an HMAC-signed, `HttpOnly` session cookie that lasts seven
-days. Its signing secret is generated at startup, so restarting the process
-logs the user out.
-
 Generate credentials with a password manager or a command such as
 `openssl rand -hex 32`. Keep them outside the repository and command history.
+
+### Sessions
+
+The dashboard uses an HMAC-signed, `HttpOnly`, `Secure` session cookie that
+lasts seven days by default. Unless configured, its signing secret is
+generated at startup, so restarting the process logs every user out.
+
+To keep logins valid across restarts, set a persistent secret of at least 32
+characters:
+
+```sh
+export AI_USAGE_SESSION_SECRET="$(openssl rand -hex 32)"  # store it, e.g. in .env
+```
+
+The cookie signing key is derived from this secret together with the
+dashboard username and password, so changing either credential still logs
+everyone out. To revoke all sessions without changing the credentials, change
+the secret and restart. Treat the secret like the password: anyone who knows
+it, the username and the password can forge a session. Prefer the environment
+variable over `--session-secret`, which is visible in the process list.
+
+`AI_USAGE_SESSION_TTL` (or `--session-ttl`) sets how long a login stays valid,
+from `1m` to `365d`. It accepts Go durations such as `90m` or `12h`, or whole
+days such as `30d`. The lifetime counts from login and is not extended by
+activity. Both options require dashboard authentication.
+
+Signing out only clears the cookie in that browser; it does not revoke the
+cookie on the server. A copied cookie stays valid until it expires, and with a
+persistent secret that includes across restarts. Keep the lifetime short, and
+change the secret to end every session early.
 
 ### OTLP tokens
 

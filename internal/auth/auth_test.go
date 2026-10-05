@@ -192,3 +192,60 @@ func TestSessionsRejectCookieFromOtherSecret(t *testing.T) {
 		t.Error("cookie signed by another secret accepted")
 	}
 }
+
+func TestConfiguredSessionsSurviveRestart(t *testing.T) {
+	secret := strings.Repeat("k", 32)
+	a, err := NewConfiguredSessions(secret, time.Hour, "admin", "pw")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec := httptest.NewRecorder()
+	a.Issue(rec)
+	req := httptest.NewRequest("GET", "/", nil)
+	for _, c := range rec.Result().Cookies() {
+		req.AddCookie(c)
+	}
+	if exp := rec.Result().Cookies()[0].Expires; time.Until(exp) > time.Hour || time.Until(exp) < 59*time.Minute {
+		t.Errorf("cookie expiry = %v, want ~1h", exp)
+	}
+
+	if !must(t)(NewConfiguredSessions(secret, time.Hour, "admin", "pw")).Valid(req) {
+		t.Error("cookie rejected by a new process with the same secret")
+	}
+	for name, s := range map[string]*Sessions{
+		"other secret":   must(t)(NewConfiguredSessions(strings.Repeat("x", 32), time.Hour, "admin", "pw")),
+		"other password": must(t)(NewConfiguredSessions(secret, time.Hour, "admin", "pw2")),
+		"other user":     must(t)(NewConfiguredSessions(secret, time.Hour, "root", "pw")),
+		"shifted creds":  must(t)(NewConfiguredSessions(secret, time.Hour, "adminp", "w")),
+		"random secret":  must(t)(NewConfiguredSessions("", time.Hour, "admin", "pw")),
+	} {
+		if s.Valid(req) {
+			t.Errorf("%s: cookie accepted", name)
+		}
+	}
+}
+
+func TestRandomSessionsDoNotSurviveRestart(t *testing.T) {
+	a := must(t)(NewSessions())
+	rec := httptest.NewRecorder()
+	a.Issue(rec)
+	req := httptest.NewRequest("GET", "/", nil)
+	for _, c := range rec.Result().Cookies() {
+		req.AddCookie(c)
+	}
+	if must(t)(NewSessions()).Valid(req) {
+		t.Error("cookie accepted by a new process without a configured secret")
+	}
+}
+
+// must returns a func so it can wrap a two-value call directly.
+func must(t *testing.T) func(*Sessions, error) *Sessions {
+	t.Helper()
+	return func(s *Sessions, err error) *Sessions {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return s
+	}
+}

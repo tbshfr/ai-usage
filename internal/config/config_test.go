@@ -3,7 +3,9 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 )
 
 func noEnv(string) (string, bool) { return "", false }
@@ -305,5 +307,68 @@ func TestManualPricingFileFlagAndEnv(t *testing.T) {
 		if cfg.PricingFile != tc.want {
 			t.Fatalf("pricing file %q want %q", cfg.PricingFile, tc.want)
 		}
+	}
+}
+
+func TestSessionDefaults(t *testing.T) {
+	c, err := Load([]string{"--dashboard-user", "admin", "--dashboard-password", "pw"}, noEnv, "linux", t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.SessionSecret != "" || c.SessionTTL != 0 {
+		t.Errorf("session config = %q/%v, want unset (random secret, default TTL)", c.SessionSecret, c.SessionTTL)
+	}
+}
+
+func TestSessionSecretAndTTL(t *testing.T) {
+	home := t.TempDir()
+	secret := strings.Repeat("a", MinSessionSecretLen)
+	env := envOf(map[string]string{
+		"AI_USAGE_DASHBOARD_USER":     "admin",
+		"AI_USAGE_DASHBOARD_PASSWORD": "pw",
+		"AI_USAGE_SESSION_SECRET":     secret,
+		"AI_USAGE_SESSION_TTL":        "30d",
+	})
+	c, err := Load(nil, env, "linux", home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.SessionSecret != secret || c.SessionTTL != 30*24*time.Hour {
+		t.Errorf("session config from env = %q/%v", c.SessionSecret, c.SessionTTL)
+	}
+
+	flagSecret := strings.Repeat("b", 40)
+	c, err = Load([]string{"--session-secret", flagSecret, "--session-ttl", "12h"}, env, "linux", home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.SessionSecret != flagSecret || c.SessionTTL != 12*time.Hour {
+		t.Errorf("session config from flags = %q/%v", c.SessionSecret, c.SessionTTL)
+	}
+}
+
+func TestSessionConfigRejected(t *testing.T) {
+	home := t.TempDir()
+	creds := []string{"--dashboard-user", "admin", "--dashboard-password", "pw"}
+	good := strings.Repeat("a", MinSessionSecretLen)
+	cases := map[string][]string{
+		"secret without credentials": {"--session-secret", good},
+		"ttl without credentials":    {"--session-ttl", "1h"},
+		"short secret":               append(creds, "--session-secret", good[1:]),
+		"whitespace secret":          append(creds, "--session-secret", good+"\n"),
+		"ttl garbage":                append(creds, "--session-ttl", "soon"),
+		"ttl zero":                   append(creds, "--session-ttl", "0"),
+		"ttl negative":               append(creds, "--session-ttl", "-1h"),
+		"ttl too short":              append(creds, "--session-ttl", "30s"),
+		"ttl too long":               append(creds, "--session-ttl", "366d"),
+		"ttl hours too long":         append(creds, "--session-ttl", "9000h"),
+		"ttl zero days":              append(creds, "--session-ttl", "0d"),
+	}
+	for name, args := range cases {
+		t.Run(name, func(t *testing.T) {
+			if _, err := Load(args, noEnv, "linux", home); err == nil {
+				t.Error("expected error")
+			}
+		})
 	}
 }

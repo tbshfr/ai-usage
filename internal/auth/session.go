@@ -20,9 +20,12 @@ const SessionCookie = "ai_usage_session"
 // DefaultSessionTTL is how long a dashboard login stays valid.
 const DefaultSessionTTL = 7 * 24 * time.Hour
 
-// Sessions issues and validates HMAC-signed cookie sessions. The secret
-// is fresh random bytes per process, so every restart invalidates
-// previously issued cookies. Safe for concurrent use.
+// sessionKeyLabel domain-separates the derived cookie signing key.
+const sessionKeyLabel = "ai-usage dashboard session v1"
+
+// Sessions issues and validates HMAC-signed cookie sessions. By default
+// the secret is fresh random bytes per process, so every restart
+// invalidates previously issued cookies. Safe for concurrent use.
 type Sessions struct {
 	secret []byte
 	ttl    time.Duration
@@ -30,11 +33,35 @@ type Sessions struct {
 
 // NewSessions creates a session manager with a fresh random secret.
 func NewSessions() (*Sessions, error) {
-	secret := make([]byte, 32)
-	if _, err := rand.Read(secret); err != nil {
-		return nil, err
+	return NewConfiguredSessions("", DefaultSessionTTL, "", "")
+}
+
+// NewConfiguredSessions creates a session manager valid for ttl (zero
+// uses DefaultSessionTTL). An empty
+// secret keeps the per-process random key. A configured secret makes
+// cookies survive restarts; the signing key is derived from it together
+// with the dashboard credentials, so changing the username or password
+// still invalidates every issued cookie.
+func NewConfiguredSessions(secret string, ttl time.Duration, user, password string) (*Sessions, error) {
+	if ttl <= 0 {
+		ttl = DefaultSessionTTL
 	}
-	return &Sessions{secret: secret, ttl: DefaultSessionTTL}, nil
+	if secret == "" {
+		key := make([]byte, 32)
+		if _, err := rand.Read(key); err != nil {
+			return nil, err
+		}
+		return &Sessions{secret: key, ttl: ttl}, nil
+	}
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(sessionKeyLabel))
+	for _, part := range []string{user, password} {
+		var n [4]byte
+		binary.BigEndian.PutUint32(n[:], uint32(len(part)))
+		mac.Write(n[:])
+		mac.Write([]byte(part))
+	}
+	return &Sessions{secret: mac.Sum(nil), ttl: ttl}, nil
 }
 
 // Issue sets a signed session cookie valid until now + ttl. The cookie is

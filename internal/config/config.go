@@ -8,7 +8,9 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
+	"time"
 )
 
 type Config struct {
@@ -29,7 +31,17 @@ type Config struct {
 	DashboardUser           string
 	DashboardPassword       string
 	OTLPToken               string
+	SessionSecret           string
+	SessionTTL              time.Duration
 }
+
+// MinSessionSecretLen is the minimum length of a configured session
+// secret, enough for 128+ bits from a random hex or base64 string.
+const MinSessionSecretLen = 32
+
+// MaxSessionTTL caps how long a leaked cookie stays usable, since logout
+// only clears the browser cookie and cannot revoke it server-side.
+const MaxSessionTTL = 365 * 24 * time.Hour
 
 type envFunc func(string) (string, bool)
 
@@ -44,6 +56,8 @@ func Load(args []string, lookup envFunc, goos, homeDir string) (*Config, error) 
 	logLevel := fs.String("log-level", "", "log level (debug|info|warn|error)")
 	dashUser := fs.String("dashboard-user", "", "dashboard login username (required for non-loopback binds)")
 	dashPass := fs.String("dashboard-password", "", "dashboard login password (required for non-loopback binds)")
+	sessionSecret := fs.String("session-secret", "", "dashboard session signing secret (min 32 chars); keeps logins valid across restarts (default: random per process)")
+	sessionTTL := fs.String("session-ttl", "", "dashboard login lifetime, e.g. 12h or 30d (default 7d)")
 	otlpToken := fs.String("otlp-token", "", "bearer token imported once as the \"default\" OTLP token; manage tokens on the dashboard's OTLP tokens page")
 
 	backupBucket := fs.String("backup-s3-bucket", "", "backup bucket (empty disables backups)")
@@ -127,6 +141,13 @@ func Load(args []string, lookup envFunc, goos, homeDir string) (*Config, error) 
 	if err != nil {
 		return nil, err
 	}
+	c.SessionSecret, _ = flagOrEnv("session-secret", *sessionSecret, set, lookup)
+	if v, _ := flagOrEnv("session-ttl", *sessionTTL, set, lookup); v != "" {
+		c.SessionTTL, err = parseSessionTTL(v)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	if dir, ok := flagOrEnv("data-dir", *dataDir, set, lookup); ok {
 		c.DataDir = dir
@@ -157,10 +178,26 @@ func Load(args []string, lookup envFunc, goos, homeDir string) (*Config, error) 
 }
 
 // validateAuth refuses non-loopback listener binds without credentials:
-// anything reachable beyond this machine must be authenticated.
+// anything reachable beyond this machine must be authenticated. Session
+// options are rejected without credentials so a typo cannot silently
+// leave them unused.
 func (c *Config) validateAuth() error {
 	if (c.DashboardUser == "") != (c.DashboardPassword == "") {
 		return fmt.Errorf("--dashboard-user and --dashboard-password must be set together (env: AI_USAGE_DASHBOARD_USER / AI_USAGE_DASHBOARD_PASSWORD)")
+	}
+	if c.SessionSecret != "" {
+		if !c.DashboardAuthEnabled() {
+			return fmt.Errorf("--session-secret requires dashboard credentials (env: AI_USAGE_SESSION_SECRET)")
+		}
+		if len(c.SessionSecret) < MinSessionSecretLen {
+			return fmt.Errorf("--session-secret must be at least %d characters; generate one with `openssl rand -hex 32`", MinSessionSecretLen)
+		}
+		if strings.TrimSpace(c.SessionSecret) != c.SessionSecret {
+			return fmt.Errorf("--session-secret must not have leading or trailing whitespace")
+		}
+	}
+	if c.SessionTTL != 0 && !c.DashboardAuthEnabled() {
+		return fmt.Errorf("--session-ttl requires dashboard credentials (env: AI_USAGE_SESSION_TTL)")
 	}
 	if c.HTTPAddr != "" && !c.DashboardAuthEnabled() {
 		if err := requireLoopback(c.HTTPAddr, "--http", "AI_USAGE_DASHBOARD_USER and AI_USAGE_DASHBOARD_PASSWORD (or --dashboard-user/--dashboard-password)"); err != nil {
@@ -220,6 +257,29 @@ func isLoopbackAddr(addr string) (bool, error) {
 	return false, nil
 }
 
+// parseSessionTTL accepts a Go duration ("12h", "90m") or whole days
+// ("30d"), between one minute and MaxSessionTTL.
+func parseSessionTTL(v string) (time.Duration, error) {
+	invalid := fmt.Errorf("invalid --session-ttl %q: use a duration such as 12h or 30d", v)
+	var d time.Duration
+	if days, ok := strings.CutSuffix(v, "d"); ok {
+		n, err := strconv.Atoi(days)
+		if err != nil || n <= 0 || n > int(MaxSessionTTL/(24*time.Hour)) {
+			return 0, invalid
+		}
+		d = time.Duration(n) * 24 * time.Hour
+	} else {
+		var err error
+		if d, err = time.ParseDuration(v); err != nil {
+			return 0, invalid
+		}
+	}
+	if d < time.Minute || d > MaxSessionTTL {
+		return 0, fmt.Errorf("invalid --session-ttl %q: must be between 1m and 365d", v)
+	}
+	return d, nil
+}
+
 func resolve(name, value string, set map[string]bool, lookup envFunc, def string) (string, error) {
 	v, ok := flagOrEnv(name, value, set, lookup)
 	if !ok {
@@ -256,6 +316,8 @@ var envNames = map[string]string{
 	"dashboard-user":              "AI_USAGE_DASHBOARD_USER",
 	"dashboard-password":          "AI_USAGE_DASHBOARD_PASSWORD",
 	"otlp-token":                  "AI_USAGE_OTLP_TOKEN",
+	"session-secret":              "AI_USAGE_SESSION_SECRET",
+	"session-ttl":                 "AI_USAGE_SESSION_TTL",
 }
 
 func userDataDir(goos, homeDir string, lookup envFunc) string {

@@ -72,6 +72,7 @@ func run(cfg *config.Config, logger *slog.Logger) error {
 		"otlp_grpc", cfg.OTLPGRPCAddr,
 		"database", cfg.DatabasePath,
 		"dashboard_auth", cfg.DashboardAuthEnabled(),
+		"persistent_sessions", cfg.SessionSecret != "",
 	)
 
 	db, err := storage.Open(context.Background(), cfg.DatabasePath)
@@ -146,9 +147,9 @@ func run(cfg *config.Config, logger *slog.Logger) error {
 	var sessions *auth.Sessions
 	var dash *auth.Dashboard
 	if cfg.DashboardAuthEnabled() {
-		sessions, err = auth.NewSessions()
+		sessions, err = auth.NewConfiguredSessions(cfg.SessionSecret, cfg.SessionTTL, cfg.DashboardUser, cfg.DashboardPassword)
 		if err != nil {
-			return fmt.Errorf("create session secret: %w", err)
+			return fmt.Errorf("create sessions: %w", err)
 		}
 		dash = auth.NewDashboard(cfg.DashboardUser, cfg.DashboardPassword, sessions)
 	}

@@ -815,3 +815,38 @@ document.addEventListener('DOMContentLoaded', () => {
   sync();
   mobile.addEventListener('change', sync);
 });
+
+let pendingNavLink = null;
+function startNavigation(link) {
+  document.documentElement.classList.add('is-navigating');
+  const group = link?.closest('#site-nav, .filterbar .presets');
+  const previous = group?.querySelector('a.active');
+  if (!group || previous === link) return;
+  previous?.classList.remove('active');
+  link.classList.add('active');
+  pendingNavLink = { link, previous };
+}
+function stopNavigation() {
+  document.documentElement.classList.remove('is-navigating');
+  if (!pendingNavLink) return;
+  pendingNavLink.link.classList.remove('active');
+  pendingNavLink.previous?.classList.add('active');
+  pendingNavLink = null;
+}
+document.addEventListener('click', e => {
+  if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  const link = e.target.closest('a[href]');
+  if (!link || link.target || link.hasAttribute('download') || link.hasAttribute('hx-get')) return;
+  if (link.origin !== location.origin) return;
+  if (link.hash && link.pathname === location.pathname && link.search === location.search) return;
+  startNavigation(link);
+});
+document.addEventListener('submit', e => {
+  if (!e.defaultPrevented) startNavigation();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') stopNavigation();
+});
+window.addEventListener('pageshow', e => {
+  if (e.persisted) stopNavigation();
+});

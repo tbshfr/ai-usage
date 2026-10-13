@@ -154,9 +154,11 @@ const outputTokensSQL = `CASE WHEN source IN ('` + normalize.SourceCopilot + `',
 	THEN MAX(COALESCE(output_tokens, 0) - COALESCE(reasoning_tokens, 0), 0)
 	ELSE COALESCE(output_tokens, 0) END`
 
-// modelGroupKeySQL keeps OpenRouter's creator prefix out of displayed model
-// groups, while retaining raw model IDs for filters and stored records.
-const modelGroupKeySQL = `CASE WHEN provider = 'openrouter' AND instr(model, '/') > 1
+// modelGroupKeySQL keeps creator prefixes ("z-ai/glm-5.3-flash") out of
+// displayed model groups regardless of provider, so routed and direct usage
+// of the same model merge. Raw model IDs are retained for filters and stored
+// records.
+const modelGroupKeySQL = `CASE WHEN instr(model, '/') > 1
 	THEN substr(model, instr(model, '/') + 1) ELSE model END`
 
 // CacheHitRate applies CacheHitRate to the aggregate sums; nil when no
@@ -363,8 +365,7 @@ func ByProvider(ctx context.Context, db *sql.DB, f Filter) ([]Breakdown, error) 
 	return breakdown(ctx, db, f, "provider")
 }
 
-// ByModel groups OpenRouter's creator/model IDs with the same bare model ID
-// reported by other providers, ordered by total tokens descending. Stored
+// ByModel groups creator/model IDs with the same bare model ID, ordered by total tokens descending. Stored
 // models and model filters retain their raw values.
 func ByModel(ctx context.Context, db *sql.DB, f Filter) ([]Breakdown, error) {
 	return breakdown(ctx, db, f, "model")

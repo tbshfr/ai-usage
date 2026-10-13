@@ -415,7 +415,7 @@ func TestByModelOrderingAndSparseSums(t *testing.T) {
 	}
 }
 
-func TestByModelMergesOpenRouterCreatorPrefix(t *testing.T) {
+func TestByModelMergesCreatorPrefix(t *testing.T) {
 	db := seedtest.EmptyDB(t)
 	ctx := context.Background()
 	for _, g := range []normalize.Generation{
@@ -433,17 +433,14 @@ func TestByModelMergesOpenRouterCreatorPrefix(t *testing.T) {
 		t.Fatal(err)
 	}
 	byKey := breakdownByKey(t, rows)
-	if len(byKey) != 2 {
-		t.Fatalf("models = %+v, want 2 groups", rows)
+	if len(byKey) != 1 {
+		t.Fatalf("models = %+v, want 1 group", rows)
 	}
 	glm := byKey["glm-5.3-flash"]
-	if glm.Requests != 2 || glm.InputTokens != 30 || glm.OutputTokens != 5 || glm.CostKnownCount != 1 || glm.CostUnknownCount != 1 {
+	if glm.Requests != 3 || glm.InputTokens != 33 || glm.OutputTokens != 5 || glm.CostKnownCount != 1 || glm.CostUnknownCount != 2 {
 		t.Errorf("merged glm = %+v", glm)
 	}
 	assertCost(t, glm.CostTotal, glm.CostKnownCount, 0.25, 1, "merged glm")
-	if other := byKey["z-ai/glm-5.3-flash"]; other.Requests != 1 || other.InputTokens != 3 {
-		t.Errorf("non-OpenRouter prefixed model = %+v", other)
-	}
 
 	f := seedtest.FullRange()
 	f.Model = "z-ai/glm-5.3-flash"

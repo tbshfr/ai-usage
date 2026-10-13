@@ -152,7 +152,7 @@ Same row shape as `/api/sources`, grouped by raw provider value
 ### `GET /api/models`
 
 Same row shape, grouped by model and ordered by total tokens descending.
-For OpenRouter rows, the creator prefix before the first slash is omitted
+The creator prefix before the first slash is omitted
 from the group key, so `z-ai/glm-5.3-flash` and `glm-5.3-flash` share one row.
 Stored model values and the `model` filter remain exact and unchanged.
 

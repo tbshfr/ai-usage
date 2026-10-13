@@ -55,9 +55,34 @@ function syncTokenFilter(form) {
   tokens.syncCustomSelect?.();
 }
 
+function syncFilterLinks(form) {
+  const data = new FormData(form);
+  for (const link of form.querySelectorAll('.presets a, .chip')) {
+    const url = new URL(link.getAttribute('href'), window.location.href);
+    const preset = link.closest('.presets');
+    const own = preset ? ['range', 'rank_by'] : ['rank_by'];
+    const drop = preset ? ['range', 'bucket', 'from', 'to'] : ['conversation'];
+    const params = new URLSearchParams();
+    for (const key of own) {
+      if (url.searchParams.has(key)) params.set(key, url.searchParams.get(key));
+    }
+    for (const [key, value] of data) {
+      if (value && !drop.includes(key) && !own.includes(key)) params.append(key, value);
+    }
+    const query = params.toString();
+    link.href = url.pathname + (query ? '?' + query : '');
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   const form = document.getElementById('filter-bar');
-  if (form) syncTokenFilter(form);
+  if (!form) return;
+  syncTokenFilter(form);
+  syncFilterLinks(form);
+});
+document.addEventListener('change', e => {
+  const form = e.target.closest('#filter-bar');
+  if (form) syncFilterLinks(form);
 });
 document.addEventListener('change', e => {
   const form = e.target.closest('#filter-bar');

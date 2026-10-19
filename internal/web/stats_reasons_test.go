@@ -37,7 +37,7 @@ func TestStatsReasonsFragmentForPersistedDay(t *testing.T) {
 		t.Fatalf("status %d", status)
 	}
 	// Human labels and counts, grouped with the transport footnote.
-	wantContains(t, body, "No known source", "9", "VS Code Copilot",
+	wantContains(t, body, "No known source", "<td>9</td>", "VS Code Copilot",
 		"Rejected spans", "Transport rejections", "counted per request")
 	wantNotContains(t, body, "no_source", "unauthorized")
 }
@@ -58,8 +58,8 @@ func TestStatsReasonsFragmentLiveReplacesPersistedForToday(t *testing.T) {
 	if status != http.StatusOK {
 		t.Fatalf("status %d", status)
 	}
-	wantContains(t, body, "10", "(live)")
-	wantNotContains(t, body, "19")
+	wantContains(t, body, "<td>10</td>", "(live)")
+	wantNotContains(t, body, "<td>19</td>")
 }
 
 func TestStatsReasonsFragmentCloseAndInvalidDay(t *testing.T) {

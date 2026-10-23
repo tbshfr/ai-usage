@@ -17,7 +17,7 @@ override defaults.
 | `--dashboard-user` | `AI_USAGE_DASHBOARD_USER` | unset | Dashboard username |
 | `--dashboard-password` | `AI_USAGE_DASHBOARD_PASSWORD` | unset | Dashboard password |
 | `--session-secret` | `AI_USAGE_SESSION_SECRET` | random per process | Dashboard session signing secret; keeps logins valid across restarts (see [Sessions](#sessions)) |
-| `--session-ttl` | `AI_USAGE_SESSION_TTL` | `7d` | Dashboard login lifetime, such as `12h` or `30d` |
+| `--session-ttl` | `AI_USAGE_SESSION_TTL` | `7d` | How long a dashboard login stays valid without use, such as `12h` or `30d` |
 | `--otlp-token` | `AI_USAGE_OTLP_TOKEN` | unset | Bearer token imported once as the `default` OTLP token (see [OTLP tokens](#otlp-tokens)) |
 | `--backup-s3-bucket` | `AI_USAGE_BACKUP_S3_BUCKET` | disabled | Backup bucket |
 | `--backup-s3-region` | `AI_USAGE_BACKUP_S3_REGION` | required with backups | S3 region; use `auto` for R2 |
@@ -73,7 +73,7 @@ Generate credentials with a password manager or a command such as
 ### Sessions
 
 The dashboard uses an HMAC-signed, `HttpOnly`, `Secure` session cookie that
-lasts seven days by default. Unless configured, its signing secret is
+expires after seven days without use by default. Unless configured, its signing secret is
 generated at startup, so restarting the process logs every user out.
 
 To keep logins valid across restarts, set a persistent secret of at least 32
@@ -90,15 +90,21 @@ the secret and restart. Treat the secret like the password: anyone who knows
 it, the username and the password can forge a session. Prefer the environment
 variable over `--session-secret`, which is visible in the process list.
 
-`AI_USAGE_SESSION_TTL` (or `--session-ttl`) sets how long a login stays valid,
-from `1m` to `365d`. It accepts Go durations such as `90m` or `12h`, or whole
-days such as `30d`. The lifetime counts from login and is not extended by
-activity. Both options require dashboard authentication.
+`AI_USAGE_SESSION_TTL` (or `--session-ttl`) sets how long a login stays valid
+without use, from `1m` to `365d`. It accepts Go durations such as `90m` or
+`12h`, or whole days such as `30d`. Every authenticated request slides the
+expiry forward, so a browser in active use stays signed in; the cookie is
+re-signed at most once per hour (or per tenth of the TTL, if shorter). Only
+valid, unexpired cookies are refreshed, sign-in and sign-out pages never
+refresh one, and lowering the TTL shortens existing cookies on their next
+request. Both options require dashboard authentication.
 
 Signing out only clears the cookie in that browser; it does not revoke the
-cookie on the server. A copied cookie stays valid until it expires, and with a
-persistent secret that includes across restarts. Keep the lifetime short, and
-change the secret to end every session early.
+cookie on the server. A copied cookie stays valid until it goes unused for the
+TTL, and with a persistent secret that includes across restarts. Because use
+keeps extending it, a stolen cookie that is used regularly does not expire on
+its own. Keep the TTL short, and change the secret (or the credentials) and
+restart to end every session.
 
 ### OTLP tokens
 

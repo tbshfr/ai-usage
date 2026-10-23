@@ -44,8 +44,8 @@ func TestEventsSignalsDataChanged(t *testing.T) {
 	if ct := resp.Header.Get("Content-Type"); ct != "text/event-stream" {
 		t.Errorf("Content-Type %q, want text/event-stream", ct)
 	}
-	if cc := resp.Header.Get("Cache-Control"); cc != "no-cache, no-transform" {
-		t.Errorf("Cache-Control %q, want no-cache, no-transform", cc)
+	if cc := resp.Header.Get("Cache-Control"); cc != "private, no-cache, no-transform" {
+		t.Errorf("Cache-Control %q, want private, no-cache, no-transform", cc)
 	}
 
 	hub.Notify()

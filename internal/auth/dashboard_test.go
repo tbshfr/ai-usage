@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -151,5 +152,70 @@ func TestDashboardPublicFilesDoNotBypassOtherHandlers(t *testing.T) {
 		if rec.Code != http.StatusOK || rec.Body.Len() == 0 {
 			t.Errorf("%s: status %d, body length %d", p, rec.Code, rec.Body.Len())
 		}
+	}
+}
+
+func TestDashboardMiddlewareRefreshesSessionOnce(t *testing.T) {
+	d := NewDashboard("admin", "pw", mustSessions(t))
+	issued := httptest.NewRecorder()
+	d.Sessions().issue(issued, time.Now().Add(-2*time.Hour))
+	called := false
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { called = true })
+	// The dashboard port nests the guard (api.NewWithAuth around web.NewAuthed).
+	rec := httptest.NewRecorder()
+	d.Middleware(d.Middleware(inner)).ServeHTTP(rec, sessionRequest(issued, "/"))
+	if !called {
+		t.Fatal("valid session was redirected")
+	}
+	if n := len(sessionCookies(rec)); n != 1 {
+		t.Errorf("refreshed cookies = %d, want 1", n)
+	}
+}
+
+func TestDashboardMiddlewareNestedGuardStillChecksOtherSessions(t *testing.T) {
+	a := NewDashboard("admin", "pw", mustSessions(t))
+	b := NewDashboard("admin", "pw", mustSessions(t))
+	issued := httptest.NewRecorder()
+	a.Sessions().Issue(issued)
+	rec := httptest.NewRecorder()
+	a.Middleware(b.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Error("session of another store passed the inner guard")
+	}))).ServeHTTP(rec, sessionRequest(issued, "/"))
+	if rec.Code != http.StatusSeeOther {
+		t.Errorf("status = %d, want 303", rec.Code)
+	}
+}
+
+func TestDashboardMiddlewareDoesNotRefreshPublicOrRejected(t *testing.T) {
+	d := NewDashboard("admin", "pw", mustSessions(t))
+	issued := httptest.NewRecorder()
+	d.Sessions().issue(issued, time.Now().Add(-2*time.Hour))
+	h := d.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	for _, p := range []string{"/logout", "/login", "/health", "/static/app.css"} {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, sessionRequest(issued, p))
+		if n := len(sessionCookies(rec)); n != 0 {
+			t.Errorf("public path %s refreshed the session", p)
+		}
+	}
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest("GET", "/", nil))
+	if len(rec.Result().Cookies()) != 0 {
+		t.Error("unauthenticated request got a cookie")
+	}
+}
+
+func TestDashboardMiddlewareMarksAuthenticatedResponsesPrivate(t *testing.T) {
+	d := NewDashboard("admin", "pw", mustSessions(t))
+	issued := httptest.NewRecorder()
+	d.Sessions().Issue(issued)
+	h := d.Middleware(d.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, sessionRequest(issued, "/"))
+	if len(sessionCookies(rec)) != 0 {
+		t.Fatal("fresh session unexpectedly refreshed")
+	}
+	if cc := rec.Header().Get("Cache-Control"); cc != "private" {
+		t.Errorf("Cache-Control = %q, want private", cc)
 	}
 }

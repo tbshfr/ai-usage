@@ -39,8 +39,8 @@ type Config struct {
 // secret, enough for 128+ bits from a random hex or base64 string.
 const MinSessionSecretLen = 32
 
-// MaxSessionTTL caps how long a leaked cookie stays usable, since logout
-// only clears the browser cookie and cannot revoke it server-side.
+// MaxSessionTTL caps how long an unused leaked cookie stays usable, since
+// logout only clears the browser cookie and cannot revoke it server-side.
 const MaxSessionTTL = 365 * 24 * time.Hour
 
 type envFunc func(string) (string, bool)
@@ -57,7 +57,7 @@ func Load(args []string, lookup envFunc, goos, homeDir string) (*Config, error) 
 	dashUser := fs.String("dashboard-user", "", "dashboard login username (required for non-loopback binds)")
 	dashPass := fs.String("dashboard-password", "", "dashboard login password (required for non-loopback binds)")
 	sessionSecret := fs.String("session-secret", "", "dashboard session signing secret (min 32 chars); keeps logins valid across restarts (default: random per process)")
-	sessionTTL := fs.String("session-ttl", "", "dashboard login lifetime, e.g. 12h or 30d (default 7d)")
+	sessionTTL := fs.String("session-ttl", "", "dashboard login lifetime without use, e.g. 12h or 30d (default 7d)")
 	otlpToken := fs.String("otlp-token", "", "bearer token imported once as the \"default\" OTLP token; manage tokens on the dashboard's OTLP tokens page")
 
 	backupBucket := fs.String("backup-s3-bucket", "", "backup bucket (empty disables backups)")

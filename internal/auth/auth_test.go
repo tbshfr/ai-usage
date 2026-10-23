@@ -249,3 +249,113 @@ func must(t *testing.T) func(*Sessions, error) *Sessions {
 		return s
 	}
 }
+
+func sessionRequest(rec *httptest.ResponseRecorder, path string) *http.Request {
+	req := httptest.NewRequest("GET", path, nil)
+	for _, c := range rec.Result().Cookies() {
+		req.AddCookie(c)
+	}
+	return req
+}
+
+func sessionCookies(rec *httptest.ResponseRecorder) []*http.Cookie {
+	var out []*http.Cookie
+	for _, c := range rec.Result().Cookies() {
+		if c.Name == SessionCookie {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+func TestSessionRefreshSlidesExpiry(t *testing.T) {
+	s := newTestSessions(t, DefaultSessionTTL)
+	issued := httptest.NewRecorder()
+	s.issue(issued, time.Now().Add(-2*time.Hour))
+	rec := httptest.NewRecorder()
+	if !s.Refresh(rec, sessionRequest(issued, "/")) {
+		t.Fatal("valid session rejected")
+	}
+	cookies := sessionCookies(rec)
+	if len(cookies) != 1 {
+		t.Fatalf("refreshed cookies = %d, want 1", len(cookies))
+	}
+	c := cookies[0]
+	if left := time.Until(c.Expires); left < DefaultSessionTTL-time.Minute || left > DefaultSessionTTL {
+		t.Errorf("refreshed expiry in %v, want ~%v", left, DefaultSessionTTL)
+	}
+	if !c.HttpOnly || !c.Secure || c.SameSite != http.SameSiteLaxMode || c.Path != "/" {
+		t.Errorf("refreshed cookie lost attributes: %+v", c)
+	}
+	if cc := rec.Header().Get("Cache-Control"); cc != "private" {
+		t.Errorf("Cache-Control = %q, want private", cc)
+	}
+	if !s.Valid(sessionRequest(rec, "/")) {
+		t.Error("refreshed cookie rejected")
+	}
+}
+
+func TestSessionRefreshThrottled(t *testing.T) {
+	for name, ttl := range map[string]time.Duration{"long ttl": DefaultSessionTTL, "short ttl": time.Minute} {
+		t.Run(name, func(t *testing.T) {
+			s := newTestSessions(t, ttl)
+			issued := httptest.NewRecorder()
+			s.Issue(issued)
+			rec := httptest.NewRecorder()
+			if !s.Refresh(rec, sessionRequest(issued, "/")) {
+				t.Fatal("valid session rejected")
+			}
+			if len(rec.Result().Cookies()) != 0 {
+				t.Error("fresh cookie re-issued on every request")
+			}
+		})
+	}
+	s := newTestSessions(t, time.Minute)
+	issued := httptest.NewRecorder()
+	s.issue(issued, time.Now().Add(-10*time.Second))
+	rec := httptest.NewRecorder()
+	s.Refresh(rec, sessionRequest(issued, "/"))
+	if len(sessionCookies(rec)) != 1 {
+		t.Error("short-TTL session not refreshed after ttl/10")
+	}
+}
+
+func TestSessionRefreshRejectsInvalid(t *testing.T) {
+	s := newTestSessions(t, DefaultSessionTTL)
+	expired := httptest.NewRecorder()
+	s.issue(expired, time.Now().Add(-DefaultSessionTTL-time.Second))
+	other := httptest.NewRecorder()
+	newTestSessions(t, DefaultSessionTTL).issue(other, time.Now().Add(-2*time.Hour))
+	tampered := httptest.NewRequest("GET", "/", nil)
+	tampered.AddCookie(&http.Cookie{Name: SessionCookie, Value: "garbage.value"})
+	for name, req := range map[string]*http.Request{
+		"no cookie":    httptest.NewRequest("GET", "/", nil),
+		"expired":      sessionRequest(expired, "/"),
+		"other secret": sessionRequest(other, "/"),
+		"tampered":     tampered,
+	} {
+		rec := httptest.NewRecorder()
+		if s.Refresh(rec, req) {
+			t.Errorf("%s: session accepted", name)
+		}
+		if len(rec.Result().Cookies()) != 0 {
+			t.Errorf("%s: cookie issued", name)
+		}
+	}
+}
+
+func TestSessionRefreshShortensAfterTTLReduced(t *testing.T) {
+	secret := strings.Repeat("k", 32)
+	long := must(t)(NewConfiguredSessions(secret, 30*24*time.Hour, "admin", "pw"))
+	issued := httptest.NewRecorder()
+	long.Issue(issued)
+	short := must(t)(NewConfiguredSessions(secret, 24*time.Hour, "admin", "pw"))
+	rec := httptest.NewRecorder()
+	if !short.Refresh(rec, sessionRequest(issued, "/")) {
+		t.Fatal("valid session rejected")
+	}
+	cookies := sessionCookies(rec)
+	if len(cookies) != 1 || time.Until(cookies[0].Expires) > 24*time.Hour {
+		t.Errorf("cookie not shortened to the new TTL: %+v", cookies)
+	}
+}

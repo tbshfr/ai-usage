@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM golang:1.26.7-trixie AS builder
+FROM --platform=$BUILDPLATFORM golang:1.27.3-trixie AS builder
 WORKDIR /app
 
 ARG VERSION="dev"

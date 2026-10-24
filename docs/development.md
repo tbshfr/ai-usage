@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- Go 1.26.7 or newer
+- Go 1.27.3 or newer
 - No CGO
 - No Node or frontend build step
 

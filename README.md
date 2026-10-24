@@ -66,7 +66,7 @@ Download the binary for your operating system and architecture from
 
 ### Build from source
 
-Building requires Go 1.26.7 or newer. The project does not require CGO, Node,
+Building requires Go 1.27.3 or newer. The project does not require CGO, Node,
 or a frontend toolchain.
 
 ```sh

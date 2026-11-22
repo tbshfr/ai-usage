@@ -28,7 +28,6 @@ func TestSetupPageRendersEveryAgent(t *testing.T) {
 		"codex":       `<span data-endpoint>http://127.0.0.1:4318</span>/v1/logs`,
 		"opencode":    `@devtheops/opencode-plugin-otel`,
 		"copilot":     `"github.copilot.chat.otel.otlpEndpoint": "<span data-endpoint>http://127.0.0.1:4318</span>"`,
-		"maki":        `maki.setup({`,
 	}
 	for _, agent := range setupAgents {
 		status, body := get(t, srv.URL+"/settings/setup?agent="+agent)

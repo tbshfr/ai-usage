@@ -45,7 +45,6 @@ var models = []model{
 	{"copilot", "github", "gemini-3.8-flash", 5, 0.75, 3.75, 0.075, false, true},
 	{"opencode", "openrouter", "moonshotai/kimi-k3", 8, 3, 15, 0.3, true, false},
 	{"opencode", "openrouter", "z-ai/glm-5.3", 4, 1.4, 4.4, 0.26, true, false},
-	{"maki", "openrouter", "deepseek/deepseek-v4.1-flash", 5, 0.0198, 0.396, 0.00291, true, false},
 }
 
 var repos = []string{"acme/web-app", "acme/api", "acme/infra", "personal/dotfiles", "personal/blog"}

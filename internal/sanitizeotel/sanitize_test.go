@@ -44,28 +44,27 @@ func TestTracesRedactsStatusAndAttributes(t *testing.T) {
 	}
 }
 
-func TestMakiLogsRedactOptInContent(t *testing.T) {
+func TestCodexLogsRedactOptInBody(t *testing.T) {
 	logs := plog.NewLogs()
 	record := logs.ResourceLogs().AppendEmpty().ScopeLogs().AppendEmpty().LogRecords().AppendEmpty()
-	record.Attributes().PutStr("event.name", "maki.tool_result")
+	record.Attributes().PutStr("event.name", "codex.tool_result")
 	record.Attributes().PutStr("tool_input", "secret command")
-	record.Attributes().PutStr("error", "secret path")
 	record.Body().SetStr("secret body")
 	Logs(logs)
 	encoded, err := (&plog.JSONMarshaler{}).MarshalLogs(logs)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, secret := range []string{"secret command", "secret path", "secret body"} {
+	for _, secret := range []string{"secret command", "secret body"} {
 		if strings.Contains(string(encoded), secret) {
-			t.Errorf("sanitized Maki log still contains %q", secret)
+			t.Errorf("sanitized Codex log still contains %q", secret)
 		}
 	}
-	for _, key := range []string{"tool_input", "error"} {
-		v, ok := record.Attributes().Get(key)
-		if !ok || v.Str() != Redacted {
-			t.Errorf("%s was not redacted in place", key)
-		}
+	if v, ok := record.Attributes().Get("tool_input"); !ok || v.Str() != Redacted {
+		t.Error("tool_input was not redacted in place")
+	}
+	if got := record.Body().Str(); got != Redacted {
+		t.Errorf("body = %q, want redacted", got)
 	}
 }
 

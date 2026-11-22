@@ -40,7 +40,7 @@ All list/aggregate endpoints accept:
 |---------------|------------------------------------------------------------------------------|
 | `from`        | RFC3339 or `YYYY-MM-DD` (date-only = UTC midnight); optional                 |
 | `to`          | RFC3339 or `YYYY-MM-DD`; optional, defaults to now                           |
-| `source`      | exact match (`opencode`, `copilot`, `codex`, `maki`, `claude-code`); optional |
+| `source`      | exact match (`opencode`, `copilot`, `codex`, `claude-code`); optional |
 | `provider`    | exact match on raw stored provider; optional                                 |
 | `model`       | exact match on raw stored model; optional                                    |
 | `group`       | OTLP token group label (see `/api/tokens`); optional                          |

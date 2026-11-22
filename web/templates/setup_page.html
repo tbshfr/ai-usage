@@ -53,11 +53,6 @@
   {{template "setup-snippet" "copilot-env"}}
   </div>
   <p class="muted">Keep <code>captureContent</code> at its <code>false</code> default. Reload the window after changing these settings. <code>exporterType</code> selects <code>otlp-http</code> (the default) or <code>otlp-grpc</code>. Copilot does not report a cost; <code>ai-usage</code> estimates one when pricing is available.</p>
-{{else if eq .Setup.Agent "maki"}}
-  <h3>Maki</h3>
-  <p>Maki has built-in OTLP telemetry. Add the telemetry table to your global <code>init.lua</code> (normally <code>~/.config/maki/init.lua</code>):</p>
-  {{template "setup-snippet" "maki-config"}}
-  <p class="muted">Keep the token out of a committed <code>init.lua</code>. Leave <code>log_user_prompts</code> and <code>log_tool_details</code> disabled. Maki reports no reasoning-token count or subagent identifier, so reasoning shows as unknown.</p>
 {{end}}
   <p>After a request, check <a href="/sessions?source={{.Setup.Agent}}&amp;view=requests">its requests</a>. If nothing arrives, the <a href="/settings/stats">Stats</a> page shows whether telemetry was received, rejected or ignored.</p>
 </section>
@@ -113,14 +108,4 @@ exporter = { otlp-http = {
   "github.copilot.chat.otel.otlpEndpoint": "<span data-endpoint>http://127.0.0.1:4318</span>"
 }</code></pre>
 {{- else if eq . "copilot-env"}}<pre><code>OTEL_EXPORTER_OTLP_HEADERS='Authorization=Bearer &lt;token&gt;' code</code></pre>
-{{- else if eq . "maki-config"}}<pre><code>maki.setup({
-    telemetry = {
-        enabled = true,
-        metrics_exporter = "none",
-        logs_exporter = "otlp",
-        protocol = "http/protobuf",
-        endpoint = "<span data-endpoint>http://127.0.0.1:4318</span>",<span data-auth hidden>
-        headers = { ["authorization"] = "Bearer &lt;token&gt;" },</span>
-    },
-})</code></pre>
 {{- end}}</div>{{end}}

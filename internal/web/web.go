@@ -398,7 +398,7 @@ type setupAgent struct {
 
 // setupAgents lists the clients with setup instructions, in tab order. Keys
 // are the stored source values, so the page can link to their requests.
-var setupAgents = []string{"claude-code", "codex", "opencode", "copilot", "maki"}
+var setupAgents = []string{"claude-code", "codex", "opencode", "copilot"}
 
 // reasonsDetailView is the per-day stats breakdown expansion: reason
 // counters grouped by kind, with human-readable labels.

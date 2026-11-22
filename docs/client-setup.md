@@ -109,55 +109,6 @@ curl -s 'http://127.0.0.1:8080/api/generations?source=codex&limit=1' \
   | jq '.[0] | {model,inputTokens,outputTokens,reasoningTokens}'
 ```
 
-## Maki
-
-Maki has built-in OTLP telemetry. Add the telemetry table to your global
-`init.lua` (normally `~/.config/maki/init.lua`):
-
-```lua
-maki.setup({
-    telemetry = {
-        enabled = true,
-        metrics_exporter = "none",
-        logs_exporter = "otlp",
-        protocol = "http/protobuf",
-        endpoint = "http://127.0.0.1:4318",
-    },
-})
-```
-
-For an authenticated remote receiver, change `endpoint` to its HTTPS origin
-and add this field to the telemetry table:
-
-```lua
-headers = { ["authorization"] = "Bearer <token>" },
-```
-
-Keep the token out of a committed `init.lua`. Maki also accepts
-`OTEL_METRICS_EXPORTER=none`; environment variables take priority over
-`init.lua`.
-
-Leave `log_user_prompts` and `log_tool_details` disabled. `ai-usage` stores one
-generation for each `maki.api_request` event and ignores interval metrics and
-other events. A positive `cost_usd` is treated as reported; a zero estimate is
-left for the local pricing fallback.
-
-Maki's [telemetry documentation](https://maki.sh/docs/telemetry/) also describes
-gRPC. Set `protocol = "grpc"`, use `http://127.0.0.1:4317`, and start
-`ai-usage` with `--otlp-grpc 127.0.0.1:4317`.
-
-Maki currently exports no reasoning-token count or subagent identifier on
-`maki.api_request` events. Reasoning appears as unknown in `ai-usage`, and
-subagent calls normally join the parent session's totals and cache hit rate.
-Separate subagent sessions start with empty context, so the session cache hit rate can appear lower than in other harnesses.
-
-Verify after a Maki API call and one export interval:
-
-```sh
-curl -s 'http://127.0.0.1:8080/api/generations?source=maki&limit=1' \
-  | jq '.[0] | {model,inputTokens,cacheReadTokens,outputTokens,cost}'
-```
-
 ## Claude Code
 
 Claude Code has built-in OpenTelemetry support, configured with environment
